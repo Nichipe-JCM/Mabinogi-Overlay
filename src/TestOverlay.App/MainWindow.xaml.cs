@@ -5,8 +5,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
 
@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly SlotDetectionService _slotDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
+    private readonly ProfileStore _profileStore = new();
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
@@ -47,23 +48,50 @@ public partial class MainWindow : Window
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshWindows();
-        _hotkeyService = new HotkeyService();
-        _hotkeyService.Register(new WindowInteropHelper(this).Handle, StopOverlay);
+        RegisterStopHotkey();
     }
 
     private void RefreshWindowsButton_Click(object sender, RoutedEventArgs e) => RefreshWindows();
+
+    private async void VerifyWgcButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var result = await _wgcWindowSelection.PickWindowAsync(this);
+            if (result is null)
+            {
+                SetStatus("WGC window selection was canceled or WGC is not supported.");
+                return;
+            }
+
+            _wgcSelection = result;
+            SetStatus(result.LooksLikeMabinogi
+                ? $"WGC verified Mabinogi window: {result.DisplayName} ({result.Width}x{result.Height})"
+                : $"WGC selected window is not recognized as Mabinogi: {result.DisplayName} ({result.Width}x{result.Height})");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"WGC verification failed: {ex.Message}");
+        }
+    }
 
     private void CaptureButton_Click(object sender, RoutedEventArgs e)
     {
         if (WindowCombo.SelectedItem is not GameWindowInfo window)
         {
-            SetStatus("먼저 게임 창을 선택해 주세요.");
+            SetStatus("Select a game window first.");
             return;
         }
 
         if (!window.LooksLikeMabinogi)
         {
-            SetStatus("선택한 창이 마비노기 창으로 확인되지 않아 캡처하지 않았습니다.");
+            SetStatus("The selected window is not recognized as Mabinogi. Capture was skipped.");
+            return;
+        }
+
+        if (_wgcSelection is not null && !_wgcSelection.LooksLikeMabinogi)
+        {
+            SetStatus("WGC verification selected a non-Mabinogi window. Verify WGC again or refresh the window list.");
             return;
         }
 
@@ -77,33 +105,11 @@ public partial class MainWindow : Window
             CaptureInfoText.Text = $"{_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}";
             _candidates.Clear();
             ClearCandidateRects();
-            SetStatus("마비노기 창 확인 후 캡처했습니다. 후보 탐지를 실행해 주세요.");
+            SetStatus("Captured the verified Mabinogi window. Run slot detection next.");
         }
         catch (Exception ex)
         {
-            SetStatus($"캡처 실패: {ex.Message}");
-        }
-    }
-
-    private async void VerifyWgcButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var result = await _wgcWindowSelection.PickWindowAsync(this);
-            if (result is null)
-            {
-                SetStatus("WGC 창 선택이 취소되었거나 이 시스템에서 WGC가 지원되지 않습니다.");
-                return;
-            }
-
-            _wgcSelection = result;
-            SetStatus(result.LooksLikeMabinogi
-                ? $"WGC로 마비노기 창을 확인했습니다: {result.DisplayName} ({result.Width}x{result.Height})"
-                : $"WGC 선택 창이 마비노기로 확인되지 않았습니다: {result.DisplayName} ({result.Width}x{result.Height})");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"WGC 창 확인 실패: {ex.Message}");
+            SetStatus($"Capture failed: {ex.Message}");
         }
     }
 
@@ -111,7 +117,7 @@ public partial class MainWindow : Window
     {
         if (_capturedImage is null)
         {
-            SetStatus("캡처 이미지가 없습니다.");
+            SetStatus("No captured image is available.");
             return;
         }
 
@@ -133,14 +139,14 @@ public partial class MainWindow : Window
             AddCandidateVisual(candidate);
         }
 
-        SetStatus($"{_candidates.Count}개 슬롯 후보를 찾았습니다. 사용할 슬롯만 체크한 뒤 배치해 주세요.");
+        SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
     }
 
     private void AddSelectedButton_Click(object sender, RoutedEventArgs e)
     {
         if (_capturedImage is null)
         {
-            SetStatus("먼저 캡처와 후보 선택을 진행해 주세요.");
+            SetStatus("Capture and detect candidates first.");
             return;
         }
 
@@ -172,41 +178,125 @@ public partial class MainWindow : Window
             rowHeight = Math.Max(rowHeight, size);
         }
 
-        SetStatus($"{_overlaySlots.Count}개 슬롯을 오버레이 캔버스에 배치했습니다. 드래그로 위치를 조정할 수 있습니다.");
+        SetStatus($"Placed {_overlaySlots.Count} slots on the overlay canvas. Drag them to adjust positions.");
     }
 
     private void ClearCandidatesButton_Click(object sender, RoutedEventArgs e)
     {
         _candidates.Clear();
         ClearCandidateRects();
-        SetStatus("후보를 비웠습니다.");
+        SetStatus("Candidate list cleared.");
     }
 
     private void ApplyCanvasButton_Click(object sender, RoutedEventArgs e)
     {
         ApplyCanvasSize();
-        SetStatus("오버레이 캔버스 크기를 적용했습니다.");
+        SetStatus("Overlay canvas size applied.");
+    }
+
+    private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
+    {
+        ApplyCanvasSize();
+        var profile = new OverlayProfile
+        {
+            CanvasWidth = LayoutCanvas.Width,
+            CanvasHeight = LayoutCanvas.Height,
+            ScreenLeft = ReadDouble(OverlayLeftBox.Text, 120),
+            ScreenTop = ReadDouble(OverlayTopBox.Text, 120),
+            Opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1),
+            StopHotkey = HotkeyBox.Text,
+            Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
+            {
+                SourceX = slot.Source.SourceRect.X,
+                SourceY = slot.Source.SourceRect.Y,
+                SourceWidth = slot.Source.SourceRect.Width,
+                SourceHeight = slot.Source.SourceRect.Height,
+                OverlayX = slot.OverlayRect.X,
+                OverlayY = slot.OverlayRect.Y,
+                OverlayWidth = slot.OverlayRect.Width,
+                OverlayHeight = slot.OverlayRect.Height
+            }).ToList()
+        };
+
+        _profileStore.Save(profile);
+        SetStatus($"Profile saved: {_profileStore.DefaultProfilePath}");
+    }
+
+    private void LoadProfileButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_capturedImage is null)
+        {
+            SetStatus("Capture the game window before loading a profile.");
+            return;
+        }
+
+        var profile = _profileStore.LoadDefault();
+        if (profile is null)
+        {
+            SetStatus("No saved profile exists.");
+            return;
+        }
+
+        OverlayWidthBox.Text = profile.CanvasWidth.ToString("0");
+        OverlayHeightBox.Text = profile.CanvasHeight.ToString("0");
+        OverlayLeftBox.Text = profile.ScreenLeft.ToString("0");
+        OverlayTopBox.Text = profile.ScreenTop.ToString("0");
+        OpacitySlider.Value = Math.Clamp(profile.Opacity, 0.2, 1);
+        HotkeyBox.Text = profile.StopHotkey;
+        ApplyCanvasSize();
+
+        _overlaySlots.Clear();
+        _layoutImages.Clear();
+        LayoutCanvas.Children.Clear();
+        _candidates.Clear();
+        ClearCandidateRects();
+
+        var id = 1;
+        foreach (var savedSlot in profile.Slots)
+        {
+            var candidate = new SlotCandidate(
+                id++,
+                new Rect(savedSlot.SourceX, savedSlot.SourceY, savedSlot.SourceWidth, savedSlot.SourceHeight),
+                100);
+            _candidates.Add(candidate);
+            AddCandidateVisual(candidate);
+
+            var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
+            var slot = new OverlaySlot(
+                candidate,
+                new Rect(savedSlot.OverlayX, savedSlot.OverlayY, savedSlot.OverlayWidth, savedSlot.OverlayHeight),
+                crop);
+            _overlaySlots.Add(slot);
+            AddLayoutImage(slot);
+        }
+
+        SetStatus($"Profile loaded: {profile.Slots.Count} slots.");
     }
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
     {
         if (_overlaySlots.Count == 0)
         {
-            SetStatus("오버레이에 배치된 슬롯이 없습니다.");
+            SetStatus("No slots are placed on the overlay canvas.");
             return;
         }
 
-        StopOverlay();
+        if (!RegisterStopHotkey())
+        {
+            return;
+        }
+
+        StopOverlay(setStatus: false);
         ApplyCanvasSize();
         var opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
         _overlayWindow = new OverlayWindow(LayoutCanvas.Width, LayoutCanvas.Height, opacity, _overlaySlots)
         {
-            Left = ReadPositiveDouble(OverlayLeftBox.Text, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40),
-            Top = ReadPositiveDouble(OverlayTopBox.Text, SystemParameters.WorkArea.Top + 120)
+            Left = ReadDouble(OverlayLeftBox.Text, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40),
+            Top = ReadDouble(OverlayTopBox.Text, SystemParameters.WorkArea.Top + 120)
         };
         _overlayWindow.Show();
         _liveOverlayTimer.Start();
-        SetStatus("오버레이를 시작했습니다. 오버레이는 클릭을 먹지 않으며 Ctrl+Shift+F8 또는 중지 버튼으로 끌 수 있습니다.");
+        SetStatus($"Overlay started. It is click-through. Stop hotkey: {HotkeyBox.Text}");
     }
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
@@ -216,7 +306,7 @@ public partial class MainWindow : Window
         ApplyCanvasSize();
         OverlayLeftBox.Text = Math.Max(0, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40).ToString("0");
         OverlayTopBox.Text = Math.Max(0, SystemParameters.WorkArea.Top + 120).ToString("0");
-        SetStatus("오버레이 기본 화면 위치를 입력했습니다.");
+        SetStatus("Default overlay screen position applied.");
     }
 
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -260,12 +350,12 @@ public partial class MainWindow : Window
         var windows = _windowDiscovery.GetVisibleWindows();
         WindowCombo.ItemsSource = windows;
         WindowCombo.SelectedItem = windows.FirstOrDefault(window => window.LooksLikeMabinogi) ?? windows.FirstOrDefault();
-        var captureStatus = _wgcSupport.IsSupported()
-            ? "WGC 지원 가능"
-            : "WGC 미지원 또는 비활성";
+        var captureStatus = _wgcSupport.IsSupported() ? "WGC supported" : "WGC unavailable";
         WindowStatusText.Text = WindowCombo.SelectedItem is GameWindowInfo selected
-            ? selected.LooksLikeMabinogi ? $"마비노기 창으로 확인되었습니다. ({captureStatus})" : $"마비노기 창으로 확인되지 않았습니다. ({captureStatus})"
-            : "선택 가능한 창이 없습니다.";
+            ? selected.LooksLikeMabinogi
+                ? $"Mabinogi window recognized. ({captureStatus})"
+                : $"Selected window is not recognized as Mabinogi. ({captureStatus})"
+            : "No selectable window found.";
     }
 
     private void AddCandidateVisual(SlotCandidate candidate)
@@ -332,12 +422,15 @@ public partial class MainWindow : Window
         _candidateRects.Clear();
     }
 
-    private void StopOverlay()
+    private void StopOverlay(bool setStatus = true)
     {
         _liveOverlayTimer.Stop();
         _overlayWindow?.Close();
         _overlayWindow = null;
-        SetStatus("오버레이를 중지했습니다.");
+        if (setStatus)
+        {
+            SetStatus("Overlay stopped.");
+        }
     }
 
     private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
@@ -360,8 +453,26 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _liveOverlayTimer.Stop();
-            SetStatus($"라이브 오버레이 갱신 실패: {ex.Message}");
+            SetStatus($"Live overlay refresh failed: {ex.Message}");
         }
+    }
+
+    private bool RegisterStopHotkey()
+    {
+        if (!HotkeyParser.TryParse(HotkeyBox.Text, out var hotkey))
+        {
+            SetStatus("Invalid hotkey. Use a format like Ctrl+Shift+F8.");
+            return false;
+        }
+
+        _hotkeyService ??= new HotkeyService();
+        var registered = _hotkeyService.Register(new WindowInteropHelper(this).Handle, hotkey.Modifiers, hotkey.VirtualKey, () => StopOverlay());
+        if (!registered)
+        {
+            SetStatus($"Stop hotkey registration failed: {hotkey.DisplayText}");
+        }
+
+        return registered;
     }
 
     private void ApplyCanvasSize()
@@ -372,6 +483,9 @@ public partial class MainWindow : Window
 
     private static double ReadPositiveDouble(string text, double fallback) =>
         double.TryParse(text, out var value) && value > 0 ? value : fallback;
+
+    private static double ReadDouble(string text, double fallback) =>
+        double.TryParse(text, out var value) ? value : fallback;
 
     private void UpdateSizeLabels()
     {
