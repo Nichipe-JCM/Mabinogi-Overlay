@@ -24,11 +24,15 @@ public sealed class SlotDetectionService
             ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, bitmap.PixelWidth, Math.Min(bitmap.PixelHeight, bitmap.PixelHeight / 5)));
             ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, Math.Min(bitmap.PixelWidth, bitmap.PixelWidth / 5), bitmap.PixelHeight));
             ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(Math.Max(0, bitmap.PixelWidth * 4 / 5), 0, bitmap.PixelWidth / 5, bitmap.PixelHeight));
+            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, Math.Max(0, bitmap.PixelHeight * 4 / 5), bitmap.PixelWidth, bitmap.PixelHeight / 5));
         }
 
         var gridCandidates = ScoreGridNeighbors(raw);
-        var picked = NonMaximumSuppress(gridCandidates.OrderByDescending(item => item.Score), 0.35)
-            .Take(180)
+        var fallbackCandidates = raw
+            .Where(candidate => candidate.Score >= 64)
+            .Select(candidate => candidate with { Score = candidate.Score + 20 });
+        var picked = NonMaximumSuppress(gridCandidates.Concat(fallbackCandidates).OrderByDescending(item => item.Score), 0.35)
+            .Take(240)
             .Select((item, index) => new SlotCandidate(index + 1, item.Rect, item.Score))
             .ToList();
 
@@ -53,7 +57,7 @@ public sealed class SlotDetectionService
             for (var x = region.X; x <= right; x += step)
             {
                 var score = ScoreSlotFrame(pixels, width, height, stride, x, y, size);
-                if (score >= 52)
+                if (score >= 46)
                 {
                     raw.Add(new CandidateInfo(new Rect(x, y, size, size), size, score));
                 }
@@ -88,7 +92,7 @@ public sealed class SlotDetectionService
             DiagonalCornerScore(pixels, width, height, stride, x, y + size - 1, sampleStep) +
             DiagonalCornerScore(pixels, width, height, stride, x + size - 1, y + size - 1, sampleStep);
 
-        return averageEdge * 0.8 + continuity * 55 + cornerScore * 0.15;
+        return averageEdge * 0.9 + continuity * 50 + cornerScore * 0.18;
     }
 
     private static List<CandidateInfo> ScoreGridNeighbors(IReadOnlyList<CandidateInfo> candidates)
@@ -98,8 +102,8 @@ public sealed class SlotDetectionService
 
         foreach (var group in bySize)
         {
-            var list = NonMaximumSuppress(group.OrderByDescending(item => item.Score), 0.25)
-                .Take(600)
+            var list = NonMaximumSuppress(group.OrderByDescending(item => item.Score), 0.22)
+                .Take(900)
                 .ToList();
 
             foreach (var candidate in list)
@@ -110,7 +114,7 @@ public sealed class SlotDetectionService
                     continue;
                 }
 
-                scored.Add(candidate with { Score = candidate.Score + neighbors * 45 });
+                scored.Add(candidate with { Score = candidate.Score + neighbors * 50 });
             }
         }
 
@@ -121,7 +125,7 @@ public sealed class SlotDetectionService
     {
         var count = 0;
         var size = candidate.Size;
-        var tolerance = Math.Max(3, size / 8);
+        var tolerance = Math.Max(4, size / 6);
 
         foreach (var other in candidates)
         {
@@ -203,7 +207,7 @@ public sealed class SlotDetectionService
     private static void AddEdgeSample(double sample, ref double sum, ref int hits, ref int count)
     {
         sum += sample;
-        if (sample >= 32)
+        if (sample >= 24)
         {
             hits++;
         }

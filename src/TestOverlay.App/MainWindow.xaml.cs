@@ -36,6 +36,8 @@ public partial class MainWindow : Window
     private Point _dragOffset;
     private SlotCandidate? _draggingCandidate;
     private Point _candidateDragOffset;
+    private Point _candidateDragStartPosition;
+    private bool _candidateDragMoved;
     private bool _isLiveRefreshInProgress;
 
     public MainWindow()
@@ -229,7 +231,34 @@ public partial class MainWindow : Window
 
     private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
     {
-        var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
+        DeleteSelectedCandidates();
+    }
+
+    private void CandidateList_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete)
+        {
+            return;
+        }
+
+        DeleteSelectedCandidates();
+        e.Handled = true;
+    }
+
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete || e.OriginalSource is TextBox)
+        {
+            return;
+        }
+
+        DeleteSelectedCandidates();
+        e.Handled = true;
+    }
+
+    private void DeleteSelectedCandidates()
+    {
+        var selected = GetCandidatesToDelete();
         if (selected.Count == 0)
         {
             SetStatus("No selected candidates to delete.");
@@ -249,6 +278,19 @@ public partial class MainWindow : Window
         _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
         RenderLayoutPreview();
         SetStatus($"Deleted {selected.Count} selected candidates.");
+    }
+
+    private List<SlotCandidate> GetCandidatesToDelete()
+    {
+        var checkedCandidates = _candidates.Where(candidate => candidate.IsSelected).ToList();
+        if (checkedCandidates.Count > 0)
+        {
+            return checkedCandidates;
+        }
+
+        return CandidateList.SelectedItem is SlotCandidate highlighted
+            ? [highlighted]
+            : [];
     }
 
     private void ClearCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -416,7 +458,7 @@ public partial class MainWindow : Window
         if (hit is not null)
         {
             hit.IsSelected = !hit.IsSelected;
-            CandidateList.SelectedItem = hit;
+            SelectCandidateInList(hit);
         }
     }
 
@@ -428,6 +470,12 @@ public partial class MainWindow : Window
         }
 
         var position = e.GetPosition(CaptureCanvas);
+        if (Math.Abs(position.X - _candidateDragStartPosition.X) > 3 ||
+            Math.Abs(position.Y - _candidateDragStartPosition.Y) > 3)
+        {
+            _candidateDragMoved = true;
+        }
+
         var x = Math.Clamp(position.X - _candidateDragOffset.X, 0, Math.Max(0, CaptureCanvas.Width - _draggingCandidate.SourceRect.Width));
         var y = Math.Clamp(position.Y - _candidateDragOffset.Y, 0, Math.Max(0, CaptureCanvas.Height - _draggingCandidate.SourceRect.Height));
         _draggingCandidate.MoveTo(x, y);
@@ -443,9 +491,15 @@ public partial class MainWindow : Window
         if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var rect))
         {
             rect.ReleaseMouseCapture();
+            if (!_candidateDragMoved)
+            {
+                _draggingCandidate.IsSelected = !_draggingCandidate.IsSelected;
+                SelectCandidateInList(_draggingCandidate);
+            }
         }
 
         _draggingCandidate = null;
+        _candidateDragMoved = false;
     }
 
     private void LayoutCanvas_MouseMove(object sender, MouseEventArgs e)
@@ -501,8 +555,10 @@ public partial class MainWindow : Window
         {
             _draggingCandidate = candidate;
             _candidateDragOffset = args.GetPosition(rect);
+            _candidateDragStartPosition = args.GetPosition(CaptureCanvas);
+            _candidateDragMoved = false;
             rect.CaptureMouse();
-            CandidateList.SelectedItem = candidate;
+            SelectCandidateInList(candidate);
             args.Handled = true;
         };
         _candidateRects[candidate] = rect;
@@ -536,6 +592,13 @@ public partial class MainWindow : Window
         rect.Fill = candidate.IsSelected
             ? new SolidColorBrush(Color.FromArgb(55, 50, 205, 50))
             : new SolidColorBrush(Color.FromArgb(35, 255, 80, 80));
+    }
+
+    private void SelectCandidateInList(SlotCandidate candidate)
+    {
+        CandidateList.SelectedItem = candidate;
+        CandidateList.ScrollIntoView(candidate);
+        CandidateList.Focus();
     }
 
     private void AddLayoutImage(OverlaySlot slot)

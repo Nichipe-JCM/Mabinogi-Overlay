@@ -6,7 +6,8 @@
         Width="1420"
         MinHeight="760"
         MinWidth="1120"
-        Background="#F3F5F7">
+        Background="#F3F5F7"
+        KeyDown="Window_KeyDown">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -103,7 +104,11 @@
                             </StackPanel>
                         </Grid>
 
-                        <ListBox Grid.Row="2" x:Name="CandidateList" ItemsSource="{Binding Candidates}" BorderBrush="#D9DEE7">
+                        <ListBox Grid.Row="2"
+                                 x:Name="CandidateList"
+                                 ItemsSource="{Binding Candidates}"
+                                 BorderBrush="#D9DEE7"
+                                 KeyDown="CandidateList_KeyDown">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="{Binding Label}" Margin="4"/>
