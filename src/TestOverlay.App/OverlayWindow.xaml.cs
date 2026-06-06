@@ -9,6 +9,14 @@ namespace TestOverlay.App;
 
 public partial class OverlayWindow : Window
 {
+    public bool IsClickThroughConfigured { get; private set; }
+
+    public bool IsNoActivateConfigured { get; private set; }
+
+    public bool IsTopmostConfigured { get; private set; }
+
+    public int AppliedExtendedStyle { get; private set; }
+
     public OverlayWindow(double width, double height, double opacity, IReadOnlyList<OverlaySlot> slots)
     {
         InitializeComponent();
@@ -48,5 +56,13 @@ public partial class OverlayWindow : Window
                    Win32Methods.WsExNoActivate |
                    Win32Methods.WsExTopmost;
         Win32Methods.SetWindowLong(handle, Win32Methods.GwlExStyle, exStyle);
+        AppliedExtendedStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
+        IsClickThroughConfigured =
+            HasStyle(AppliedExtendedStyle, Win32Methods.WsExLayered) &&
+            HasStyle(AppliedExtendedStyle, Win32Methods.WsExTransparent);
+        IsNoActivateConfigured = HasStyle(AppliedExtendedStyle, Win32Methods.WsExNoActivate);
+        IsTopmostConfigured = Topmost && HasStyle(AppliedExtendedStyle, Win32Methods.WsExTopmost);
     }
+
+    private static bool HasStyle(int value, int style) => (value & style) == style;
 }

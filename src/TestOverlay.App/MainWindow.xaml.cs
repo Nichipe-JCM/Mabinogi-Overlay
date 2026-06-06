@@ -394,8 +394,9 @@ public partial class MainWindow : Window
         };
         _overlayWindow.Show();
         _liveOverlayTimer.Start();
-        _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}");
-        SetStatus($"Overlay started. It is click-through. Stop hotkey: {HotkeyBox.Text}");
+        var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
+        _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
+        SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {HotkeyBox.Text}");
     }
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
@@ -629,8 +630,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _liveOverlayTimer.Stop();
             _log.Error("Live overlay refresh failed.", ex);
+            StopOverlay(setStatus: false);
             SetStatus($"Live overlay refresh failed: {ex.Message}");
         }
         finally
