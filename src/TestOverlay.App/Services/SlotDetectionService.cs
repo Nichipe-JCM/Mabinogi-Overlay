@@ -21,17 +21,17 @@ public sealed class SlotDetectionService
         for (var size = min; size <= max; size += Math.Max(2, size / 16))
         {
             var step = Math.Max(2, size / 12);
-            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, bitmap.PixelWidth, Math.Min(bitmap.PixelHeight, bitmap.PixelHeight / 5)));
-            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, Math.Min(bitmap.PixelWidth, bitmap.PixelWidth / 5), bitmap.PixelHeight));
-            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(Math.Max(0, bitmap.PixelWidth * 4 / 5), 0, bitmap.PixelWidth / 5, bitmap.PixelHeight));
-            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, Math.Max(0, bitmap.PixelHeight * 4 / 5), bitmap.PixelWidth, bitmap.PixelHeight / 5));
+            var scanHeight = Math.Max(size + 2, bitmap.PixelHeight * 7 / 10);
+            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, bitmap.PixelWidth, Math.Min(scanHeight, bitmap.PixelHeight / 5)));
+            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, Math.Min(bitmap.PixelWidth, bitmap.PixelWidth / 5), scanHeight));
+            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(Math.Max(0, bitmap.PixelWidth * 4 / 5), 0, bitmap.PixelWidth / 5, scanHeight));
         }
 
         var gridCandidates = ScoreGridNeighbors(raw);
         var fallbackCandidates = raw
             .Where(candidate => candidate.Score >= 64)
             .Select(candidate => candidate with { Score = candidate.Score + 20 });
-        var picked = NonMaximumSuppress(gridCandidates.Concat(fallbackCandidates).OrderByDescending(item => item.Score), 0.35)
+        var picked = SuppressOverlappingSlots(gridCandidates.Concat(fallbackCandidates).OrderByDescending(item => item.Score))
             .Take(240)
             .Select((item, index) => new SlotCandidate(index + 1, item.Rect, item.Score))
             .ToList();
@@ -169,6 +169,45 @@ public sealed class SlotDetectionService
             selected.Add(candidate);
             yield return candidate;
         }
+    }
+
+    private static IEnumerable<CandidateInfo> SuppressOverlappingSlots(IEnumerable<CandidateInfo> candidates)
+    {
+        var selected = new List<CandidateInfo>();
+        foreach (var candidate in candidates)
+        {
+            if (selected.Any(existing => SlotsConflict(existing.Rect, candidate.Rect)))
+            {
+                continue;
+            }
+
+            selected.Add(candidate);
+            yield return candidate;
+        }
+    }
+
+    private static bool SlotsConflict(Rect existing, Rect candidate)
+    {
+        var intersection = Rect.Intersect(existing, candidate);
+        if (!intersection.IsEmpty)
+        {
+            var smallerArea = Math.Min(existing.Width * existing.Height, candidate.Width * candidate.Height);
+            var intersectionRatio = smallerArea <= 0 ? 0 : intersection.Width * intersection.Height / smallerArea;
+            if (intersectionRatio >= 0.08)
+            {
+                return true;
+            }
+        }
+
+        var existingCenterX = existing.X + existing.Width / 2;
+        var existingCenterY = existing.Y + existing.Height / 2;
+        var candidateCenterX = candidate.X + candidate.Width / 2;
+        var candidateCenterY = candidate.Y + candidate.Height / 2;
+        var dx = existingCenterX - candidateCenterX;
+        var dy = existingCenterY - candidateCenterY;
+        var centerDistance = Math.Sqrt(dx * dx + dy * dy);
+        var centerConflictDistance = Math.Min(existing.Width, candidate.Width) * 0.72;
+        return centerDistance <= centerConflictDistance;
     }
 
     private static double IntersectionOverUnion(Rect a, Rect b)
