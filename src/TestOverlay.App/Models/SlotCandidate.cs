@@ -18,7 +18,7 @@ public sealed class SlotCandidate : INotifyPropertyChanged
 
     public int Id { get; }
 
-    public Rect SourceRect { get; set; }
+    public Rect SourceRect { get; private set; }
 
     public double Score { get; }
 
@@ -39,6 +39,13 @@ public sealed class SlotCandidate : INotifyPropertyChanged
 
     public string Label =>
         $"#{Id:000}  x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}";
+
+    public void MoveTo(double x, double y)
+    {
+        SourceRect = new Rect(x, y, SourceRect.Width, SourceRect.Height);
+        OnPropertyChanged(nameof(SourceRect));
+        OnPropertyChanged(nameof(Label));
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

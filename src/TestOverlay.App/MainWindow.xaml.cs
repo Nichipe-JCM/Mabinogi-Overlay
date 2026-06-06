@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private OverlayWindow? _overlayWindow;
     private Image? _draggingImage;
     private Point _dragOffset;
+    private SlotCandidate? _draggingCandidate;
+    private Point _candidateDragOffset;
     private bool _isLiveRefreshInProgress;
 
     public MainWindow()
@@ -84,18 +86,6 @@ public partial class MainWindow : Window
 
     private async void CaptureButton_Click(object sender, RoutedEventArgs e)
     {
-        if (WindowCombo.SelectedItem is not GameWindowInfo window)
-        {
-            SetStatus("Select a game window first.");
-            return;
-        }
-
-        if (!window.LooksLikeMabinogi)
-        {
-            SetStatus("The selected window is not recognized as Mabinogi. Capture was skipped.");
-            return;
-        }
-
         if (_wgcSelection is null)
         {
             SetStatus("Verify the Mabinogi window with WGC before capture.");
@@ -111,11 +101,9 @@ public partial class MainWindow : Window
         try
         {
             CaptureButton.IsEnabled = false;
-            _capturedImage = _wgcSelection is not null
-                ? await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3))
-                : _captureService.CaptureClientArea(window);
-            _selectedWindow = window;
-            _log.Info($"Capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, window={window.DisplayName}");
+            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3));
+            _selectedWindow = WindowCombo.SelectedItem as GameWindowInfo;
+            _log.Info($"WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, item={_wgcSelection.DisplayName}");
             CaptureImage.Source = _capturedImage;
             CaptureCanvas.Width = _capturedImage.PixelWidth;
             CaptureCanvas.Height = _capturedImage.PixelHeight;
@@ -205,6 +193,26 @@ public partial class MainWindow : Window
         SetStatus($"Placed {_overlaySlots.Count} slots on the overlay canvas. Drag them to adjust positions.");
     }
 
+    private void SelectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var candidate in _candidates)
+        {
+            candidate.IsSelected = true;
+        }
+
+        SetStatus($"Selected all {_candidates.Count} candidates.");
+    }
+
+    private void DeselectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var candidate in _candidates)
+        {
+            candidate.IsSelected = false;
+        }
+
+        SetStatus($"Deselected all {_candidates.Count} candidates.");
+    }
+
     private void ClearCandidatesButton_Click(object sender, RoutedEventArgs e)
     {
         _candidates.Clear();
@@ -216,6 +224,30 @@ public partial class MainWindow : Window
     {
         ApplyCanvasSize();
         SetStatus("Overlay canvas size applied.");
+    }
+
+    private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_overlaySlots.Count == 0)
+        {
+            SetStatus("No overlay slots are placed.");
+            return;
+        }
+
+        ApplyCanvasSize();
+        var editor = new LayoutEditorWindow(LayoutCanvas.Width, LayoutCanvas.Height, _overlaySlots)
+        {
+            Owner = this
+        };
+        editor.ShowDialog();
+        RenderLayoutPreview();
+        SetStatus("Layout editor closed. Preview updated.");
+    }
+
+    private void ClearLayoutButton_Click(object sender, RoutedEventArgs e)
+    {
+        ClearLayout();
+        SetStatus("Overlay layout cleared.");
     }
 
     private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
@@ -350,6 +382,34 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CaptureCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_draggingCandidate is null || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(CaptureCanvas);
+        var x = Math.Clamp(position.X - _candidateDragOffset.X, 0, Math.Max(0, CaptureCanvas.Width - _draggingCandidate.SourceRect.Width));
+        var y = Math.Clamp(position.Y - _candidateDragOffset.Y, 0, Math.Max(0, CaptureCanvas.Height - _draggingCandidate.SourceRect.Height));
+        _draggingCandidate.MoveTo(x, y);
+        if (_candidateRects.TryGetValue(_draggingCandidate, out var rect))
+        {
+            Canvas.SetLeft(rect, x);
+            Canvas.SetTop(rect, y);
+        }
+    }
+
+    private void CaptureCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var rect))
+        {
+            rect.ReleaseMouseCapture();
+        }
+
+        _draggingCandidate = null;
+    }
+
     private void LayoutCanvas_MouseMove(object sender, MouseEventArgs e)
     {
         if (_draggingImage is null || e.LeftButton != MouseButtonState.Pressed)
@@ -396,7 +456,16 @@ public partial class MainWindow : Window
             Height = candidate.SourceRect.Height,
             StrokeThickness = 2,
             Fill = new SolidColorBrush(Color.FromArgb(45, 30, 144, 255)),
-            IsHitTestVisible = false
+            IsHitTestVisible = true,
+            Cursor = Cursors.SizeAll
+        };
+        rect.MouseLeftButtonDown += (_, args) =>
+        {
+            _draggingCandidate = candidate;
+            _candidateDragOffset = args.GetPosition(rect);
+            rect.CaptureMouse();
+            CandidateList.SelectedItem = candidate;
+            args.Handled = true;
         };
         _candidateRects[candidate] = rect;
         CaptureCanvas.Children.Add(rect);
@@ -442,6 +511,23 @@ public partial class MainWindow : Window
         Canvas.SetTop(image, slot.OverlayRect.Y);
     }
 
+    private void RenderLayoutPreview()
+    {
+        _layoutImages.Clear();
+        LayoutCanvas.Children.Clear();
+        foreach (var slot in _overlaySlots)
+        {
+            AddLayoutImage(slot);
+        }
+    }
+
+    private void ClearLayout()
+    {
+        _overlaySlots.Clear();
+        _layoutImages.Clear();
+        LayoutCanvas.Children.Clear();
+    }
+
     private void ClearCandidateRects()
     {
         foreach (var rect in _candidateRects.Values)
@@ -466,7 +552,10 @@ public partial class MainWindow : Window
 
     private async void LiveOverlayTimer_Tick(object? sender, EventArgs e)
     {
-        if (_selectedWindow is null || _overlayWindow is null || _overlaySlots.Count == 0 || _isLiveRefreshInProgress)
+        if ((_wgcSelection is null && _selectedWindow is null) ||
+            _overlayWindow is null ||
+            _overlaySlots.Count == 0 ||
+            _isLiveRefreshInProgress)
         {
             return;
         }
@@ -476,7 +565,7 @@ public partial class MainWindow : Window
             _isLiveRefreshInProgress = true;
             var liveCapture = _wgcSelection is not null
                 ? await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3))
-                : _captureService.CaptureClientArea(_selectedWindow);
+                : _captureService.CaptureClientArea(_selectedWindow!);
             foreach (var slot in _overlaySlots)
             {
                 slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);

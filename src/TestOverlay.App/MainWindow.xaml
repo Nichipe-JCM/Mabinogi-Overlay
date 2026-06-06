@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Mabinogi Cooldown Overlay MVP"
         Height="920"
-        Width="1360"
+        Width="1420"
         MinHeight="760"
         MinWidth="1120"
         Background="#F3F5F7">
@@ -43,7 +43,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="450"/>
+                <ColumnDefinition Width="520"/>
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="8">
@@ -57,7 +57,11 @@
                         <TextBlock x:Name="CaptureInfoText" DockPanel.Dock="Right" Foreground="#596273"/>
                     </DockPanel>
                     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">
-                        <Canvas x:Name="CaptureCanvas" Background="#111827" MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown">
+                        <Canvas x:Name="CaptureCanvas"
+                                Background="#111827"
+                                MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
+                                MouseMove="CaptureCanvas_MouseMove"
+                                MouseLeftButtonUp="CaptureCanvas_MouseLeftButtonUp">
                             <Image x:Name="CaptureImage" Stretch="None"/>
                         </Canvas>
                     </ScrollViewer>
@@ -108,8 +112,10 @@
                         </ListBox>
 
                         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                            <Button x:Name="AddSelectedButton" Width="150" Height="34" Content="Place Selected" Click="AddSelectedButton_Click"/>
-                            <Button x:Name="ClearCandidatesButton" Width="120" Height="34" Margin="8,0,0,0" Content="Clear" Click="ClearCandidatesButton_Click"/>
+                            <Button x:Name="SelectAllCandidatesButton" Width="86" Height="34" Content="All" Click="SelectAllCandidatesButton_Click"/>
+                            <Button x:Name="DeselectAllCandidatesButton" Width="86" Height="34" Margin="8,0,0,0" Content="None" Click="DeselectAllCandidatesButton_Click"/>
+                            <Button x:Name="AddSelectedButton" Width="130" Height="34" Margin="8,0,0,0" Content="Place Selected" Click="AddSelectedButton_Click"/>
+                            <Button x:Name="ClearCandidatesButton" Width="92" Height="34" Margin="8,0,0,0" Content="Clear" Click="ClearCandidatesButton_Click"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -175,11 +181,13 @@
                         </Border>
 
                         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                            <Button x:Name="UseDefaultOverlayPositionButton" Width="100" Height="34" Content="Default Pos" Click="UseDefaultOverlayPositionButton_Click"/>
-                            <Button x:Name="ApplyCanvasButton" Width="110" Height="34" Margin="8,0,0,0" Content="Apply" Click="ApplyCanvasButton_Click"/>
-                            <Button x:Name="SaveProfileButton" Width="100" Height="34" Margin="8,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
-                            <Button x:Name="LoadProfileButton" Width="100" Height="34" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="100" Height="34" Margin="8,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="UseDefaultOverlayPositionButton" Width="88" Height="34" Content="Default" Click="UseDefaultOverlayPositionButton_Click"/>
+                            <Button x:Name="ApplyCanvasButton" Width="72" Height="34" Margin="8,0,0,0" Content="Apply" Click="ApplyCanvasButton_Click"/>
+                            <Button x:Name="OpenLayoutEditorButton" Width="84" Height="34" Margin="8,0,0,0" Content="Editor" Click="OpenLayoutEditorButton_Click"/>
+                            <Button x:Name="ClearLayoutButton" Width="76" Height="34" Margin="8,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
+                            <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="8,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
+                            <Button x:Name="LoadProfileButton" Width="64" Height="34" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
+                            <Button x:Name="StartOverlayButton" Width="70" Height="34" Margin="8,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
                         </StackPanel>
                     </Grid>
                 </Border>
