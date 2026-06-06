@@ -92,6 +92,8 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="10"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -113,6 +115,14 @@
                             <StackPanel Grid.Row="2" Grid.Column="2">
                                 <TextBlock Text="Section"/>
                                 <Button x:Name="AddSectionFromSelectedButton" Height="28" Content="Add Section" Click="AddSectionFromSelectedButton_Click"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="4" Grid.Column="0">
+                                <TextBlock x:Name="SmallGapText"/>
+                                <Slider x:Name="SmallGapSlider" Minimum="0" Maximum="8" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="4" Grid.Column="2">
+                                <TextBlock x:Name="LargeGapText"/>
+                                <Slider x:Name="LargeGapSlider" Minimum="0" Maximum="32" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                         </Grid>
 

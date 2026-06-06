@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private Rectangle? _selectionRect;
     private Point _selectionStartPosition;
     private bool _isSelectingCandidates;
+    private ActiveSection? _activeSection;
     private bool _isLiveRefreshInProgress;
     private double _layoutCanvasWidth = 360;
     private double _layoutCanvasHeight = 160;
@@ -52,10 +53,21 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
+        SmallGapSlider.ValueChanged += (_, _) =>
+        {
+            UpdateSectionGapLabels();
+            RebuildActiveSection();
+        };
+        LargeGapSlider.ValueChanged += (_, _) =>
+        {
+            UpdateSectionGapLabels();
+            RebuildActiveSection();
+        };
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closed += (_, _) => StopOverlay(setStatus: false);
         UpdateSizeLabels();
+        UpdateSectionGapLabels();
         UpdateLayoutSummary();
     }
 
@@ -118,6 +130,7 @@ public partial class MainWindow : Window
             CaptureInfoText.Text = $"{_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}";
             _candidates.Clear();
             ClearCandidateRects();
+            _activeSection = null;
             SetStatus("Captured the verified Mabinogi window with WGC. Run slot detection next.");
         }
         catch (Exception ex)
@@ -141,6 +154,7 @@ public partial class MainWindow : Window
 
         _candidates.Clear();
         ClearCandidateRects();
+        _activeSection = null;
 
         var slotSize = ReadSlotSize();
         foreach (var candidate in _slotDetection.Detect(_capturedImage, slotSize, slotSize))
@@ -263,7 +277,7 @@ public partial class MainWindow : Window
         var pattern = ReadSectionPattern();
         var added = AddSectionCandidates(seed, pattern);
         _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}");
-        SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Added {added} slots.");
+        SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Adjust small/large gap sliders to align the section.");
     }
 
     private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -275,6 +289,11 @@ public partial class MainWindow : Window
     {
         if (e.Key != Key.Delete)
         {
+            if (TryNudgeSelectedCandidates(e.Key))
+            {
+                e.Handled = true;
+            }
+
             return;
         }
 
@@ -286,6 +305,11 @@ public partial class MainWindow : Window
     {
         if (e.Key != Key.Delete || e.OriginalSource is TextBox)
         {
+            if (e.OriginalSource is not TextBox && TryNudgeSelectedCandidates(e.Key))
+            {
+                e.Handled = true;
+            }
+
             return;
         }
 
@@ -313,6 +337,11 @@ public partial class MainWindow : Window
         }
 
         _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
+        if (_activeSection is not null && selected.Any(candidate => _activeSection.Candidates.Contains(candidate)))
+        {
+            _activeSection = null;
+        }
+
         UpdateLayoutSummary();
         SetStatus($"Deleted {selected.Count} selected candidates.");
     }
@@ -334,6 +363,7 @@ public partial class MainWindow : Window
     {
         _candidates.Clear();
         ClearCandidateRects();
+        _activeSection = null;
         SetStatus("Candidate list cleared.");
     }
 
@@ -434,6 +464,7 @@ public partial class MainWindow : Window
         _overlaySlots.Clear();
         _candidates.Clear();
         ClearCandidateRects();
+        _activeSection = null;
 
         var id = 1;
         foreach (var savedSlot in profile.Slots)
@@ -699,12 +730,19 @@ public partial class MainWindow : Window
         {
             var x = origin.X + deltaX;
             var y = origin.Y + deltaY;
-            candidate.MoveTo(x, y);
-            if (_candidateRects.TryGetValue(candidate, out var candidateRect))
-            {
-                Canvas.SetLeft(candidateRect, x);
-                Canvas.SetTop(candidateRect, y);
-            }
+            MoveCandidate(candidate, x, y);
+        }
+    }
+
+    private void MoveCandidate(SlotCandidate candidate, double x, double y)
+    {
+        var clampedX = Math.Clamp(x, 0, Math.Max(0, CaptureCanvas.Width - candidate.SourceRect.Width));
+        var clampedY = Math.Clamp(y, 0, Math.Max(0, CaptureCanvas.Height - candidate.SourceRect.Height));
+        candidate.MoveTo(clampedX, clampedY);
+        if (_candidateRects.TryGetValue(candidate, out var candidateRect))
+        {
+            Canvas.SetLeft(candidateRect, clampedX);
+            Canvas.SetTop(candidateRect, clampedY);
         }
     }
 
@@ -727,9 +765,10 @@ public partial class MainWindow : Window
     private int AddSectionCandidates(SlotCandidate seed, SectionPattern pattern)
     {
         var added = 0;
+        var sectionCandidates = new List<SlotCandidate>();
 
         ClearCandidateSelection();
-        foreach (var offset in BuildSectionOffsets(seed, pattern))
+        foreach (var offset in BuildSectionOffsets(seed, pattern, ReadSmallGap(), ReadLargeGap()))
         {
             var rect = new Rect(
                 seed.SourceRect.X + offset.X,
@@ -745,27 +784,34 @@ public partial class MainWindow : Window
             if (existing is not null)
             {
                 existing.IsSelected = true;
+                sectionCandidates.Add(existing);
                 continue;
             }
 
             var candidate = new SlotCandidate(NextCandidateId(), rect, 200);
             candidate.IsSelected = true;
             AddCandidate(candidate);
+            sectionCandidates.Add(candidate);
             added++;
         }
 
         CandidateList.SelectedItem = seed;
+        _activeSection = new ActiveSection(seed, pattern, sectionCandidates);
         return added;
     }
 
-    private static IEnumerable<Point> BuildSectionOffsets(SlotCandidate seed, SectionPattern pattern)
+    private static IEnumerable<Point> BuildSectionOffsets(
+        SlotCandidate seed,
+        SectionPattern pattern,
+        double smallGap,
+        double largeGap)
     {
         var slotWidth = seed.SourceRect.Width;
         var slotHeight = seed.SourceRect.Height;
-        var innerPitchX = slotWidth + pattern.InnerGapX(slotWidth);
-        var innerPitchY = slotHeight + pattern.InnerGapY(slotHeight);
-        var groupPitchX = pattern.GroupColumns * innerPitchX + pattern.GroupGapX(slotWidth);
-        var groupPitchY = pattern.GroupRows * innerPitchY + pattern.GroupGapY(slotHeight);
+        var innerPitchX = slotWidth + pattern.InnerGapX(smallGap);
+        var innerPitchY = slotHeight + pattern.InnerGapY(smallGap);
+        var groupPitchX = pattern.GroupColumns * innerPitchX + pattern.GroupGapX(largeGap);
+        var groupPitchY = pattern.GroupRows * innerPitchY + pattern.GroupGapY(largeGap);
 
         for (var groupY = 0; groupY < pattern.GroupRowsCount; groupY++)
         {
@@ -804,6 +850,70 @@ public partial class MainWindow : Window
         SectionPatternCombo.SelectedIndex == 1
             ? SectionPattern.LeftVertical()
             : SectionPattern.TopGrouped();
+
+    private void RebuildActiveSection()
+    {
+        if (_activeSection is null || _capturedImage is null)
+        {
+            return;
+        }
+
+        var offsets = BuildSectionOffsets(
+                _activeSection.Seed,
+                _activeSection.Pattern,
+                ReadSmallGap(),
+                ReadLargeGap())
+            .ToList();
+        var count = Math.Min(offsets.Count, _activeSection.Candidates.Count);
+        for (var i = 0; i < count; i++)
+        {
+            var candidate = _activeSection.Candidates[i];
+            var offset = offsets[i];
+            var x = _activeSection.Seed.SourceRect.X + offset.X;
+            var y = _activeSection.Seed.SourceRect.Y + offset.Y;
+            MoveCandidate(candidate, x, y);
+        }
+
+        SetStatus($"Adjusted {_activeSection.Pattern.Name}: small gap {ReadSmallGap():0}px, large gap {ReadLargeGap():0}px.");
+    }
+
+    private bool TryNudgeSelectedCandidates(Key key)
+    {
+        var delta = key switch
+        {
+            Key.Left => new Vector(-1, 0),
+            Key.Right => new Vector(1, 0),
+            Key.Up => new Vector(0, -1),
+            Key.Down => new Vector(0, 1),
+            _ => default
+        };
+        if (delta == default)
+        {
+            return false;
+        }
+
+        var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
+        if (selected.Count == 0 && CandidateList.SelectedItem is SlotCandidate highlighted)
+        {
+            selected.Add(highlighted);
+        }
+
+        if (selected.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var candidate in selected)
+        {
+            MoveCandidate(
+                candidate,
+                candidate.SourceRect.X + delta.X,
+                candidate.SourceRect.Y + delta.Y);
+        }
+
+        SetStatus($"Nudged {selected.Count} candidate(s) by 1px.");
+        return true;
+    }
 
     private void AddCandidate(SlotCandidate candidate)
     {
@@ -932,9 +1042,19 @@ public partial class MainWindow : Window
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
+    private double ReadSmallGap() => Math.Clamp(SmallGapSlider.Value, 0, 8);
+
+    private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 0, 32);
+
     private void UpdateSizeLabels()
     {
         SlotSizeText.Text = $"{ReadSlotSize()}px";
+    }
+
+    private void UpdateSectionGapLabels()
+    {
+        SmallGapText.Text = $"Small gap {ReadSmallGap():0}px";
+        LargeGapText.Text = $"Large gap {ReadLargeGap():0}px";
     }
 
     private void UpdateLayoutSummary()
@@ -950,6 +1070,8 @@ public partial class MainWindow : Window
         StatusText.Text = message;
         _log.Info($"Status: {message}");
     }
+
+    private sealed record ActiveSection(SlotCandidate Seed, SectionPattern Pattern, List<SlotCandidate> Candidates);
 
     private sealed record SectionPattern(
         string Name,
@@ -968,9 +1090,9 @@ public partial class MainWindow : Window
             2,
             3,
             1,
-            _ => 1,
-            _ => 1,
-            slotSize => Math.Max(10, Math.Round(slotSize * 0.55)),
+            smallGap => smallGap,
+            smallGap => smallGap,
+            largeGap => largeGap,
             _ => 0);
 
         public static SectionPattern LeftVertical() => new(
@@ -979,8 +1101,8 @@ public partial class MainWindow : Window
             8,
             1,
             1,
-            _ => 1,
-            _ => 1,
+            smallGap => smallGap,
+            smallGap => smallGap,
             _ => 0,
             _ => 0);
     }
