@@ -177,8 +177,8 @@ public partial class MainWindow : Window
         var opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
         _overlayWindow = new OverlayWindow(LayoutCanvas.Width, LayoutCanvas.Height, opacity, _overlaySlots)
         {
-            Left = Math.Max(0, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40),
-            Top = Math.Max(0, SystemParameters.WorkArea.Top + 120)
+            Left = ReadPositiveDouble(OverlayLeftBox.Text, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40),
+            Top = ReadPositiveDouble(OverlayTopBox.Text, SystemParameters.WorkArea.Top + 120)
         };
         _overlayWindow.Show();
         _liveOverlayTimer.Start();
@@ -186,6 +186,14 @@ public partial class MainWindow : Window
     }
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
+
+    private void UseDefaultOverlayPositionButton_Click(object sender, RoutedEventArgs e)
+    {
+        ApplyCanvasSize();
+        OverlayLeftBox.Text = Math.Max(0, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40).ToString("0");
+        OverlayTopBox.Text = Math.Max(0, SystemParameters.WorkArea.Top + 120).ToString("0");
+        SetStatus("오버레이 기본 화면 위치를 입력했습니다.");
+    }
 
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
