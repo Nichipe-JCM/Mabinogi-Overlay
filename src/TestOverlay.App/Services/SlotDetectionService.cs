@@ -62,31 +62,35 @@ public sealed class SlotDetectionService
 
     private static double ScoreSquare(byte[] pixels, int stride, int x, int y, int size)
     {
-        var borderSamples = new List<double>(size * 4);
-        var innerSamples = new List<double>(16);
+        var borderSum = 0.0;
+        var borderSumSq = 0.0;
+        var borderCount = 0;
+        var innerSum = 0.0;
+        var innerSumSq = 0.0;
+        var innerCount = 0;
         var innerStart = Math.Max(2, size / 5);
         var innerEnd = Math.Max(innerStart + 1, size - innerStart);
 
         for (var i = 0; i < size; i += Math.Max(1, size / 12))
         {
-            borderSamples.Add(LumaAt(pixels, stride, x + i, y));
-            borderSamples.Add(LumaAt(pixels, stride, x + i, y + size - 1));
-            borderSamples.Add(LumaAt(pixels, stride, x, y + i));
-            borderSamples.Add(LumaAt(pixels, stride, x + size - 1, y + i));
+            AddSample(LumaAt(pixels, stride, x + i, y), ref borderSum, ref borderSumSq, ref borderCount);
+            AddSample(LumaAt(pixels, stride, x + i, y + size - 1), ref borderSum, ref borderSumSq, ref borderCount);
+            AddSample(LumaAt(pixels, stride, x, y + i), ref borderSum, ref borderSumSq, ref borderCount);
+            AddSample(LumaAt(pixels, stride, x + size - 1, y + i), ref borderSum, ref borderSumSq, ref borderCount);
         }
 
         for (var yy = innerStart; yy < innerEnd; yy += Math.Max(1, size / 5))
         {
             for (var xx = innerStart; xx < innerEnd; xx += Math.Max(1, size / 5))
             {
-                innerSamples.Add(LumaAt(pixels, stride, x + xx, y + yy));
+                AddSample(LumaAt(pixels, stride, x + xx, y + yy), ref innerSum, ref innerSumSq, ref innerCount);
             }
         }
 
-        var borderMean = borderSamples.Average();
-        var innerMean = innerSamples.Average();
-        var borderVariance = Variance(borderSamples, borderMean);
-        var innerVariance = Variance(innerSamples, innerMean);
+        var borderMean = borderSum / Math.Max(1, borderCount);
+        var innerMean = innerSum / Math.Max(1, innerCount);
+        var borderVariance = Math.Max(0, borderSumSq / Math.Max(1, borderCount) - borderMean * borderMean);
+        var innerVariance = Math.Max(0, innerSumSq / Math.Max(1, innerCount) - innerMean * innerMean);
         var contrast = Math.Abs(borderMean - innerMean);
 
         return contrast * 0.9 + Math.Sqrt(borderVariance) * 0.4 + Math.Sqrt(innerVariance) * 0.25;
@@ -126,8 +130,12 @@ public sealed class SlotDetectionService
         return pixels[offset] * 0.0722 + pixels[offset + 1] * 0.7152 + pixels[offset + 2] * 0.2126;
     }
 
-    private static double Variance(IReadOnlyCollection<double> samples, double mean) =>
-        samples.Sum(sample => Math.Pow(sample - mean, 2)) / Math.Max(1, samples.Count);
+    private static void AddSample(double sample, ref double sum, ref double sumSq, ref int count)
+    {
+        sum += sample;
+        sumSq += sample * sample;
+        count++;
+    }
 
     private static BitmapSource EnsureBgra32(BitmapSource source)
     {
