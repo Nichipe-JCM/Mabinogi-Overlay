@@ -26,30 +26,37 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
-    private readonly Dictionary<Image, OverlaySlot> _layoutImages = new();
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
-    private Image? _draggingImage;
-    private Point _dragOffset;
     private SlotCandidate? _draggingCandidate;
-    private Point _candidateDragOffset;
     private Point _candidateDragStartPosition;
-    private bool _candidateDragMoved;
+    private Dictionary<SlotCandidate, Point> _candidateDragOrigins = new();
+    private Rectangle? _selectionRect;
+    private Point _selectionStartPosition;
+    private bool _isSelectingCandidates;
     private bool _isLiveRefreshInProgress;
+    private double _layoutCanvasWidth = 360;
+    private double _layoutCanvasHeight = 160;
+    private double _overlayLeft = 120;
+    private double _overlayTop = 120;
+    private double _overlayOpacity = 0.8;
+    private string _stopHotkey = "Ctrl+Shift+F8";
+    private int _refreshIntervalMs = 500;
+    private double _layoutSlotScale = 1.5;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
-        LayoutSlotScaleSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closed += (_, _) => StopOverlay(setStatus: false);
         UpdateSizeLabels();
+        UpdateLayoutSummary();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -153,10 +160,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyCanvasSize();
         _overlaySlots.Clear();
-        _layoutImages.Clear();
-        LayoutCanvas.Children.Clear();
 
         var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
         if (selected.Count == 0)
@@ -172,7 +176,7 @@ public partial class MainWindow : Window
         {
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
             var size = Math.Max(16, candidate.SourceRect.Width * ReadLayoutSlotScale());
-            if (cursorX + size > LayoutCanvas.Width - 8)
+            if (cursorX + size > _layoutCanvasWidth - 8)
             {
                 cursorX = 8;
                 cursorY += rowHeight + 8;
@@ -182,20 +186,19 @@ public partial class MainWindow : Window
             var rect = new Rect(cursorX, cursorY, size, size);
             var slot = new OverlaySlot(candidate, rect, crop);
             _overlaySlots.Add(slot);
-            AddLayoutImage(slot);
             cursorX += size + 8;
             rowHeight = Math.Max(rowHeight, size);
         }
 
         var requiredHeight = cursorY + rowHeight + 8;
-        if (requiredHeight > LayoutCanvas.Height)
+        if (requiredHeight > _layoutCanvasHeight)
         {
-            LayoutCanvas.Height = requiredHeight;
-            OverlayHeightBox.Text = requiredHeight.ToString("0");
+            _layoutCanvasHeight = requiredHeight;
         }
 
-        _log.Info($"Placed overlay slots: count={_overlaySlots.Count}, canvas={LayoutCanvas.Width}x{LayoutCanvas.Height}");
-        SetStatus($"Placed {_overlaySlots.Count} slots on the overlay canvas. Drag them to adjust positions.");
+        UpdateLayoutSummary();
+        _log.Info($"Placed overlay slots: count={_overlaySlots.Count}, canvas={_layoutCanvasWidth}x{_layoutCanvasHeight}");
+        SetStatus($"Placed {_overlaySlots.Count} slots. Open Manage Layout to arrange them.");
     }
 
     private void SelectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -288,7 +291,7 @@ public partial class MainWindow : Window
         }
 
         _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
-        RenderLayoutPreview();
+        UpdateLayoutSummary();
         SetStatus($"Deleted {selected.Count} selected candidates.");
     }
 
@@ -312,12 +315,6 @@ public partial class MainWindow : Window
         SetStatus("Candidate list cleared.");
     }
 
-    private void ApplyCanvasButton_Click(object sender, RoutedEventArgs e)
-    {
-        ApplyCanvasSize();
-        SetStatus("Overlay canvas size applied.");
-    }
-
     private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e)
     {
         if (_overlaySlots.Count == 0)
@@ -326,14 +323,30 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyCanvasSize();
-        var editor = new LayoutEditorWindow(LayoutCanvas.Width, LayoutCanvas.Height, _overlaySlots)
+        var editor = new LayoutEditorWindow(
+            _layoutCanvasWidth,
+            _layoutCanvasHeight,
+            _overlayLeft,
+            _overlayTop,
+            _overlayOpacity,
+            _stopHotkey,
+            _refreshIntervalMs,
+            _layoutSlotScale,
+            _overlaySlots)
         {
             Owner = this
         };
         editor.ShowDialog();
-        RenderLayoutPreview();
-        SetStatus("Layout editor closed. Preview updated.");
+        _layoutCanvasWidth = editor.CanvasWidth;
+        _layoutCanvasHeight = editor.CanvasHeight;
+        _overlayLeft = editor.ScreenLeft;
+        _overlayTop = editor.ScreenTop;
+        _overlayOpacity = editor.OverlayOpacity;
+        _stopHotkey = editor.StopHotkey;
+        _refreshIntervalMs = editor.RefreshIntervalMs;
+        _layoutSlotScale = editor.SlotScale;
+        UpdateLayoutSummary();
+        SetStatus("Layout editor closed. Overlay settings updated.");
     }
 
     private void ClearLayoutButton_Click(object sender, RoutedEventArgs e)
@@ -344,16 +357,15 @@ public partial class MainWindow : Window
 
     private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
     {
-        ApplyCanvasSize();
         var profile = new OverlayProfile
         {
-            CanvasWidth = LayoutCanvas.Width,
-            CanvasHeight = LayoutCanvas.Height,
-            ScreenLeft = ReadDouble(OverlayLeftBox.Text, 120),
-            ScreenTop = ReadDouble(OverlayTopBox.Text, 120),
-            Opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1),
-            StopHotkey = HotkeyBox.Text,
-            RefreshIntervalMs = ReadPositiveInt(RefreshIntervalBox.Text, 500),
+            CanvasWidth = _layoutCanvasWidth,
+            CanvasHeight = _layoutCanvasHeight,
+            ScreenLeft = _overlayLeft,
+            ScreenTop = _overlayTop,
+            Opacity = _overlayOpacity,
+            StopHotkey = _stopHotkey,
+            RefreshIntervalMs = _refreshIntervalMs,
             LayoutSlotScale = ReadLayoutSlotScale(),
             Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
             {
@@ -388,19 +400,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        OverlayWidthBox.Text = profile.CanvasWidth.ToString("0");
-        OverlayHeightBox.Text = profile.CanvasHeight.ToString("0");
-        OverlayLeftBox.Text = profile.ScreenLeft.ToString("0");
-        OverlayTopBox.Text = profile.ScreenTop.ToString("0");
-        OpacitySlider.Value = Math.Clamp(profile.Opacity, 0.2, 1);
-        HotkeyBox.Text = profile.StopHotkey;
-        RefreshIntervalBox.Text = Math.Max(100, profile.RefreshIntervalMs).ToString();
-        LayoutSlotScaleSlider.Value = Math.Clamp(profile.LayoutSlotScale, 1, 3);
-        ApplyCanvasSize();
+        _layoutCanvasWidth = Math.Max(120, profile.CanvasWidth);
+        _layoutCanvasHeight = Math.Max(80, profile.CanvasHeight);
+        _overlayLeft = profile.ScreenLeft;
+        _overlayTop = profile.ScreenTop;
+        _overlayOpacity = Math.Clamp(profile.Opacity, 0.2, 1);
+        _stopHotkey = profile.StopHotkey;
+        _refreshIntervalMs = Math.Clamp(profile.RefreshIntervalMs, 100, 5000);
+        _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
 
         _overlaySlots.Clear();
-        _layoutImages.Clear();
-        LayoutCanvas.Children.Clear();
         _candidates.Clear();
         ClearCandidateRects();
 
@@ -419,9 +428,9 @@ public partial class MainWindow : Window
                 new Rect(savedSlot.OverlayX, savedSlot.OverlayY, savedSlot.OverlayWidth, savedSlot.OverlayHeight),
                 crop);
             _overlaySlots.Add(slot);
-            AddLayoutImage(slot);
         }
 
+        UpdateLayoutSummary();
         _log.Info($"Profile loaded: slots={profile.Slots.Count}");
         SetStatus($"Profile loaded: {profile.Slots.Count} slots.");
     }
@@ -437,18 +446,16 @@ public partial class MainWindow : Window
         try
         {
             StopOverlay(setStatus: false);
-            ApplyCanvasSize();
             if (!RegisterStopHotkey())
             {
                 return;
             }
 
-            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(Math.Clamp(ReadPositiveInt(RefreshIntervalBox.Text, 500), 100, 5000));
-            var opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
-            _overlayWindow = new OverlayWindow(LayoutCanvas.Width, LayoutCanvas.Height, opacity, _overlaySlots)
+            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(_refreshIntervalMs);
+            _overlayWindow = new OverlayWindow(_layoutCanvasWidth, _layoutCanvasHeight, _overlayOpacity, _overlaySlots)
             {
-                Left = ReadDouble(OverlayLeftBox.Text, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40),
-                Top = ReadDouble(OverlayTopBox.Text, SystemParameters.WorkArea.Top + 120)
+                Left = _overlayLeft,
+                Top = _overlayTop
             };
             _overlayWindow.Show();
             _liveOverlayTimer.Start();
@@ -458,8 +465,8 @@ public partial class MainWindow : Window
             }
 
             var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
-            _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
-            SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {HotkeyBox.Text}");
+            _log.Info($"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
+            SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {_stopHotkey}");
         }
         catch (Exception ex)
         {
@@ -471,88 +478,57 @@ public partial class MainWindow : Window
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
 
-    private void UseDefaultOverlayPositionButton_Click(object sender, RoutedEventArgs e)
-    {
-        ApplyCanvasSize();
-        OverlayLeftBox.Text = Math.Max(0, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40).ToString("0");
-        OverlayTopBox.Text = Math.Max(0, SystemParameters.WorkArea.Top + 120).ToString("0");
-        SetStatus("Default overlay screen position applied.");
-    }
-
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var position = e.GetPosition(CaptureCanvas);
         var hit = _candidates.FirstOrDefault(candidate => candidate.SourceRect.Contains(position));
-        if (hit is not null)
+        if (hit is null)
         {
-            hit.IsSelected = !hit.IsSelected;
-            SelectCandidateInList(hit);
+            BeginCandidateBoxSelection(position);
         }
     }
 
     private void CaptureCanvas_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_draggingCandidate is null || e.LeftButton != MouseButtonState.Pressed)
+        if (e.LeftButton != MouseButtonState.Pressed)
         {
             return;
         }
 
         var position = e.GetPosition(CaptureCanvas);
+        if (_isSelectingCandidates)
+        {
+            UpdateCandidateBoxSelection(position);
+            return;
+        }
+
+        if (_draggingCandidate is null)
+        {
+            return;
+        }
+
         if (Math.Abs(position.X - _candidateDragStartPosition.X) > 3 ||
             Math.Abs(position.Y - _candidateDragStartPosition.Y) > 3)
         {
-            _candidateDragMoved = true;
-        }
-
-        var x = Math.Clamp(position.X - _candidateDragOffset.X, 0, Math.Max(0, CaptureCanvas.Width - _draggingCandidate.SourceRect.Width));
-        var y = Math.Clamp(position.Y - _candidateDragOffset.Y, 0, Math.Max(0, CaptureCanvas.Height - _draggingCandidate.SourceRect.Height));
-        _draggingCandidate.MoveTo(x, y);
-        if (_candidateRects.TryGetValue(_draggingCandidate, out var rect))
-        {
-            Canvas.SetLeft(rect, x);
-            Canvas.SetTop(rect, y);
+            MoveSelectedCandidates(position);
         }
     }
 
     private void CaptureCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var rect))
+        if (_isSelectingCandidates)
         {
-            rect.ReleaseMouseCapture();
-            if (!_candidateDragMoved)
-            {
-                _draggingCandidate.IsSelected = !_draggingCandidate.IsSelected;
-                SelectCandidateInList(_draggingCandidate);
-            }
-        }
-
-        _draggingCandidate = null;
-        _candidateDragMoved = false;
-    }
-
-    private void LayoutCanvas_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (_draggingImage is null || e.LeftButton != MouseButtonState.Pressed)
-        {
+            EndCandidateBoxSelection();
             return;
         }
 
-        var position = e.GetPosition(LayoutCanvas);
-        var x = Math.Clamp(position.X - _dragOffset.X, 0, Math.Max(0, LayoutCanvas.Width - _draggingImage.Width));
-        var y = Math.Clamp(position.Y - _dragOffset.Y, 0, Math.Max(0, LayoutCanvas.Height - _draggingImage.Height));
-        Canvas.SetLeft(_draggingImage, x);
-        Canvas.SetTop(_draggingImage, y);
-
-        if (_layoutImages.TryGetValue(_draggingImage, out var slot))
+        if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var rect))
         {
-            slot.OverlayRect = new Rect(x, y, _draggingImage.Width, _draggingImage.Height);
+            rect.ReleaseMouseCapture();
         }
-    }
 
-    private void LayoutCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        _draggingImage?.ReleaseMouseCapture();
-        _draggingImage = null;
+        _draggingCandidate = null;
+        _candidateDragOrigins.Clear();
     }
 
     private void RefreshWindows()
@@ -581,11 +557,7 @@ public partial class MainWindow : Window
         };
         rect.MouseLeftButtonDown += (_, args) =>
         {
-            _draggingCandidate = candidate;
-            _candidateDragOffset = args.GetPosition(rect);
-            _candidateDragStartPosition = args.GetPosition(CaptureCanvas);
-            _candidateDragMoved = false;
-            rect.CaptureMouse();
+            BeginCandidateDrag(candidate, rect, args);
             SelectCandidateInList(candidate);
             args.Handled = true;
         };
@@ -594,6 +566,140 @@ public partial class MainWindow : Window
         Canvas.SetLeft(rect, candidate.SourceRect.X);
         Canvas.SetTop(rect, candidate.SourceRect.Y);
         UpdateCandidateVisual(candidate);
+    }
+
+    private void BeginCandidateDrag(SlotCandidate candidate, Rectangle rect, MouseButtonEventArgs args)
+    {
+        var isShiftPressed = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+        if (isShiftPressed)
+        {
+            candidate.IsSelected = !candidate.IsSelected;
+            if (!candidate.IsSelected)
+            {
+                _draggingCandidate = null;
+                return;
+            }
+        }
+        else if (!candidate.IsSelected)
+        {
+            SetOnlyCandidateSelected(candidate);
+        }
+
+        _draggingCandidate = candidate;
+        _candidateDragStartPosition = args.GetPosition(CaptureCanvas);
+        _candidateDragOrigins = _candidates
+            .Where(item => item.IsSelected)
+            .ToDictionary(item => item, item => new Point(item.SourceRect.X, item.SourceRect.Y));
+        rect.CaptureMouse();
+    }
+
+    private void BeginCandidateBoxSelection(Point position)
+    {
+        _isSelectingCandidates = true;
+        _selectionStartPosition = position;
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            ClearCandidateSelection();
+        }
+
+        _selectionRect = new Rectangle
+        {
+            Stroke = Brushes.DeepSkyBlue,
+            StrokeThickness = 1,
+            Fill = new SolidColorBrush(Color.FromArgb(35, 0, 191, 255)),
+            IsHitTestVisible = false
+        };
+        CaptureCanvas.Children.Add(_selectionRect);
+        Canvas.SetLeft(_selectionRect, position.X);
+        Canvas.SetTop(_selectionRect, position.Y);
+        CaptureCanvas.CaptureMouse();
+    }
+
+    private void UpdateCandidateBoxSelection(Point position)
+    {
+        if (_selectionRect is null)
+        {
+            return;
+        }
+
+        var left = Math.Min(_selectionStartPosition.X, position.X);
+        var top = Math.Min(_selectionStartPosition.Y, position.Y);
+        var width = Math.Abs(position.X - _selectionStartPosition.X);
+        var height = Math.Abs(position.Y - _selectionStartPosition.Y);
+        Canvas.SetLeft(_selectionRect, left);
+        Canvas.SetTop(_selectionRect, top);
+        _selectionRect.Width = width;
+        _selectionRect.Height = height;
+    }
+
+    private void EndCandidateBoxSelection()
+    {
+        if (_selectionRect is not null)
+        {
+            var selection = new Rect(
+                Canvas.GetLeft(_selectionRect),
+                Canvas.GetTop(_selectionRect),
+                _selectionRect.Width,
+                _selectionRect.Height);
+            foreach (var candidate in _candidates)
+            {
+                if (selection.IntersectsWith(candidate.SourceRect))
+                {
+                    candidate.IsSelected = true;
+                }
+            }
+
+            CaptureCanvas.Children.Remove(_selectionRect);
+            _selectionRect = null;
+        }
+
+        CaptureCanvas.ReleaseMouseCapture();
+        _isSelectingCandidates = false;
+    }
+
+    private void MoveSelectedCandidates(Point position)
+    {
+        if (_candidateDragOrigins.Count == 0)
+        {
+            return;
+        }
+
+        var requestedDeltaX = position.X - _candidateDragStartPosition.X;
+        var requestedDeltaY = position.Y - _candidateDragStartPosition.Y;
+        var minDeltaX = _candidateDragOrigins.Max(item => -item.Value.X);
+        var minDeltaY = _candidateDragOrigins.Max(item => -item.Value.Y);
+        var maxDeltaX = _candidateDragOrigins.Min(item => CaptureCanvas.Width - item.Value.X - item.Key.SourceRect.Width);
+        var maxDeltaY = _candidateDragOrigins.Min(item => CaptureCanvas.Height - item.Value.Y - item.Key.SourceRect.Height);
+        var deltaX = Math.Clamp(requestedDeltaX, minDeltaX, maxDeltaX);
+        var deltaY = Math.Clamp(requestedDeltaY, minDeltaY, maxDeltaY);
+
+        foreach (var (candidate, origin) in _candidateDragOrigins)
+        {
+            var x = origin.X + deltaX;
+            var y = origin.Y + deltaY;
+            candidate.MoveTo(x, y);
+            if (_candidateRects.TryGetValue(candidate, out var candidateRect))
+            {
+                Canvas.SetLeft(candidateRect, x);
+                Canvas.SetTop(candidateRect, y);
+            }
+        }
+    }
+
+    private void SetOnlyCandidateSelected(SlotCandidate selected)
+    {
+        foreach (var candidate in _candidates)
+        {
+            candidate.IsSelected = ReferenceEquals(candidate, selected);
+        }
+    }
+
+    private void ClearCandidateSelection()
+    {
+        foreach (var candidate in _candidates)
+        {
+            candidate.IsSelected = false;
+        }
     }
 
     private void AddCandidate(SlotCandidate candidate)
@@ -629,45 +735,10 @@ public partial class MainWindow : Window
         CandidateList.Focus();
     }
 
-    private void AddLayoutImage(OverlaySlot slot)
-    {
-        var image = new Image
-        {
-            Source = slot.Preview,
-            Width = slot.OverlayRect.Width,
-            Height = slot.OverlayRect.Height,
-            Stretch = Stretch.Fill,
-            Cursor = Cursors.SizeAll
-        };
-        image.MouseLeftButtonDown += (sender, args) =>
-        {
-            _draggingImage = (Image)sender;
-            _dragOffset = args.GetPosition(_draggingImage);
-            _draggingImage.CaptureMouse();
-            args.Handled = true;
-        };
-
-        _layoutImages[image] = slot;
-        LayoutCanvas.Children.Add(image);
-        Canvas.SetLeft(image, slot.OverlayRect.X);
-        Canvas.SetTop(image, slot.OverlayRect.Y);
-    }
-
-    private void RenderLayoutPreview()
-    {
-        _layoutImages.Clear();
-        LayoutCanvas.Children.Clear();
-        foreach (var slot in _overlaySlots)
-        {
-            AddLayoutImage(slot);
-        }
-    }
-
     private void ClearLayout()
     {
         _overlaySlots.Clear();
-        _layoutImages.Clear();
-        LayoutCanvas.Children.Clear();
+        UpdateLayoutSummary();
     }
 
     private void ClearCandidateRects()
@@ -733,7 +804,7 @@ public partial class MainWindow : Window
 
     private bool RegisterStopHotkey()
     {
-        if (!HotkeyParser.TryParse(HotkeyBox.Text, out var hotkey))
+        if (!HotkeyParser.TryParse(_stopHotkey, out var hotkey))
         {
             SetStatus("Invalid hotkey. Use a format like Ctrl+Shift+F8.");
             return false;
@@ -754,29 +825,21 @@ public partial class MainWindow : Window
         return registered;
     }
 
-    private void ApplyCanvasSize()
-    {
-        LayoutCanvas.Width = ReadPositiveDouble(OverlayWidthBox.Text, 360);
-        LayoutCanvas.Height = ReadPositiveDouble(OverlayHeightBox.Text, 160);
-    }
-
-    private static double ReadPositiveDouble(string text, double fallback) =>
-        double.TryParse(text, out var value) && value > 0 ? value : fallback;
-
-    private static int ReadPositiveInt(string text, int fallback) =>
-        int.TryParse(text, out var value) && value > 0 ? value : fallback;
-
-    private static double ReadDouble(string text, double fallback) =>
-        double.TryParse(text, out var value) ? value : fallback;
-
     private int ReadSlotSize() => Math.Clamp((int)SlotSizeSlider.Value, 12, 180);
 
-    private double ReadLayoutSlotScale() => Math.Clamp(LayoutSlotScaleSlider.Value, 1, 3);
+    private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
     private void UpdateSizeLabels()
     {
         SlotSizeText.Text = $"{ReadSlotSize()}px";
-        LayoutSlotScaleText.Text = $"{ReadLayoutSlotScale():0.0}x";
+    }
+
+    private void UpdateLayoutSummary()
+    {
+        LayoutSummaryText.Text =
+            $"Slots: {_overlaySlots.Count} | Canvas: {_layoutCanvasWidth:0}x{_layoutCanvasHeight:0} | " +
+            $"Screen: {_overlayLeft:0}, {_overlayTop:0} | Opacity: {_overlayOpacity:0.00} | " +
+            $"Scale: {_layoutSlotScale:0.0}x | Hotkey: {_stopHotkey} | Refresh: {_refreshIntervalMs}ms";
     }
 
     private void SetStatus(string message)

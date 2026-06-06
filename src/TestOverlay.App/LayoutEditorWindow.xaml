@@ -9,11 +9,61 @@
         Background="#F3F5F7">
     <Grid Margin="16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,0">
+                <TextBlock Text="Width"/>
+                <TextBox x:Name="CanvasWidthBox"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,0">
+                <TextBlock Text="Height"/>
+                <TextBox x:Name="CanvasHeightBox"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,10,0">
+                <TextBlock Text="Opacity"/>
+                <Slider x:Name="OpacitySlider" Minimum="0.2" Maximum="1" TickFrequency="0.05"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="3">
+                <TextBlock Text="Slot scale"/>
+                <Slider x:Name="SlotScaleSlider" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                <TextBlock x:Name="SlotScaleText"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,0">
+                <TextBlock Text="Screen X"/>
+                <TextBox x:Name="ScreenLeftBox"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,10,0">
+                <TextBlock Text="Screen Y"/>
+                <TextBox x:Name="ScreenTopBox"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,10,0">
+                <TextBlock Text="Stop hotkey"/>
+                <TextBox x:Name="HotkeyBox"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="3">
+                <TextBlock Text="Refresh ms"/>
+                <TextBox x:Name="RefreshIntervalBox"/>
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">
             <Border BorderBrush="#2F3645" BorderThickness="1" Background="#202633">
                 <Canvas x:Name="EditorCanvas"
                         Background="#202633"
@@ -22,8 +72,10 @@
             </Border>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Width="96" Height="34" Content="Close" Click="CloseButton_Click"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Width="96" Height="34" Content="Default Pos" Click="DefaultPositionButton_Click"/>
+            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Apply" Click="ApplyButton_Click"/>
+            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Close" Click="CloseButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>

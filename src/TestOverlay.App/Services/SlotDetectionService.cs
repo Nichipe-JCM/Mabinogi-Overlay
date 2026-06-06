@@ -21,17 +21,15 @@ public sealed class SlotDetectionService
         for (var size = min; size <= max; size += Math.Max(2, size / 16))
         {
             var step = Math.Max(2, size / 12);
-            var scanHeight = Math.Max(size + 2, bitmap.PixelHeight * 7 / 10);
-            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, bitmap.PixelWidth, Math.Min(scanHeight, bitmap.PixelHeight / 5)));
-            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, Math.Min(bitmap.PixelWidth, bitmap.PixelWidth / 5), scanHeight));
-            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(Math.Max(0, bitmap.PixelWidth * 4 / 5), 0, bitmap.PixelWidth / 5, scanHeight));
+            var topHeight = Math.Max(size + 2, bitmap.PixelHeight / 5);
+            var sideHeight = Math.Max(size + 2, bitmap.PixelHeight * 45 / 100);
+            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, bitmap.PixelWidth, topHeight));
+            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(0, 0, Math.Min(bitmap.PixelWidth, bitmap.PixelWidth / 5), sideHeight));
+            ScanRegion(raw, pixels, bitmap.PixelWidth, bitmap.PixelHeight, stride, size, step, new Int32Rect(Math.Max(0, bitmap.PixelWidth * 4 / 5), 0, bitmap.PixelWidth / 5, sideHeight));
         }
 
-        var gridCandidates = ScoreGridNeighbors(raw);
-        var fallbackCandidates = raw
-            .Where(candidate => candidate.Score >= 92)
-            .Select(candidate => candidate with { Score = candidate.Score - 15 });
-        var picked = SuppressOverlappingSlots(gridCandidates.Concat(fallbackCandidates).OrderByDescending(item => item.Score))
+        var gridCandidates = ScoreGridRuns(raw);
+        var picked = SuppressOverlappingSlots(gridCandidates.OrderByDescending(item => item.Score))
             .Take(160)
             .Select((item, index) => new SlotCandidate(index + 1, item.Rect, item.Score))
             .ToList();
@@ -95,7 +93,7 @@ public sealed class SlotDetectionService
         return averageEdge * 0.9 + continuity * 50 + cornerScore * 0.18;
     }
 
-    private static List<CandidateInfo> ScoreGridNeighbors(IReadOnlyList<CandidateInfo> candidates)
+    private static List<CandidateInfo> ScoreGridRuns(IReadOnlyList<CandidateInfo> candidates)
     {
         var bySize = candidates.GroupBy(candidate => candidate.Size);
         var scored = new List<CandidateInfo>();
@@ -108,52 +106,80 @@ public sealed class SlotDetectionService
 
             foreach (var candidate in list)
             {
-                var neighbors = CountGridNeighbors(candidate, list);
-                if (neighbors == 0)
+                var horizontalRun = CountRun(candidate, list, Axis.Horizontal);
+                var verticalRun = CountRun(candidate, list, Axis.Vertical);
+                var bestRun = Math.Max(horizontalRun, verticalRun);
+                if (bestRun < 3)
                 {
                     continue;
                 }
 
-                scored.Add(candidate with { Score = candidate.Score + neighbors * 50 });
+                var crossRun = Math.Min(horizontalRun, verticalRun);
+                scored.Add(candidate with { Score = candidate.Score + bestRun * 70 + crossRun * 35 });
             }
         }
 
         return scored;
     }
 
-    private static int CountGridNeighbors(CandidateInfo candidate, IReadOnlyList<CandidateInfo> candidates)
+    private static int CountRun(CandidateInfo candidate, IReadOnlyList<CandidateInfo> candidates, Axis axis)
     {
-        var count = 0;
         var size = candidate.Size;
-        var tolerance = Math.Max(4, size / 6);
+        var tolerance = Math.Max(3, size / 8);
+        var maxGap = Math.Max(5, size / 5);
+        var bestRun = 1;
 
-        foreach (var other in candidates)
+        for (var gap = -1; gap <= maxGap; gap++)
         {
-            if (ReferenceEquals(candidate, other))
-            {
-                continue;
-            }
-
-            var dx = Math.Abs(other.Rect.X - candidate.Rect.X);
-            var dy = Math.Abs(other.Rect.Y - candidate.Rect.Y);
-            for (var gap = -1; gap <= Math.Max(8, size / 4); gap++)
-            {
-                var pitch = size + gap;
-                if (Math.Abs(dx - pitch) <= tolerance && dy <= tolerance)
-                {
-                    count++;
-                    break;
-                }
-
-                if (Math.Abs(dy - pitch) <= tolerance && dx <= tolerance)
-                {
-                    count++;
-                    break;
-                }
-            }
+            var pitch = size + gap;
+            var run = 1 +
+                CountDirection(candidate, candidates, axis, -1, pitch, tolerance) +
+                CountDirection(candidate, candidates, axis, 1, pitch, tolerance);
+            bestRun = Math.Max(bestRun, run);
         }
 
-        return Math.Min(count, 4);
+        return bestRun;
+    }
+
+    private static int CountDirection(
+        CandidateInfo candidate,
+        IReadOnlyList<CandidateInfo> candidates,
+        Axis axis,
+        int direction,
+        int pitch,
+        int tolerance)
+    {
+        var count = 0;
+        var current = candidate;
+        while (true)
+        {
+            var next = FindNeighbor(current, candidates, axis, direction, pitch, tolerance);
+            if (next is null)
+            {
+                return count;
+            }
+
+            count++;
+            current = next;
+        }
+    }
+
+    private static CandidateInfo? FindNeighbor(
+        CandidateInfo candidate,
+        IReadOnlyList<CandidateInfo> candidates,
+        Axis axis,
+        int direction,
+        int pitch,
+        int tolerance)
+    {
+        var targetX = candidate.Rect.X + (axis == Axis.Horizontal ? direction * pitch : 0);
+        var targetY = candidate.Rect.Y + (axis == Axis.Vertical ? direction * pitch : 0);
+        return candidates
+            .Where(other => !ReferenceEquals(candidate, other))
+            .Where(other => Math.Abs(other.Rect.X - targetX) <= tolerance &&
+                            Math.Abs(other.Rect.Y - targetY) <= tolerance)
+            .OrderByDescending(other => other.Score)
+            .FirstOrDefault();
     }
 
     private static IEnumerable<CandidateInfo> NonMaximumSuppress(IEnumerable<CandidateInfo> candidates, double overlapLimit)
@@ -264,6 +290,12 @@ public sealed class SlotDetectionService
         var converted = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
         converted.Freeze();
         return converted;
+    }
+
+    private enum Axis
+    {
+        Horizontal,
+        Vertical
     }
 
     private sealed record CandidateInfo(Rect Rect, int Size, double Score);

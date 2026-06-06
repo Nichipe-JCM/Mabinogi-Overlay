@@ -125,76 +125,27 @@
                     <Grid Margin="14">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Text="3. Overlay Layout" FontSize="16" FontWeight="SemiBold" Foreground="#20242B"/>
 
-                        <Grid Grid.Row="1" Margin="0,12,0,12">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="8"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Width"/>
-                                <TextBox x:Name="OverlayWidthBox" Text="360"/>
+                        <Border Grid.Row="1" Margin="0,12,0,12" Padding="12" BorderBrush="#D9DEE7" BorderThickness="1" Background="#F8FAFC">
+                            <StackPanel>
+                                <TextBlock x:Name="LayoutSummaryText" Foreground="#20242B" TextWrapping="Wrap"/>
+                                <TextBlock Margin="0,8,0,0" Foreground="#596273" TextWrapping="Wrap"
+                                           Text="Use the layout editor to size the canvas, arrange slots, set screen position, opacity, scale, hotkey, and refresh interval."/>
                             </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,8,0">
-                                <TextBlock Text="Height"/>
-                                <TextBox x:Name="OverlayHeightBox" Text="160"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="8,0,0,0">
-                                <TextBlock Text="Opacity"/>
-                                <Slider x:Name="OpacitySlider" Minimum="0.2" Maximum="1" Value="0.8" TickFrequency="0.05"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="3" Margin="8,0,0,0">
-                                <TextBlock Text="Slot scale"/>
-                                <Slider x:Name="LayoutSlotScaleSlider" Minimum="1" Maximum="3" Value="1.5" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
-                                <TextBlock x:Name="LayoutSlotScaleText"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Screen X"/>
-                                <TextBox x:Name="OverlayLeftBox" Text="120"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,8,0">
-                                <TextBlock Text="Screen Y"/>
-                                <TextBox x:Name="OverlayTopBox" Text="120"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="2" Grid.Column="2" Margin="8,0,0,0">
-                                <TextBlock Text="Stop hotkey"/>
-                                <TextBox x:Name="HotkeyBox" Text="Ctrl+Shift+F8"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="2" Grid.Column="3" Margin="8,0,0,0">
-                                <TextBlock Text="Refresh ms"/>
-                                <TextBox x:Name="RefreshIntervalBox" Text="500"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Border Grid.Row="2" BorderBrush="#2F3645" BorderThickness="1" Background="#202633">
-                            <Canvas x:Name="LayoutCanvas" Width="360" Height="160" Background="#202633"
-                                    MouseLeftButtonUp="LayoutCanvas_MouseLeftButtonUp"
-                                    MouseMove="LayoutCanvas_MouseMove"/>
                         </Border>
 
-                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                            <Button x:Name="UseDefaultOverlayPositionButton" Width="88" Height="34" Content="Default" Click="UseDefaultOverlayPositionButton_Click"/>
-                            <Button x:Name="ApplyCanvasButton" Width="72" Height="34" Margin="8,0,0,0" Content="Apply" Click="ApplyCanvasButton_Click"/>
-                            <Button x:Name="OpenLayoutEditorButton" Width="84" Height="34" Margin="8,0,0,0" Content="Editor" Click="OpenLayoutEditorButton_Click"/>
-                            <Button x:Name="ClearLayoutButton" Width="76" Height="34" Margin="8,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="8,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
-                            <Button x:Name="LoadProfileButton" Width="64" Height="34" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="70" Height="34" Margin="8,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
-                        </StackPanel>
+                        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,0,0,0">
+                            <Button x:Name="OpenLayoutEditorButton" Width="132" Height="34" Margin="4,0,0,6" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
+                            <Button x:Name="ClearLayoutButton" Width="76" Height="34" Margin="4,0,0,6" Content="Clear" Click="ClearLayoutButton_Click"/>
+                            <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Save" Click="SaveProfileButton_Click"/>
+                            <Button x:Name="LoadProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Load" Click="LoadProfileButton_Click"/>
+                            <Button x:Name="StartOverlayButton" Width="70" Height="34" Margin="4,0,0,6" Content="Start" Click="StartOverlayButton_Click"/>
+                        </WrapPanel>
                     </Grid>
                 </Border>
             </Grid>
