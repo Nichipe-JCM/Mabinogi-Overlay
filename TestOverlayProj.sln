@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DC2729CD-02C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestOverlay.App", "src\TestOverlay.App\TestOverlay.App.csproj", "{AEF12173-7CC1-41BF-B5D1-FEE33763306C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{A60823AA-DC3B-47D2-90F8-DDFA96C391B7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestOverlay.DetectionProbe", "tools\TestOverlay.DetectionProbe\TestOverlay.DetectionProbe.csproj", "{3B642951-1BB0-4E06-9AB5-EF98A0A47C13}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +24,13 @@ Global
 		{AEF12173-7CC1-41BF-B5D1-FEE33763306C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AEF12173-7CC1-41BF-B5D1-FEE33763306C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AEF12173-7CC1-41BF-B5D1-FEE33763306C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B642951-1BB0-4E06-9AB5-EF98A0A47C13}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B642951-1BB0-4E06-9AB5-EF98A0A47C13}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B642951-1BB0-4E06-9AB5-EF98A0A47C13}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B642951-1BB0-4E06-9AB5-EF98A0A47C13}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{AEF12173-7CC1-41BF-B5D1-FEE33763306C} = {DC2729CD-02CC-45F0-B710-022105958C52}
+		{3B642951-1BB0-4E06-9AB5-EF98A0A47C13} = {A60823AA-DC3B-47D2-90F8-DDFA96C391B7}
 	EndGlobalSection
 EndGlobal
