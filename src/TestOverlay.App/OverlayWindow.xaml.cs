@@ -17,6 +17,8 @@ public partial class OverlayWindow : Window
 
     public int AppliedExtendedStyle { get; private set; }
 
+    public Exception? ClickThroughConfigurationException { get; private set; }
+
     public OverlayWindow(double width, double height, double opacity, IReadOnlyList<OverlaySlot> slots)
     {
         InitializeComponent();
@@ -48,20 +50,30 @@ public partial class OverlayWindow : Window
 
     private void ConfigureClickThrough()
     {
-        var handle = new WindowInteropHelper(this).Handle;
-        var exStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
-        exStyle |= Win32Methods.WsExLayered |
-                   Win32Methods.WsExTransparent |
-                   Win32Methods.WsExToolWindow |
-                   Win32Methods.WsExNoActivate |
-                   Win32Methods.WsExTopmost;
-        Win32Methods.SetWindowLong(handle, Win32Methods.GwlExStyle, exStyle);
-        AppliedExtendedStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
-        IsClickThroughConfigured =
-            HasStyle(AppliedExtendedStyle, Win32Methods.WsExLayered) &&
-            HasStyle(AppliedExtendedStyle, Win32Methods.WsExTransparent);
-        IsNoActivateConfigured = HasStyle(AppliedExtendedStyle, Win32Methods.WsExNoActivate);
-        IsTopmostConfigured = Topmost && HasStyle(AppliedExtendedStyle, Win32Methods.WsExTopmost);
+        try
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            var exStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
+            exStyle |= Win32Methods.WsExLayered |
+                       Win32Methods.WsExTransparent |
+                       Win32Methods.WsExToolWindow |
+                       Win32Methods.WsExNoActivate |
+                       Win32Methods.WsExTopmost;
+            Win32Methods.SetWindowLong(handle, Win32Methods.GwlExStyle, exStyle);
+            AppliedExtendedStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
+            IsClickThroughConfigured =
+                HasStyle(AppliedExtendedStyle, Win32Methods.WsExLayered) &&
+                HasStyle(AppliedExtendedStyle, Win32Methods.WsExTransparent);
+            IsNoActivateConfigured = HasStyle(AppliedExtendedStyle, Win32Methods.WsExNoActivate);
+            IsTopmostConfigured = Topmost && HasStyle(AppliedExtendedStyle, Win32Methods.WsExTopmost);
+        }
+        catch (Exception ex)
+        {
+            ClickThroughConfigurationException = ex;
+            IsClickThroughConfigured = false;
+            IsNoActivateConfigured = false;
+            IsTopmostConfigured = Topmost;
+        }
     }
 
     private static bool HasStyle(int value, int style) => (value & style) == style;

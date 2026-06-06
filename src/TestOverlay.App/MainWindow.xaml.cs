@@ -44,8 +44,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
-        MinSlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
-        MaxSlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
+        SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closed += (_, _) => StopOverlay(setStatus: false);
@@ -135,14 +134,13 @@ public partial class MainWindow : Window
         _candidates.Clear();
         ClearCandidateRects();
 
-        var min = (int)MinSlotSizeSlider.Value;
-        var max = Math.Max(min, (int)MaxSlotSizeSlider.Value);
-        foreach (var candidate in _slotDetection.Detect(_capturedImage, min, max))
+        var slotSize = ReadSlotSize();
+        foreach (var candidate in _slotDetection.Detect(_capturedImage, slotSize, slotSize))
         {
             AddCandidate(candidate);
         }
 
-        _log.Info($"Slot detection completed: count={_candidates.Count}, min={min}, max={max}");
+        _log.Info($"Slot detection completed: count={_candidates.Count}, slotSize={slotSize}");
         SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
     }
 
@@ -214,7 +212,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var size = Math.Clamp(((int)MinSlotSizeSlider.Value + (int)MaxSlotSizeSlider.Value) / 2.0, 12, 180);
+        var size = ReadSlotSize();
         var source = CandidateList.SelectedItem is SlotCandidate selected
             ? new Rect(
                 Math.Clamp(selected.SourceRect.X + selected.SourceRect.Width + 4, 0, Math.Max(0, CaptureCanvas.Width - size)),
@@ -420,25 +418,39 @@ public partial class MainWindow : Window
             return;
         }
 
-        StopOverlay(setStatus: false);
-        ApplyCanvasSize();
-        if (!RegisterStopHotkey())
+        try
         {
-            return;
-        }
+            StopOverlay(setStatus: false);
+            ApplyCanvasSize();
+            if (!RegisterStopHotkey())
+            {
+                return;
+            }
 
-        _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(Math.Clamp(ReadPositiveInt(RefreshIntervalBox.Text, 500), 100, 5000));
-        var opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
-        _overlayWindow = new OverlayWindow(LayoutCanvas.Width, LayoutCanvas.Height, opacity, _overlaySlots)
+            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(Math.Clamp(ReadPositiveInt(RefreshIntervalBox.Text, 500), 100, 5000));
+            var opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
+            _overlayWindow = new OverlayWindow(LayoutCanvas.Width, LayoutCanvas.Height, opacity, _overlaySlots)
+            {
+                Left = ReadDouble(OverlayLeftBox.Text, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40),
+                Top = ReadDouble(OverlayTopBox.Text, SystemParameters.WorkArea.Top + 120)
+            };
+            _overlayWindow.Show();
+            _liveOverlayTimer.Start();
+            if (_overlayWindow.ClickThroughConfigurationException is not null)
+            {
+                _log.Error("Overlay click-through configuration failed.", _overlayWindow.ClickThroughConfigurationException);
+            }
+
+            var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
+            _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
+            SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {HotkeyBox.Text}");
+        }
+        catch (Exception ex)
         {
-            Left = ReadDouble(OverlayLeftBox.Text, SystemParameters.WorkArea.Right - LayoutCanvas.Width - 40),
-            Top = ReadDouble(OverlayTopBox.Text, SystemParameters.WorkArea.Top + 120)
-        };
-        _overlayWindow.Show();
-        _liveOverlayTimer.Start();
-        var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
-        _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
-        SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {HotkeyBox.Text}");
+            _log.Error("Overlay start failed.", ex);
+            StopOverlay(setStatus: false);
+            SetStatus($"Overlay start failed: {ex.Message}");
+        }
     }
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
@@ -741,10 +753,11 @@ public partial class MainWindow : Window
     private static double ReadDouble(string text, double fallback) =>
         double.TryParse(text, out var value) ? value : fallback;
 
+    private int ReadSlotSize() => Math.Clamp((int)SlotSizeSlider.Value, 12, 180);
+
     private void UpdateSizeLabels()
     {
-        MinSlotSizeText.Text = $"{(int)MinSlotSizeSlider.Value}px";
-        MaxSlotSizeText.Text = $"{(int)MaxSlotSizeSlider.Value}px";
+        SlotSizeText.Text = $"{ReadSlotSize()}px";
     }
 
     private void SetStatus(string message)

@@ -90,17 +90,11 @@
                         <Grid Grid.Row="1" Margin="0,12,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Min slot size"/>
-                                <Slider x:Name="MinSlotSizeSlider" Minimum="16" Maximum="80" Value="24" TickFrequency="2" IsSnapToTickEnabled="True"/>
-                                <TextBlock x:Name="MinSlotSizeText"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                <TextBlock Text="Max slot size"/>
-                                <Slider x:Name="MaxSlotSizeSlider" Minimum="24" Maximum="96" Value="64" TickFrequency="2" IsSnapToTickEnabled="True"/>
-                                <TextBlock x:Name="MaxSlotSizeText"/>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Slot size"/>
+                                <Slider x:Name="SlotSizeSlider" Minimum="16" Maximum="96" Value="29" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <TextBlock x:Name="SlotSizeText"/>
                             </StackPanel>
                         </Grid>
 
