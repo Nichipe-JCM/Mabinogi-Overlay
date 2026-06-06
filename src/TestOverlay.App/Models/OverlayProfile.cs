@@ -16,6 +16,8 @@ public sealed class OverlayProfile
 
     public string StopHotkey { get; set; } = "Ctrl+Shift+F8";
 
+    public int RefreshIntervalMs { get; set; } = 500;
+
     public List<OverlayProfileSlot> Slots { get; set; } = [];
 }
 

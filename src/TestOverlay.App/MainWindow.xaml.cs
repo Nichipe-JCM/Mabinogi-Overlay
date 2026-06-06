@@ -22,7 +22,7 @@ public partial class MainWindow : Window
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly ProfileStore _profileStore = new();
     private readonly AppLog _log = new();
-    private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
@@ -229,6 +229,7 @@ public partial class MainWindow : Window
             ScreenTop = ReadDouble(OverlayTopBox.Text, 120),
             Opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1),
             StopHotkey = HotkeyBox.Text,
+            RefreshIntervalMs = ReadPositiveInt(RefreshIntervalBox.Text, 500),
             Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
             {
                 SourceX = slot.Source.SourceRect.X,
@@ -268,6 +269,7 @@ public partial class MainWindow : Window
         OverlayTopBox.Text = profile.ScreenTop.ToString("0");
         OpacitySlider.Value = Math.Clamp(profile.Opacity, 0.2, 1);
         HotkeyBox.Text = profile.StopHotkey;
+        RefreshIntervalBox.Text = Math.Max(100, profile.RefreshIntervalMs).ToString();
         ApplyCanvasSize();
 
         _overlaySlots.Clear();
@@ -314,6 +316,7 @@ public partial class MainWindow : Window
 
         StopOverlay(setStatus: false);
         ApplyCanvasSize();
+        _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(Math.Clamp(ReadPositiveInt(RefreshIntervalBox.Text, 500), 100, 5000));
         var opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
         _overlayWindow = new OverlayWindow(LayoutCanvas.Width, LayoutCanvas.Height, opacity, _overlaySlots)
         {
@@ -322,7 +325,7 @@ public partial class MainWindow : Window
         };
         _overlayWindow.Show();
         _liveOverlayTimer.Start();
-        _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}");
+        _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}");
         SetStatus($"Overlay started. It is click-through. Stop hotkey: {HotkeyBox.Text}");
     }
 
@@ -524,6 +527,9 @@ public partial class MainWindow : Window
 
     private static double ReadPositiveDouble(string text, double fallback) =>
         double.TryParse(text, out var value) && value > 0 ? value : fallback;
+
+    private static int ReadPositiveInt(string text, int fallback) =>
+        int.TryParse(text, out var value) && value > 0 ? value : fallback;
 
     private static double ReadDouble(string text, double fallback) =>
         double.TryParse(text, out var value) ? value : fallback;
