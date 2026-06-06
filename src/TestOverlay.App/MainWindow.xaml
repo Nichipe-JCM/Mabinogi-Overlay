@@ -111,12 +111,14 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
 
-                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                            <Button x:Name="SelectAllCandidatesButton" Width="86" Height="34" Content="All" Click="SelectAllCandidatesButton_Click"/>
-                            <Button x:Name="DeselectAllCandidatesButton" Width="86" Height="34" Margin="8,0,0,0" Content="None" Click="DeselectAllCandidatesButton_Click"/>
-                            <Button x:Name="AddSelectedButton" Width="130" Height="34" Margin="8,0,0,0" Content="Place Selected" Click="AddSelectedButton_Click"/>
-                            <Button x:Name="ClearCandidatesButton" Width="92" Height="34" Margin="8,0,0,0" Content="Clear" Click="ClearCandidatesButton_Click"/>
-                        </StackPanel>
+                        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button x:Name="SelectAllCandidatesButton" Width="70" Height="34" Margin="4,0,0,6" Content="All" Click="SelectAllCandidatesButton_Click"/>
+                            <Button x:Name="DeselectAllCandidatesButton" Width="70" Height="34" Margin="4,0,0,6" Content="None" Click="DeselectAllCandidatesButton_Click"/>
+                            <Button x:Name="AddManualCandidateButton" Width="88" Height="34" Margin="4,0,0,6" Content="Add Box" Click="AddManualCandidateButton_Click"/>
+                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="34" Margin="4,0,0,6" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
+                            <Button x:Name="AddSelectedButton" Width="118" Height="34" Margin="4,0,0,6" Content="Place" Click="AddSelectedButton_Click"/>
+                            <Button x:Name="ClearCandidatesButton" Width="72" Height="34" Margin="4,0,0,6" Content="Clear" Click="ClearCandidatesButton_Click"/>
+                        </WrapPanel>
                     </Grid>
                 </Border>
 

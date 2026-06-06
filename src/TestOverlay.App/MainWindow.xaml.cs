@@ -137,15 +137,7 @@ public partial class MainWindow : Window
         var max = Math.Max(min, (int)MaxSlotSizeSlider.Value);
         foreach (var candidate in _slotDetection.Detect(_capturedImage, min, max))
         {
-            _candidates.Add(candidate);
-            candidate.PropertyChanged += (_, args) =>
-            {
-                if (args.PropertyName == nameof(SlotCandidate.IsSelected))
-                {
-                    UpdateCandidateVisual(candidate);
-                }
-            };
-            AddCandidateVisual(candidate);
+            AddCandidate(candidate);
         }
 
         _log.Info($"Slot detection completed: count={_candidates.Count}, min={min}, max={max}");
@@ -210,6 +202,53 @@ public partial class MainWindow : Window
         }
 
         SetStatus($"Deselected all {_candidates.Count} candidates.");
+    }
+
+    private void AddManualCandidateButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_capturedImage is null)
+        {
+            SetStatus("Capture the game window before adding a manual candidate.");
+            return;
+        }
+
+        var size = Math.Clamp(((int)MinSlotSizeSlider.Value + (int)MaxSlotSizeSlider.Value) / 2.0, 12, 180);
+        var source = CandidateList.SelectedItem is SlotCandidate selected
+            ? new Rect(
+                Math.Clamp(selected.SourceRect.X + selected.SourceRect.Width + 4, 0, Math.Max(0, CaptureCanvas.Width - size)),
+                Math.Clamp(selected.SourceRect.Y, 0, Math.Max(0, CaptureCanvas.Height - size)),
+                size,
+                size)
+            : new Rect(8, 8, size, size);
+
+        var candidate = new SlotCandidate(NextCandidateId(), source, 100);
+        AddCandidate(candidate);
+        CandidateList.SelectedItem = candidate;
+        SetStatus("Manual candidate added. Drag it over the target quickslot.");
+    }
+
+    private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
+        if (selected.Count == 0)
+        {
+            SetStatus("No selected candidates to delete.");
+            return;
+        }
+
+        foreach (var candidate in selected)
+        {
+            if (_candidateRects.Remove(candidate, out var rect))
+            {
+                CaptureCanvas.Children.Remove(rect);
+            }
+
+            _candidates.Remove(candidate);
+        }
+
+        _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
+        RenderLayoutPreview();
+        SetStatus($"Deleted {selected.Count} selected candidates.");
     }
 
     private void ClearCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -316,8 +355,7 @@ public partial class MainWindow : Window
                 id++,
                 new Rect(savedSlot.SourceX, savedSlot.SourceY, savedSlot.SourceWidth, savedSlot.SourceHeight),
                 100);
-            _candidates.Add(candidate);
-            AddCandidateVisual(candidate);
+            AddCandidate(candidate);
 
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
             var slot = new OverlaySlot(
@@ -473,6 +511,19 @@ public partial class MainWindow : Window
         UpdateCandidateVisual(candidate);
     }
 
+    private void AddCandidate(SlotCandidate candidate)
+    {
+        _candidates.Add(candidate);
+        candidate.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(SlotCandidate.IsSelected))
+            {
+                UpdateCandidateVisual(candidate);
+            }
+        };
+        AddCandidateVisual(candidate);
+    }
+
     private void UpdateCandidateVisual(SlotCandidate candidate)
     {
         if (!_candidateRects.TryGetValue(candidate, out var rect))
@@ -536,6 +587,8 @@ public partial class MainWindow : Window
 
         _candidateRects.Clear();
     }
+
+    private int NextCandidateId() => _candidates.Count == 0 ? 1 : _candidates.Max(candidate => candidate.Id) + 1;
 
     private void StopOverlay(bool setStatus = true)
     {
