@@ -158,6 +158,12 @@ public partial class MainWindow : Window
         LayoutCanvas.Children.Clear();
 
         var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
+        if (selected.Count == 0)
+        {
+            SetStatus("No checked candidates. Check slots to place first.");
+            return;
+        }
+
         var cursorX = 8.0;
         var cursorY = 8.0;
         var rowHeight = 0.0;

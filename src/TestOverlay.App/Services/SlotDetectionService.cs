@@ -29,10 +29,10 @@ public sealed class SlotDetectionService
 
         var gridCandidates = ScoreGridNeighbors(raw);
         var fallbackCandidates = raw
-            .Where(candidate => candidate.Score >= 64)
-            .Select(candidate => candidate with { Score = candidate.Score + 20 });
+            .Where(candidate => candidate.Score >= 92)
+            .Select(candidate => candidate with { Score = candidate.Score - 15 });
         var picked = SuppressOverlappingSlots(gridCandidates.Concat(fallbackCandidates).OrderByDescending(item => item.Score))
-            .Take(240)
+            .Take(160)
             .Select((item, index) => new SlotCandidate(index + 1, item.Rect, item.Score))
             .ToList();
 
@@ -57,7 +57,7 @@ public sealed class SlotDetectionService
             for (var x = region.X; x <= right; x += step)
             {
                 var score = ScoreSlotFrame(pixels, width, height, stride, x, y, size);
-                if (score >= 46)
+                if (score >= 54)
                 {
                     raw.Add(new CandidateInfo(new Rect(x, y, size, size), size, score));
                 }

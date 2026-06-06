@@ -13,7 +13,7 @@ public sealed class SlotCandidate : INotifyPropertyChanged
         Id = id;
         SourceRect = sourceRect;
         Score = score;
-        _isSelected = true;
+        _isSelected = false;
     }
 
     public int Id { get; }
