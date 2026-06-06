@@ -19,7 +19,7 @@ public partial class OverlayWindow : Window
         RenderSlots(slots);
     }
 
-    private void RenderSlots(IReadOnlyList<OverlaySlot> slots)
+    public void RenderSlots(IReadOnlyList<OverlaySlot> slots)
     {
         OverlayCanvas.Children.Clear();
         foreach (var slot in slots)

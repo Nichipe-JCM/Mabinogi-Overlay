@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using System.Windows.Shapes;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
@@ -16,12 +17,15 @@ public partial class MainWindow : Window
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
     private readonly SlotDetectionService _slotDetection = new();
+    private readonly WgcSupportService _wgcSupport = new();
+    private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private readonly Dictionary<Image, OverlaySlot> _layoutImages = new();
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
+    private GameWindowInfo? _selectedWindow;
     private OverlayWindow? _overlayWindow;
     private Image? _draggingImage;
     private Point _dragOffset;
@@ -32,6 +36,7 @@ public partial class MainWindow : Window
         DataContext = new { Candidates = _candidates };
         MinSlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         MaxSlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
+        _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closed += (_, _) => _hotkeyService?.Dispose();
         UpdateSizeLabels();
@@ -63,6 +68,7 @@ public partial class MainWindow : Window
         try
         {
             _capturedImage = _captureService.CaptureClientArea(window);
+            _selectedWindow = window;
             CaptureImage.Source = _capturedImage;
             CaptureCanvas.Width = _capturedImage.PixelWidth;
             CaptureCanvas.Height = _capturedImage.PixelHeight;
@@ -175,6 +181,7 @@ public partial class MainWindow : Window
             Top = Math.Max(0, SystemParameters.WorkArea.Top + 120)
         };
         _overlayWindow.Show();
+        _liveOverlayTimer.Start();
         SetStatus("오버레이를 시작했습니다. 오버레이는 클릭을 먹지 않으며 Ctrl+Shift+F8 또는 중지 버튼으로 끌 수 있습니다.");
     }
 
@@ -221,8 +228,11 @@ public partial class MainWindow : Window
         var windows = _windowDiscovery.GetVisibleWindows();
         WindowCombo.ItemsSource = windows;
         WindowCombo.SelectedItem = windows.FirstOrDefault(window => window.LooksLikeMabinogi) ?? windows.FirstOrDefault();
+        var captureStatus = _wgcSupport.IsSupported()
+            ? "WGC 지원 가능"
+            : "WGC 미지원 또는 비활성";
         WindowStatusText.Text = WindowCombo.SelectedItem is GameWindowInfo selected
-            ? selected.LooksLikeMabinogi ? "마비노기 창으로 확인되었습니다." : "마비노기 창으로 확인되지 않았습니다."
+            ? selected.LooksLikeMabinogi ? $"마비노기 창으로 확인되었습니다. ({captureStatus})" : $"마비노기 창으로 확인되지 않았습니다. ({captureStatus})"
             : "선택 가능한 창이 없습니다.";
     }
 
@@ -292,9 +302,34 @@ public partial class MainWindow : Window
 
     private void StopOverlay()
     {
+        _liveOverlayTimer.Stop();
         _overlayWindow?.Close();
         _overlayWindow = null;
         SetStatus("오버레이를 중지했습니다.");
+    }
+
+    private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_selectedWindow is null || _overlayWindow is null || _overlaySlots.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var liveCapture = _captureService.CaptureClientArea(_selectedWindow);
+            foreach (var slot in _overlaySlots)
+            {
+                slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
+            }
+
+            _overlayWindow.RenderSlots(_overlaySlots);
+        }
+        catch (Exception ex)
+        {
+            _liveOverlayTimer.Stop();
+            SetStatus($"라이브 오버레이 갱신 실패: {ex.Message}");
+        }
     }
 
     private void ApplyCanvasSize()

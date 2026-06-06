@@ -16,5 +16,5 @@ public sealed class OverlaySlot
 
     public Rect OverlayRect { get; set; }
 
-    public BitmapSource Preview { get; }
+    public BitmapSource Preview { get; set; }
 }
