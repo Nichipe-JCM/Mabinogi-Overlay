@@ -1,13 +1,12 @@
-﻿using System.Configuration;
-using System.Data;
 using System.Windows;
+using TestOverlay.App.Native;
 
 namespace TestOverlay.App;
 
-/// <summary>
-/// Interaction logic for App.xaml
-/// </summary>
 public partial class App : Application
 {
+    public App()
+    {
+        Win32Methods.TryEnablePerMonitorDpiAwareness();
+    }
 }
-

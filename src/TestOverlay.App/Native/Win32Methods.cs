@@ -5,6 +5,8 @@ namespace TestOverlay.App.Native;
 
 internal static partial class Win32Methods
 {
+    private static readonly nint DpiAwarenessContextPerMonitorAwareV2 = new(-4);
+
     public const int GwlExStyle = -20;
     public const int WsExTransparent = 0x00000020;
     public const int WsExLayered = 0x00080000;
@@ -59,6 +61,22 @@ internal static partial class Win32Methods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool UnregisterHotKey(nint hWnd, int id);
+
+    public static void TryEnablePerMonitorDpiAwareness()
+    {
+        try
+        {
+            SetProcessDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
+        }
+        catch
+        {
+            // Best effort only. WPF or the host may have already set process DPI awareness.
+        }
+    }
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetProcessDpiAwarenessContext(nint value);
 
     [LibraryImport("user32.dll")]
     public static partial nint GetDC(nint hWnd);
