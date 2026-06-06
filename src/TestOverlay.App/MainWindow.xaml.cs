@@ -89,7 +89,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_wgcSelection is not null && !_wgcSelection.LooksLikeMabinogi)
+        if (_wgcSelection is null)
+        {
+            SetStatus("Verify the Mabinogi window with WGC before capture.");
+            return;
+        }
+
+        if (!_wgcSelection.LooksLikeMabinogi)
         {
             SetStatus("WGC verification selected a non-Mabinogi window. Verify WGC again or refresh the window list.");
             return;
