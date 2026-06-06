@@ -156,6 +156,11 @@
                                 <TextBlock Text="Opacity"/>
                                 <Slider x:Name="OpacitySlider" Minimum="0.2" Maximum="1" Value="0.8" TickFrequency="0.05"/>
                             </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="3" Margin="8,0,0,0">
+                                <TextBlock Text="Slot scale"/>
+                                <Slider x:Name="LayoutSlotScaleSlider" Minimum="1" Maximum="3" Value="1.5" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                                <TextBlock x:Name="LayoutSlotScaleText"/>
+                            </StackPanel>
 
                             <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
                                 <TextBlock Text="Screen X"/>

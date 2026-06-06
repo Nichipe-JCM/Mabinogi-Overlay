@@ -45,6 +45,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
+        LayoutSlotScaleSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closed += (_, _) => StopOverlay(setStatus: false);
@@ -170,7 +171,7 @@ public partial class MainWindow : Window
         foreach (var candidate in selected)
         {
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
-            var size = Math.Max(24, candidate.SourceRect.Width * 1.5);
+            var size = Math.Max(16, candidate.SourceRect.Width * ReadLayoutSlotScale());
             if (cursorX + size > LayoutCanvas.Width - 8)
             {
                 cursorX = 8;
@@ -184,6 +185,13 @@ public partial class MainWindow : Window
             AddLayoutImage(slot);
             cursorX += size + 8;
             rowHeight = Math.Max(rowHeight, size);
+        }
+
+        var requiredHeight = cursorY + rowHeight + 8;
+        if (requiredHeight > LayoutCanvas.Height)
+        {
+            LayoutCanvas.Height = requiredHeight;
+            OverlayHeightBox.Text = requiredHeight.ToString("0");
         }
 
         _log.Info($"Placed overlay slots: count={_overlaySlots.Count}, canvas={LayoutCanvas.Width}x{LayoutCanvas.Height}");
@@ -346,6 +354,7 @@ public partial class MainWindow : Window
             Opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1),
             StopHotkey = HotkeyBox.Text,
             RefreshIntervalMs = ReadPositiveInt(RefreshIntervalBox.Text, 500),
+            LayoutSlotScale = ReadLayoutSlotScale(),
             Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
             {
                 SourceX = slot.Source.SourceRect.X,
@@ -386,6 +395,7 @@ public partial class MainWindow : Window
         OpacitySlider.Value = Math.Clamp(profile.Opacity, 0.2, 1);
         HotkeyBox.Text = profile.StopHotkey;
         RefreshIntervalBox.Text = Math.Max(100, profile.RefreshIntervalMs).ToString();
+        LayoutSlotScaleSlider.Value = Math.Clamp(profile.LayoutSlotScale, 1, 3);
         ApplyCanvasSize();
 
         _overlaySlots.Clear();
@@ -761,9 +771,12 @@ public partial class MainWindow : Window
 
     private int ReadSlotSize() => Math.Clamp((int)SlotSizeSlider.Value, 12, 180);
 
+    private double ReadLayoutSlotScale() => Math.Clamp(LayoutSlotScaleSlider.Value, 1, 3);
+
     private void UpdateSizeLabels()
     {
         SlotSizeText.Text = $"{ReadSlotSize()}px";
+        LayoutSlotScaleText.Text = $"{ReadLayoutSlotScale():0.0}x";
     }
 
     private void SetStatus(string message)
