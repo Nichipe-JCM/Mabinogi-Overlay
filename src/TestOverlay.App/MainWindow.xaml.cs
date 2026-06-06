@@ -46,14 +46,13 @@ public partial class MainWindow : Window
         MaxSlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
-        Closed += (_, _) => _hotkeyService?.Dispose();
+        Closed += (_, _) => StopOverlay(setStatus: false);
         UpdateSizeLabels();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshWindows();
-        RegisterStopHotkey();
         _log.Info("Application loaded.");
     }
 
@@ -341,13 +340,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        StopOverlay(setStatus: false);
+        ApplyCanvasSize();
         if (!RegisterStopHotkey())
         {
             return;
         }
 
-        StopOverlay(setStatus: false);
-        ApplyCanvasSize();
         _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(Math.Clamp(ReadPositiveInt(RefreshIntervalBox.Text, 500), 100, 5000));
         var opacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
         _overlayWindow = new OverlayWindow(LayoutCanvas.Width, LayoutCanvas.Height, opacity, _overlaySlots)
@@ -543,6 +542,8 @@ public partial class MainWindow : Window
         _liveOverlayTimer.Stop();
         _overlayWindow?.Close();
         _overlayWindow = null;
+        _hotkeyService?.Dispose();
+        _hotkeyService = null;
         if (setStatus)
         {
             _log.Info("Overlay stopped.");
