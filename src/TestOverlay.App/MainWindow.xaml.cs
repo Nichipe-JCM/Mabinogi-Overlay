@@ -261,10 +261,9 @@ public partial class MainWindow : Window
         }
 
         var pattern = ReadSectionPattern();
-        var gap = Math.Clamp(ReadInt(SectionGapBox.Text, 4), 0, 24);
-        var added = AddSectionCandidates(seed, pattern.Columns, pattern.Rows, gap);
-        _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}, gap={gap}");
-        SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Added {added} slots; adjust gap if alignment is off.");
+        var added = AddSectionCandidates(seed, pattern);
+        _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}");
+        SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Added {added} slots.");
     }
 
     private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -725,44 +724,64 @@ public partial class MainWindow : Window
         }
     }
 
-    private int AddSectionCandidates(SlotCandidate seed, int columns, int rows, int gap)
+    private int AddSectionCandidates(SlotCandidate seed, SectionPattern pattern)
     {
-        var size = seed.SourceRect.Width;
-        var pitchX = size + gap;
-        var pitchY = seed.SourceRect.Height + gap;
         var added = 0;
 
         ClearCandidateSelection();
-        for (var row = 0; row < rows; row++)
+        foreach (var offset in BuildSectionOffsets(seed, pattern))
         {
-            for (var column = 0; column < columns; column++)
+            var rect = new Rect(
+                seed.SourceRect.X + offset.X,
+                seed.SourceRect.Y + offset.Y,
+                seed.SourceRect.Width,
+                seed.SourceRect.Height);
+            if (!IsRectInsideCapture(rect))
             {
-                var rect = new Rect(
-                    seed.SourceRect.X + column * pitchX,
-                    seed.SourceRect.Y + row * pitchY,
-                    seed.SourceRect.Width,
-                    seed.SourceRect.Height);
-                if (!IsRectInsideCapture(rect))
-                {
-                    continue;
-                }
-
-                var existing = FindMatchingCandidate(rect);
-                if (existing is not null)
-                {
-                    existing.IsSelected = true;
-                    continue;
-                }
-
-                var candidate = new SlotCandidate(NextCandidateId(), rect, 200);
-                candidate.IsSelected = true;
-                AddCandidate(candidate);
-                added++;
+                continue;
             }
+
+            var existing = FindMatchingCandidate(rect);
+            if (existing is not null)
+            {
+                existing.IsSelected = true;
+                continue;
+            }
+
+            var candidate = new SlotCandidate(NextCandidateId(), rect, 200);
+            candidate.IsSelected = true;
+            AddCandidate(candidate);
+            added++;
         }
 
         CandidateList.SelectedItem = seed;
         return added;
+    }
+
+    private static IEnumerable<Point> BuildSectionOffsets(SlotCandidate seed, SectionPattern pattern)
+    {
+        var slotWidth = seed.SourceRect.Width;
+        var slotHeight = seed.SourceRect.Height;
+        var innerPitchX = slotWidth + pattern.InnerGapX(slotWidth);
+        var innerPitchY = slotHeight + pattern.InnerGapY(slotHeight);
+        var groupPitchX = pattern.GroupColumns * innerPitchX + pattern.GroupGapX(slotWidth);
+        var groupPitchY = pattern.GroupRows * innerPitchY + pattern.GroupGapY(slotHeight);
+
+        for (var groupY = 0; groupY < pattern.GroupRowsCount; groupY++)
+        {
+            for (var groupX = 0; groupX < pattern.GroupColumnsCount; groupX++)
+            {
+                for (var row = 0; row < pattern.GroupRows; row++)
+                {
+                    for (var column = 0; column < pattern.GroupColumns; column++)
+                    {
+                        yield return new Point(
+                            groupX * groupPitchX + column * innerPitchX,
+                            groupY * groupPitchY + row * innerPitchY);
+                    }
+                }
+            }
+        }
     }
 
     private SlotCandidate? FindMatchingCandidate(Rect rect)
@@ -783,8 +802,8 @@ public partial class MainWindow : Window
 
     private SectionPattern ReadSectionPattern() =>
         SectionPatternCombo.SelectedIndex == 1
-            ? new SectionPattern("left vertical 2x8", 2, 8)
-            : new SectionPattern("top horizontal 12x2", 12, 2);
+            ? SectionPattern.LeftVertical()
+            : SectionPattern.TopGrouped();
 
     private void AddCandidate(SlotCandidate candidate)
     {
@@ -913,9 +932,6 @@ public partial class MainWindow : Window
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
-    private static int ReadInt(string text, int fallback) =>
-        int.TryParse(text, out var value) ? value : fallback;
-
     private void UpdateSizeLabels()
     {
         SlotSizeText.Text = $"{ReadSlotSize()}px";
@@ -935,5 +951,37 @@ public partial class MainWindow : Window
         _log.Info($"Status: {message}");
     }
 
-    private sealed record SectionPattern(string Name, int Columns, int Rows);
+    private sealed record SectionPattern(
+        string Name,
+        int GroupColumns,
+        int GroupRows,
+        int GroupColumnsCount,
+        int GroupRowsCount,
+        Func<double, double> InnerGapX,
+        Func<double, double> InnerGapY,
+        Func<double, double> GroupGapX,
+        Func<double, double> GroupGapY)
+    {
+        public static SectionPattern TopGrouped() => new(
+            "top grouped 4x2 x3",
+            4,
+            2,
+            3,
+            1,
+            _ => 1,
+            _ => 1,
+            slotSize => Math.Max(10, Math.Round(slotSize * 0.55)),
+            _ => 0);
+
+        public static SectionPattern LeftVertical() => new(
+            "left vertical 2x8",
+            2,
+            8,
+            1,
+            1,
+            _ => 1,
+            _ => 1,
+            _ => 0,
+            _ => 0);
+    }
 }
