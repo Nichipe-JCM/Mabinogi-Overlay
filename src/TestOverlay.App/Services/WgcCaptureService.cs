@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -6,6 +5,7 @@ using TestOverlay.App.Native;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
 
 namespace TestOverlay.App.Services;
 
@@ -48,17 +48,15 @@ public sealed class WgcCaptureService
             ? SoftwareBitmap.Copy(source)
             : SoftwareBitmap.Convert(source, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
-        using var buffer = converted.LockBuffer(BitmapBufferAccessMode.Read);
-        using var reference = buffer.CreateReference();
-        ((IMemoryBufferByteAccess)reference).GetBuffer(out var data, out _);
-
-        var description = buffer.GetPlaneDescription(0);
-        var start = data + description.StartIndex;
         var height = converted.PixelHeight;
         var width = converted.PixelWidth;
-        var stride = description.Stride;
+        var stride = width * 4;
         var managed = new byte[stride * height];
-        Marshal.Copy(start, managed, 0, managed.Length);
+        var pixelBuffer = new Windows.Storage.Streams.Buffer((uint)managed.Length);
+        converted.CopyToBuffer(pixelBuffer);
+
+        using var reader = DataReader.FromBuffer(pixelBuffer);
+        reader.ReadBytes(managed);
 
         var bitmap = BitmapSource.Create(
             width,
