@@ -244,6 +244,29 @@ public partial class MainWindow : Window
         SetStatus("Manual candidate added. Drag it over the target quickslot.");
     }
 
+    private void AddSectionFromSelectedButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_capturedImage is null)
+        {
+            SetStatus("Capture the game window before adding a quickslot section.");
+            return;
+        }
+
+        var seed = CandidateList.SelectedItem as SlotCandidate ??
+                   _candidates.FirstOrDefault(candidate => candidate.IsSelected);
+        if (seed is null)
+        {
+            SetStatus("Select or add the top-left slot of the section first.");
+            return;
+        }
+
+        var pattern = ReadSectionPattern();
+        var gap = Math.Clamp(ReadInt(SectionGapBox.Text, 4), 0, 24);
+        var added = AddSectionCandidates(seed, pattern.Columns, pattern.Rows, gap);
+        _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}, gap={gap}");
+        SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Added {added} slots; adjust gap if alignment is off.");
+    }
+
     private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
     {
         DeleteSelectedCandidates();
@@ -702,6 +725,67 @@ public partial class MainWindow : Window
         }
     }
 
+    private int AddSectionCandidates(SlotCandidate seed, int columns, int rows, int gap)
+    {
+        var size = seed.SourceRect.Width;
+        var pitchX = size + gap;
+        var pitchY = seed.SourceRect.Height + gap;
+        var added = 0;
+
+        ClearCandidateSelection();
+        for (var row = 0; row < rows; row++)
+        {
+            for (var column = 0; column < columns; column++)
+            {
+                var rect = new Rect(
+                    seed.SourceRect.X + column * pitchX,
+                    seed.SourceRect.Y + row * pitchY,
+                    seed.SourceRect.Width,
+                    seed.SourceRect.Height);
+                if (!IsRectInsideCapture(rect))
+                {
+                    continue;
+                }
+
+                var existing = FindMatchingCandidate(rect);
+                if (existing is not null)
+                {
+                    existing.IsSelected = true;
+                    continue;
+                }
+
+                var candidate = new SlotCandidate(NextCandidateId(), rect, 200);
+                candidate.IsSelected = true;
+                AddCandidate(candidate);
+                added++;
+            }
+        }
+
+        CandidateList.SelectedItem = seed;
+        return added;
+    }
+
+    private SlotCandidate? FindMatchingCandidate(Rect rect)
+    {
+        var tolerance = Math.Max(2, rect.Width * 0.18);
+        return _candidates.FirstOrDefault(candidate =>
+            Math.Abs(candidate.SourceRect.X - rect.X) <= tolerance &&
+            Math.Abs(candidate.SourceRect.Y - rect.Y) <= tolerance &&
+            Math.Abs(candidate.SourceRect.Width - rect.Width) <= tolerance &&
+            Math.Abs(candidate.SourceRect.Height - rect.Height) <= tolerance);
+    }
+
+    private bool IsRectInsideCapture(Rect rect) =>
+        rect.X >= 0 &&
+        rect.Y >= 0 &&
+        rect.Right <= CaptureCanvas.Width &&
+        rect.Bottom <= CaptureCanvas.Height;
+
+    private SectionPattern ReadSectionPattern() =>
+        SectionPatternCombo.SelectedIndex == 1
+            ? new SectionPattern("left vertical 2x8", 2, 8)
+            : new SectionPattern("top horizontal 12x2", 12, 2);
+
     private void AddCandidate(SlotCandidate candidate)
     {
         _candidates.Add(candidate);
@@ -829,6 +913,9 @@ public partial class MainWindow : Window
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
+    private static int ReadInt(string text, int fallback) =>
+        int.TryParse(text, out var value) ? value : fallback;
+
     private void UpdateSizeLabels()
     {
         SlotSizeText.Text = $"{ReadSlotSize()}px";
@@ -847,4 +934,6 @@ public partial class MainWindow : Window
         StatusText.Text = message;
         _log.Info($"Status: {message}");
     }
+
+    private sealed record SectionPattern(string Name, int Columns, int Rows);
 }

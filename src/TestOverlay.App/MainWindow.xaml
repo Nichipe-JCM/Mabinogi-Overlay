@@ -88,13 +88,39 @@
                         <TextBlock Text="2. Slot Candidates" FontSize="16" FontWeight="SemiBold" Foreground="#20242B"/>
 
                         <Grid Grid.Row="1" Margin="0,12,0,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock Text="Slot size"/>
                                 <Slider x:Name="SlotSizeSlider" Minimum="16" Maximum="96" Value="29" TickFrequency="1" IsSnapToTickEnabled="True"/>
                                 <TextBlock x:Name="SlotSizeText"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="2" Grid.Column="0">
+                                <TextBlock Text="Section pattern"/>
+                                <ComboBox x:Name="SectionPatternCombo" SelectedIndex="0">
+                                    <ComboBoxItem Content="Top horizontal 12x2"/>
+                                    <ComboBoxItem Content="Left vertical 2x8"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Row="2" Grid.Column="2">
+                                <TextBlock Text="Gap px"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SectionGapBox" Text="4"/>
+                                    <Button Grid.Column="2" x:Name="AddSectionFromSelectedButton" Width="96" Height="28" Content="Add Section" Click="AddSectionFromSelectedButton_Click"/>
+                                </Grid>
                             </StackPanel>
                         </Grid>
 
