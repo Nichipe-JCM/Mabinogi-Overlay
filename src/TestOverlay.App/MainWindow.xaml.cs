@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly WindowCaptureService _captureService = new();
     private readonly SlotDetectionService _slotDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
+    private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
@@ -26,6 +27,7 @@ public partial class MainWindow : Window
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
+    private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
     private Image? _draggingImage;
     private Point _dragOffset;
@@ -80,6 +82,28 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             SetStatus($"캡처 실패: {ex.Message}");
+        }
+    }
+
+    private async void VerifyWgcButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var result = await _wgcWindowSelection.PickWindowAsync(this);
+            if (result is null)
+            {
+                SetStatus("WGC 창 선택이 취소되었거나 이 시스템에서 WGC가 지원되지 않습니다.");
+                return;
+            }
+
+            _wgcSelection = result;
+            SetStatus(result.LooksLikeMabinogi
+                ? $"WGC로 마비노기 창을 확인했습니다: {result.DisplayName} ({result.Width}x{result.Height})"
+                : $"WGC 선택 창이 마비노기로 확인되지 않았습니다: {result.DisplayName} ({result.Width}x{result.Height})");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"WGC 창 확인 실패: {ex.Message}");
         }
     }
 

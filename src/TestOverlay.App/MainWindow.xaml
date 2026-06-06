@@ -22,6 +22,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
@@ -34,9 +35,10 @@
                 </StackPanel>
 
                 <Button Grid.Column="1" x:Name="RefreshWindowsButton" Width="110" Height="36" Margin="8,20,0,0" Content="새로고침" Click="RefreshWindowsButton_Click"/>
-                <Button Grid.Column="2" x:Name="CaptureButton" Width="110" Height="36" Margin="8,20,0,0" Content="캡처" Click="CaptureButton_Click"/>
-                <Button Grid.Column="3" x:Name="DetectButton" Width="120" Height="36" Margin="8,20,0,0" Content="후보 탐지" Click="DetectButton_Click"/>
-                <Button Grid.Column="4" x:Name="StopOverlayButton" Width="120" Height="36" Margin="8,20,0,0" Content="오버레이 중지" Click="StopOverlayButton_Click"/>
+                <Button Grid.Column="2" x:Name="VerifyWgcButton" Width="120" Height="36" Margin="8,20,0,0" Content="WGC 확인" Click="VerifyWgcButton_Click"/>
+                <Button Grid.Column="3" x:Name="CaptureButton" Width="110" Height="36" Margin="8,20,0,0" Content="캡처" Click="CaptureButton_Click"/>
+                <Button Grid.Column="4" x:Name="DetectButton" Width="120" Height="36" Margin="8,20,0,0" Content="후보 탐지" Click="DetectButton_Click"/>
+                <Button Grid.Column="5" x:Name="StopOverlayButton" Width="120" Height="36" Margin="8,20,0,0" Content="오버레이 중지" Click="StopOverlayButton_Click"/>
             </Grid>
         </Border>
 
