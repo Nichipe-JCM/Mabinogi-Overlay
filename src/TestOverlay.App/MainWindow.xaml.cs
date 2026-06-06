@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly ProfileStore _profileStore = new();
+    private readonly AppLog _log = new();
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
@@ -51,6 +52,7 @@ public partial class MainWindow : Window
     {
         RefreshWindows();
         RegisterStopHotkey();
+        _log.Info("Application loaded.");
     }
 
     private void RefreshWindowsButton_Click(object sender, RoutedEventArgs e) => RefreshWindows();
@@ -63,16 +65,19 @@ public partial class MainWindow : Window
             if (result is null)
             {
                 SetStatus("WGC window selection was canceled or WGC is not supported.");
+                _log.Info("WGC window selection returned null.");
                 return;
             }
 
             _wgcSelection = result;
+            _log.Info($"WGC selection: {result.DisplayName}, {result.Width}x{result.Height}, looksLikeMabinogi={result.LooksLikeMabinogi}");
             SetStatus(result.LooksLikeMabinogi
                 ? $"WGC verified Mabinogi window: {result.DisplayName} ({result.Width}x{result.Height})"
                 : $"WGC selected window is not recognized as Mabinogi: {result.DisplayName} ({result.Width}x{result.Height})");
         }
         catch (Exception ex)
         {
+            _log.Error("WGC verification failed.", ex);
             SetStatus($"WGC verification failed: {ex.Message}");
         }
     }
@@ -110,6 +115,7 @@ public partial class MainWindow : Window
                 ? await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3))
                 : _captureService.CaptureClientArea(window);
             _selectedWindow = window;
+            _log.Info($"Capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, window={window.DisplayName}");
             CaptureImage.Source = _capturedImage;
             CaptureCanvas.Width = _capturedImage.PixelWidth;
             CaptureCanvas.Height = _capturedImage.PixelHeight;
@@ -120,6 +126,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            _log.Error("Capture failed.", ex);
             SetStatus($"Capture failed: {ex.Message}");
         }
         finally
@@ -154,6 +161,7 @@ public partial class MainWindow : Window
             AddCandidateVisual(candidate);
         }
 
+        _log.Info($"Slot detection completed: count={_candidates.Count}, min={min}, max={max}");
         SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
     }
 
@@ -193,6 +201,7 @@ public partial class MainWindow : Window
             rowHeight = Math.Max(rowHeight, size);
         }
 
+        _log.Info($"Placed overlay slots: count={_overlaySlots.Count}, canvas={LayoutCanvas.Width}x{LayoutCanvas.Height}");
         SetStatus($"Placed {_overlaySlots.Count} slots on the overlay canvas. Drag them to adjust positions.");
     }
 
@@ -234,6 +243,7 @@ public partial class MainWindow : Window
         };
 
         _profileStore.Save(profile);
+        _log.Info($"Profile saved: {_profileStore.DefaultProfilePath}, slots={profile.Slots.Count}");
         SetStatus($"Profile saved: {_profileStore.DefaultProfilePath}");
     }
 
@@ -285,6 +295,7 @@ public partial class MainWindow : Window
             AddLayoutImage(slot);
         }
 
+        _log.Info($"Profile loaded: slots={profile.Slots.Count}");
         SetStatus($"Profile loaded: {profile.Slots.Count} slots.");
     }
 
@@ -311,6 +322,7 @@ public partial class MainWindow : Window
         };
         _overlayWindow.Show();
         _liveOverlayTimer.Start();
+        _log.Info($"Overlay started: size={LayoutCanvas.Width}x{LayoutCanvas.Height}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={opacity}, slots={_overlaySlots.Count}, hotkey={HotkeyBox.Text}");
         SetStatus($"Overlay started. It is click-through. Stop hotkey: {HotkeyBox.Text}");
     }
 
@@ -444,6 +456,7 @@ public partial class MainWindow : Window
         _overlayWindow = null;
         if (setStatus)
         {
+            _log.Info("Overlay stopped.");
             SetStatus("Overlay stopped.");
         }
     }
@@ -471,6 +484,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _liveOverlayTimer.Stop();
+            _log.Error("Live overlay refresh failed.", ex);
             SetStatus($"Live overlay refresh failed: {ex.Message}");
         }
         finally
@@ -491,7 +505,12 @@ public partial class MainWindow : Window
         var registered = _hotkeyService.Register(new WindowInteropHelper(this).Handle, hotkey.Modifiers, hotkey.VirtualKey, () => StopOverlay());
         if (!registered)
         {
+            _log.Info($"Stop hotkey registration failed: {hotkey.DisplayText}");
             SetStatus($"Stop hotkey registration failed: {hotkey.DisplayText}");
+        }
+        else
+        {
+            _log.Info($"Stop hotkey registered: {hotkey.DisplayText}");
         }
 
         return registered;
@@ -515,5 +534,9 @@ public partial class MainWindow : Window
         MaxSlotSizeText.Text = $"{(int)MaxSlotSizeSlider.Value}px";
     }
 
-    private void SetStatus(string message) => StatusText.Text = message;
+    private void SetStatus(string message)
+    {
+        StatusText.Text = message;
+        _log.Info($"Status: {message}");
+    }
 }
