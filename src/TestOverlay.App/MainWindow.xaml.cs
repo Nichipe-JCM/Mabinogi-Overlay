@@ -16,6 +16,7 @@ public partial class MainWindow : Window
 {
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
+    private readonly WgcCaptureService _wgcCaptureService = new();
     private readonly SlotDetectionService _slotDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
@@ -32,6 +33,7 @@ public partial class MainWindow : Window
     private OverlayWindow? _overlayWindow;
     private Image? _draggingImage;
     private Point _dragOffset;
+    private bool _isLiveRefreshInProgress;
 
     public MainWindow()
     {
@@ -75,7 +77,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CaptureButton_Click(object sender, RoutedEventArgs e)
+    private async void CaptureButton_Click(object sender, RoutedEventArgs e)
     {
         if (WindowCombo.SelectedItem is not GameWindowInfo window)
         {
@@ -103,7 +105,10 @@ public partial class MainWindow : Window
 
         try
         {
-            _capturedImage = _captureService.CaptureClientArea(window);
+            CaptureButton.IsEnabled = false;
+            _capturedImage = _wgcSelection is not null
+                ? await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3))
+                : _captureService.CaptureClientArea(window);
             _selectedWindow = window;
             CaptureImage.Source = _capturedImage;
             CaptureCanvas.Width = _capturedImage.PixelWidth;
@@ -111,11 +116,15 @@ public partial class MainWindow : Window
             CaptureInfoText.Text = $"{_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}";
             _candidates.Clear();
             ClearCandidateRects();
-            SetStatus("Captured the verified Mabinogi window. Run slot detection next.");
+            SetStatus("Captured the verified Mabinogi window with WGC. Run slot detection next.");
         }
         catch (Exception ex)
         {
             SetStatus($"Capture failed: {ex.Message}");
+        }
+        finally
+        {
+            CaptureButton.IsEnabled = true;
         }
     }
 
@@ -439,16 +448,19 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
+    private async void LiveOverlayTimer_Tick(object? sender, EventArgs e)
     {
-        if (_selectedWindow is null || _overlayWindow is null || _overlaySlots.Count == 0)
+        if (_selectedWindow is null || _overlayWindow is null || _overlaySlots.Count == 0 || _isLiveRefreshInProgress)
         {
             return;
         }
 
         try
         {
-            var liveCapture = _captureService.CaptureClientArea(_selectedWindow);
+            _isLiveRefreshInProgress = true;
+            var liveCapture = _wgcSelection is not null
+                ? await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3))
+                : _captureService.CaptureClientArea(_selectedWindow);
             foreach (var slot in _overlaySlots)
             {
                 slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
@@ -460,6 +472,10 @@ public partial class MainWindow : Window
         {
             _liveOverlayTimer.Stop();
             SetStatus($"Live overlay refresh failed: {ex.Message}");
+        }
+        finally
+        {
+            _isLiveRefreshInProgress = false;
         }
     }
 

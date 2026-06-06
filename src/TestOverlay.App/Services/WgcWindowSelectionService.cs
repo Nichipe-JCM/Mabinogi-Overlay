@@ -20,6 +20,6 @@ public sealed class WgcWindowSelectionService
         var item = await picker.PickSingleItemAsync();
         return item is null
             ? null
-            : new WgcSelectionResult(item.DisplayName, item.Size.Width, item.Size.Height);
+            : new WgcSelectionResult(item.DisplayName, item.Size.Width, item.Size.Height, item);
     }
 }
