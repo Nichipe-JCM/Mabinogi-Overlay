@@ -66,6 +66,13 @@ public sealed class SlotCandidate : INotifyPropertyChanged
         OnPropertyChanged(nameof(Label));
     }
 
+    public void ResizeTo(double width, double height)
+    {
+        SourceRect = new Rect(SourceRect.X, SourceRect.Y, width, height);
+        OnPropertyChanged(nameof(SourceRect));
+        OnPropertyChanged(nameof(Label));
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

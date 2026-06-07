@@ -263,19 +263,20 @@ public partial class MainWindow : Window
         foreach (var candidate in selected)
         {
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
-            var size = Math.Max(16, candidate.SourceRect.Width * ReadLayoutSlotScale());
-            if (cursorX + size > _layoutCanvasWidth - 8)
+            var width = Math.Max(16, candidate.SourceRect.Width * ReadLayoutSlotScale());
+            var height = Math.Max(16, candidate.SourceRect.Height * ReadLayoutSlotScale());
+            if (cursorX + width > _layoutCanvasWidth - 8)
             {
                 cursorX = 8;
                 cursorY += rowHeight + 8;
                 rowHeight = 0;
             }
 
-            var rect = new Rect(cursorX, cursorY, size, size);
+            var rect = new Rect(cursorX, cursorY, width, height);
             var slot = new OverlaySlot(candidate, rect, crop);
             _overlaySlots.Add(slot);
-            cursorX += size + 8;
-            rowHeight = Math.Max(rowHeight, size);
+            cursorX += width + 8;
+            rowHeight = Math.Max(rowHeight, height);
         }
 
         var requiredHeight = cursorY + rowHeight + 8;
@@ -333,6 +334,55 @@ public partial class MainWindow : Window
         CandidateList.SelectedItem = candidate;
         PushUndoIfChanged(before);
         SetStatus("Manual candidate added. Drag it over the target quickslot.");
+    }
+
+    private void ApplySlotSizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_capturedImage is null)
+        {
+            SetStatus("Capture the game window before resizing a candidate.");
+            return;
+        }
+
+        var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
+        if (selected.Count == 0 && CandidateList.SelectedItem is SlotCandidate highlighted)
+        {
+            selected.Add(highlighted);
+        }
+
+        selected = selected.Distinct().ToList();
+        if (selected.Count != 1)
+        {
+            SetStatus("Select exactly one candidate before applying slot size.");
+            return;
+        }
+
+        var candidate = selected[0];
+        var width = ReadSlotInnerWidth();
+        var height = ReadSlotInnerHeight();
+        var resizedRect = new Rect(candidate.SourceRect.X, candidate.SourceRect.Y, width, height);
+        if (!IsRectInsideCapture(resizedRect))
+        {
+            SetStatus("The resized candidate would exceed the captured image bounds.");
+            return;
+        }
+
+        var before = CaptureCandidateSnapshot();
+        var oldWidth = Math.Max(1, candidate.SourceRect.Width);
+        var oldHeight = Math.Max(1, candidate.SourceRect.Height);
+        candidate.ResizeTo(width, height);
+        UpdateCandidateVisualPosition(candidate);
+
+        foreach (var slot in _overlaySlots.Where(slot => ReferenceEquals(slot.Source, candidate)))
+        {
+            slot.Preview = _captureService.Crop(_capturedImage, candidate.SourceRect);
+            var overlayWidth = Math.Max(16, slot.OverlayRect.Width * width / oldWidth);
+            var overlayHeight = Math.Max(16, slot.OverlayRect.Height * height / oldHeight);
+            slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, overlayWidth, overlayHeight);
+        }
+
+        PushUndoIfChanged(before);
+        SetStatus($"Applied candidate size {width}x{height} to #{candidate.Id:000}.");
     }
 
     private void AddSectionFromSelectedButton_Click(object sender, RoutedEventArgs e)
@@ -961,6 +1011,11 @@ public partial class MainWindow : Window
         var clampedX = Math.Clamp(x, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Width - candidate.SourceRect.Width - CandidateBorderPixels));
         var clampedY = Math.Clamp(y, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Height - candidate.SourceRect.Height - CandidateBorderPixels));
         candidate.MoveTo(clampedX, clampedY);
+        UpdateCandidateVisualPosition(candidate);
+    }
+
+    private void UpdateCandidateVisualPosition(SlotCandidate candidate)
+    {
         if (_candidateRects.TryGetValue(candidate, out var candidateRect))
         {
             var visualRect = GetCandidateVisualRect(candidate);

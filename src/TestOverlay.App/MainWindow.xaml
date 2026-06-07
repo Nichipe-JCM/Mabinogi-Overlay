@@ -125,6 +125,7 @@
                                     <TextBox x:Name="SlotWidthBox" Width="64" Height="24" Margin="6,0,14,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
                                     <TextBlock Text="H" VerticalAlignment="Center"/>
                                     <TextBox x:Name="SlotHeightBox" Width="64" Height="24" Margin="6,0,0,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
+                                    <Button x:Name="ApplySlotSizeButton" Width="64" Height="24" Margin="10,0,0,0" Content="Apply" Click="ApplySlotSizeButton_Click"/>
                                 </WrapPanel>
                                 <TextBlock x:Name="SlotSizeText"/>
                             </StackPanel>

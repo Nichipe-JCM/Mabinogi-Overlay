@@ -13,7 +13,7 @@ public partial class LayoutEditorWindow : Window
     private readonly Dictionary<Image, OverlaySlot> _images = new();
     private readonly HashSet<OverlaySlot> _selectedSlots = new();
     private readonly Dictionary<OverlaySlot, Rect> _slotDragOrigins = new();
-    private readonly Dictionary<OverlaySlot, double> _sourceSizes = new();
+    private readonly Dictionary<OverlaySlot, Size> _sourceSizes = new();
     private static readonly int[] FpsOptions = [30, 60, 120, 144];
     private readonly Rectangle _overlayPreviewRect = new();
     private Image? _draggingImage;
@@ -48,7 +48,9 @@ public partial class LayoutEditorWindow : Window
         SlotScale = Math.Clamp(slotScale, 1, 3);
         foreach (var slot in _slots)
         {
-            _sourceSizes[slot] = Math.Max(1, slot.Source.SourceRect.Width);
+            _sourceSizes[slot] = new Size(
+                Math.Max(1, slot.Source.SourceRect.Width),
+                Math.Max(1, slot.Source.SourceRect.Height));
         }
 
         SlotScaleSlider.ValueChanged += (_, _) =>
@@ -486,9 +488,10 @@ public partial class LayoutEditorWindow : Window
         {
             var sourceSize = _sourceSizes.TryGetValue(slot, out var savedSize)
                 ? savedSize
-                : Math.Max(1, slot.Source.SourceRect.Width);
-            var size = Math.Max(16, sourceSize * scale);
-            slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, size, size);
+                : new Size(Math.Max(1, slot.Source.SourceRect.Width), Math.Max(1, slot.Source.SourceRect.Height));
+            var width = Math.Max(16, sourceSize.Width * scale);
+            var height = Math.Max(16, sourceSize.Height * scale);
+            slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, width, height);
         }
 
         ClampSlotsToCanvas();
