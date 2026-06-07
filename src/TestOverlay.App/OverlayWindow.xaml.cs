@@ -25,6 +25,8 @@ public partial class OverlayWindow : Window
         Width = Math.Max(120, width);
         Height = Math.Max(80, height);
         Opacity = opacity;
+        Focusable = false;
+        ShowActivated = false;
         SourceInitialized += (_, _) =>
         {
             ConfigureClickThrough();
@@ -86,6 +88,12 @@ public partial class OverlayWindow : Window
 
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
     {
+        if (msg == Win32Methods.WmMouseActivate)
+        {
+            handled = true;
+            return Win32Methods.MaNoActivate;
+        }
+
         if (msg == Win32Methods.WmNcHitTest)
         {
             handled = true;

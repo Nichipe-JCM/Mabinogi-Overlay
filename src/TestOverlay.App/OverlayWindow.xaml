@@ -5,8 +5,9 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
+        ShowActivated="False"
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True">
-    <Canvas x:Name="OverlayCanvas" Background="Transparent"/>
+    <Canvas x:Name="OverlayCanvas" Background="Transparent" Focusable="False" IsHitTestVisible="False"/>
 </Window>
