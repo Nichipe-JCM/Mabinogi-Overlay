@@ -521,6 +521,11 @@ public partial class MainWindow : Window
             }
 
             _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
+            if (_wgcSelection is not null)
+            {
+                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
+            }
+
             _overlayWindow = new OverlayWindow(_layoutCanvasWidth, _layoutCanvasHeight, _overlayOpacity, _overlaySlots)
             {
                 Left = _overlayLeft,
@@ -987,6 +992,7 @@ public partial class MainWindow : Window
     private void StopOverlay(bool setStatus = true)
     {
         _liveOverlayTimer.Stop();
+        _wgcCaptureService.StopLiveCapture();
         _overlayWindow?.Close();
         _overlayWindow = null;
         _hotkeyService?.Dispose();
@@ -998,7 +1004,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void LiveOverlayTimer_Tick(object? sender, EventArgs e)
+    private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
     {
         if ((_wgcSelection is null && _selectedWindow is null) ||
             _overlayWindow is null ||
@@ -1011,9 +1017,26 @@ public partial class MainWindow : Window
         try
         {
             _isLiveRefreshInProgress = true;
-            var liveCapture = _wgcSelection is not null
-                ? await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3))
-                : _captureService.CaptureClientArea(_selectedWindow!);
+            BitmapSource liveCapture;
+            if (_wgcSelection is not null)
+            {
+                if (_wgcCaptureService.LastLiveCaptureException is not null)
+                {
+                    throw new InvalidOperationException("Live WGC capture failed.", _wgcCaptureService.LastLiveCaptureException);
+                }
+
+                if (!_wgcCaptureService.TryGetLatestFrame(out var latestFrame) || latestFrame is null)
+                {
+                    return;
+                }
+
+                liveCapture = latestFrame;
+            }
+            else
+            {
+                liveCapture = _captureService.CaptureClientArea(_selectedWindow!);
+            }
+
             foreach (var slot in _overlaySlots)
             {
                 slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
