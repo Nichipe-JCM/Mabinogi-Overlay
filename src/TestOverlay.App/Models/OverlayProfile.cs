@@ -22,6 +22,8 @@ public sealed class OverlayProfile
 
     public double LayoutSlotScale { get; set; } = 1.5;
 
+    public double GridSnapSize { get; set; } = 8;
+
     public int SlotInnerSize { get; set; } = 29;
 
     public int SlotInnerWidth { get; set; } = 29;
@@ -65,4 +67,8 @@ public sealed class OverlayProfileSlot
     public double OverlayWidth { get; set; }
 
     public double OverlayHeight { get; set; }
+
+    public double Opacity { get; set; } = 1;
+
+    public double Scale { get; set; } = 1;
 }

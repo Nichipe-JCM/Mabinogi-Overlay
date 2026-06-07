@@ -84,6 +84,7 @@ public partial class OverlayWindow : Window
                 Height = slot.OverlayRect.Height,
                 Source = slot.Preview,
                 Stretch = Stretch.Fill,
+                Opacity = Math.Clamp(slot.Opacity, 0.05, 1),
                 Focusable = false,
                 IsHitTestVisible = false
             };

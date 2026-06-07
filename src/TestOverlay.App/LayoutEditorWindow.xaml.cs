@@ -38,6 +38,7 @@ public partial class LayoutEditorWindow : Window
         string hotkey,
         int refreshFps,
         double slotScale,
+        double gridSnapSize,
         IList<OverlaySlot> slots)
     {
         InitializeComponent();
@@ -50,6 +51,7 @@ public partial class LayoutEditorWindow : Window
         StopHotkey = hotkey;
         RefreshFps = CoerceFps(refreshFps);
         SlotScale = Math.Clamp(slotScale, 1, 3);
+        GridSnapSize = Math.Clamp(gridSnapSize, 1, 64);
         foreach (var slot in _slots)
         {
             _sourceSizes[slot] = new Size(
@@ -62,7 +64,6 @@ public partial class LayoutEditorWindow : Window
             SlotScaleText.Text = $"{SlotScaleSlider.Value:0.0}x";
             if (_isPopulatingControls)
             {
-                ResizeSlotsToScale(SlotScaleSlider.Value);
                 return;
             }
 
@@ -71,6 +72,30 @@ public partial class LayoutEditorWindow : Window
             PushUndoIfChanged(before);
         };
         GridSizeSlider.ValueChanged += (_, _) => UpdateGridSizeText();
+        SelectedOpacitySlider.ValueChanged += (_, _) =>
+        {
+            if (_isPopulatingControls)
+            {
+                UpdateSelectedSlotControlText();
+                return;
+            }
+
+            var before = CaptureLayoutSnapshot();
+            ApplySelectedSlotOpacity(SelectedOpacitySlider.Value);
+            PushUndoIfChanged(before);
+        };
+        SelectedSlotScaleSlider.ValueChanged += (_, _) =>
+        {
+            if (_isPopulatingControls)
+            {
+                UpdateSelectedSlotControlText();
+                return;
+            }
+
+            var before = CaptureLayoutSnapshot();
+            ApplySelectedSlotScale(SelectedSlotScaleSlider.Value);
+            PushUndoIfChanged(before);
+        };
         PopulateControls();
         UpdateGridSizeText();
         InitializeOverlayPreview();
@@ -93,6 +118,8 @@ public partial class LayoutEditorWindow : Window
 
     public double SlotScale { get; private set; }
 
+    public double GridSnapSize { get; private set; } = 8;
+
     private void PopulateControls()
     {
         _isPopulatingControls = true;
@@ -107,6 +134,8 @@ public partial class LayoutEditorWindow : Window
         RefreshFpsCombo.SelectedItem = RefreshFps;
         SlotScaleSlider.Value = SlotScale;
         SlotScaleText.Text = $"{SlotScale:0.0}x";
+        GridSizeSlider.Value = GridSnapSize;
+        UpdateSelectedSlotControls();
         _isPopulatingControls = false;
     }
 
@@ -140,6 +169,7 @@ public partial class LayoutEditorWindow : Window
                 Width = slot.OverlayRect.Width,
                 Height = slot.OverlayRect.Height,
                 Stretch = Stretch.Fill,
+                Opacity = Math.Clamp(slot.Opacity, 0.05, 1),
                 Cursor = Cursors.SizeAll
             };
             image.MouseLeftButtonDown += SlotImage_MouseLeftButtonDown;
@@ -150,6 +180,7 @@ public partial class LayoutEditorWindow : Window
         }
 
         UpdateSlotSelectionVisuals();
+        UpdateSelectedSlotControls();
     }
 
     private void SlotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -174,6 +205,7 @@ public partial class LayoutEditorWindow : Window
         }
 
         UpdateSlotSelectionVisuals();
+        UpdateSelectedSlotControls();
         _draggingImage = image;
         _dragOffset = e.GetPosition(_draggingImage);
         _slotDragStartPosition = e.GetPosition(EditorCanvas);
@@ -200,6 +232,7 @@ public partial class LayoutEditorWindow : Window
         {
             _selectedSlots.Clear();
             UpdateSlotSelectionVisuals();
+            UpdateSelectedSlotControls();
         }
 
         _isSelectingSlots = true;
@@ -326,6 +359,7 @@ public partial class LayoutEditorWindow : Window
             ? selectedFps
             : CoerceFps(RefreshFps);
         SlotScale = Math.Clamp(SlotScaleSlider.Value, 1, 3);
+        GridSnapSize = ReadGridSize();
         ApplyCanvasSize();
         UpdateOverlayPreview();
     }
@@ -416,6 +450,7 @@ public partial class LayoutEditorWindow : Window
         _isSelectingSlots = false;
         EditorCanvas.Focus();
         UpdateSlotSelectionVisuals();
+        UpdateSelectedSlotControls();
     }
 
     private void SnapSelectedSlots()
@@ -430,7 +465,7 @@ public partial class LayoutEditorWindow : Window
     {
         foreach (var (image, slot) in _images)
         {
-            image.Opacity = _selectedSlots.Contains(slot) ? 1.0 : 0.72;
+            image.Opacity = Math.Clamp(slot.Opacity, 0.05, 1) * (_selectedSlots.Contains(slot) ? 1.0 : 0.72);
             image.Effect = _selectedSlots.Contains(slot)
                 ? new System.Windows.Media.Effects.DropShadowEffect
                 {
@@ -514,6 +549,94 @@ public partial class LayoutEditorWindow : Window
         PushUndoIfChanged(before);
     }
 
+    private void ApplySelectedSlotOpacity(double opacity)
+    {
+        if (_selectedSlots.Count == 0)
+        {
+            return;
+        }
+
+        var clampedOpacity = Math.Clamp(opacity, 0.05, 1);
+        foreach (var slot in _selectedSlots)
+        {
+            slot.Opacity = clampedOpacity;
+        }
+
+        RenderSlots();
+        UpdateOverlayPreview();
+    }
+
+    private void ApplySelectedSlotScale(double scale)
+    {
+        if (_selectedSlots.Count == 0)
+        {
+            return;
+        }
+
+        var clampedScale = Math.Clamp(scale, 0.1, 10);
+        foreach (var slot in _selectedSlots)
+        {
+            slot.Scale = clampedScale;
+            var sourceSize = _sourceSizes.TryGetValue(slot, out var savedSize)
+                ? savedSize
+                : new Size(Math.Max(1, slot.Source.SourceRect.Width), Math.Max(1, slot.Source.SourceRect.Height));
+            slot.OverlayRect = new Rect(
+                slot.OverlayRect.X,
+                slot.OverlayRect.Y,
+                Math.Max(1, sourceSize.Width * clampedScale),
+                Math.Max(1, sourceSize.Height * clampedScale));
+        }
+
+        ClampSlotsToCanvas();
+        RenderSlots();
+        UpdateOverlayPreview();
+    }
+
+    private void UpdateSelectedSlotControls()
+    {
+        if (SelectedOpacitySlider is null || SelectedSlotScaleSlider is null)
+        {
+            return;
+        }
+
+        _isPopulatingControls = true;
+        try
+        {
+            var selected = _selectedSlots.FirstOrDefault();
+            var hasSelection = selected is not null;
+            SelectedOpacitySlider.IsEnabled = hasSelection;
+            SelectedSlotScaleSlider.IsEnabled = hasSelection;
+            if (selected is not null)
+            {
+                SelectedOpacitySlider.Value = Math.Clamp(selected.Opacity, 0.05, 1);
+                SelectedSlotScaleSlider.Value = Math.Clamp(selected.Scale, 0.1, 10);
+            }
+
+            UpdateSelectedSlotControlText();
+        }
+        finally
+        {
+            _isPopulatingControls = false;
+        }
+    }
+
+    private void UpdateSelectedSlotControlText()
+    {
+        if (SelectedOpacityText is not null)
+        {
+            SelectedOpacityText.Text = _selectedSlots.Count == 0
+                ? "Selected opacity"
+                : $"Selected opacity {SelectedOpacitySlider.Value:0.00} ({_selectedSlots.Count})";
+        }
+
+        if (SelectedSlotScaleText is not null)
+        {
+            SelectedSlotScaleText.Text = _selectedSlots.Count == 0
+                ? "Selected slot scale"
+                : $"Selected slot scale {SelectedSlotScaleSlider.Value:0.0}x ({_selectedSlots.Count})";
+        }
+    }
+
     private double Snap(double value)
     {
         var gridSize = ReadGridSize();
@@ -567,6 +690,7 @@ public partial class LayoutEditorWindow : Window
             var width = Math.Max(16, sourceSize.Width * scale);
             var height = Math.Max(16, sourceSize.Height * scale);
             slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, width, height);
+            slot.Scale = Math.Clamp(scale, 0.1, 10);
         }
 
         ClampSlotsToCanvas();
@@ -675,7 +799,7 @@ public partial class LayoutEditorWindow : Window
     {
         return new LayoutSnapshot(
             _slots
-                .Select(slot => new SlotSnapshot(slot, slot.OverlayRect, slot.Source.IsSelected))
+                .Select(slot => new SlotSnapshot(slot, slot.OverlayRect, slot.Source.IsSelected, slot.Opacity, slot.Scale))
                 .ToList(),
             _selectedSlots.Where(slot => _slots.Contains(slot)).ToList());
     }
@@ -726,6 +850,8 @@ public partial class LayoutEditorWindow : Window
         {
             slotState.Slot.OverlayRect = slotState.OverlayRect;
             slotState.Slot.Source.IsSelected = slotState.SourceSelected;
+            slotState.Slot.Opacity = slotState.Opacity;
+            slotState.Slot.Scale = slotState.Scale;
             _slots.Add(slotState.Slot);
             _sourceSizes.TryAdd(
                 slotState.Slot,
@@ -760,7 +886,9 @@ public partial class LayoutEditorWindow : Window
             var rightSlot = right.Slots[i];
             if (!ReferenceEquals(leftSlot.Slot, rightSlot.Slot)
                 || leftSlot.OverlayRect != rightSlot.OverlayRect
-                || leftSlot.SourceSelected != rightSlot.SourceSelected)
+                || leftSlot.SourceSelected != rightSlot.SourceSelected
+                || !DoubleEquals(leftSlot.Opacity, rightSlot.Opacity)
+                || !DoubleEquals(leftSlot.Scale, rightSlot.Scale))
             {
                 return false;
             }
@@ -797,9 +925,12 @@ public partial class LayoutEditorWindow : Window
     private static int CoerceFps(int fps) =>
         FpsOptions.OrderBy(option => Math.Abs(option - fps)).First();
 
+    private static bool DoubleEquals(double left, double right) =>
+        Math.Abs(left - right) < 0.0001;
+
     private sealed record PreviewGeometry(double Left, double Top, double Width, double Height, double Scale);
 
-    private sealed record SlotSnapshot(OverlaySlot Slot, Rect OverlayRect, bool SourceSelected);
+    private sealed record SlotSnapshot(OverlaySlot Slot, Rect OverlayRect, bool SourceSelected, double Opacity, double Scale);
 
     private sealed record LayoutSnapshot(List<SlotSnapshot> Slots, List<OverlaySlot> SelectedSlots);
 }

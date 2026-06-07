@@ -52,7 +52,7 @@ public partial class OverlayPlacementPreviewWindow : Window
                 Width = slot.OverlayRect.Width,
                 Height = slot.OverlayRect.Height,
                 Stretch = Stretch.Fill,
-                Opacity = 0.9,
+                Opacity = Math.Clamp(slot.Opacity, 0.05, 1) * 0.9,
                 IsHitTestVisible = false
             };
             Canvas.SetLeft(image, slot.OverlayRect.X);

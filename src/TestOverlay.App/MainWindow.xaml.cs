@@ -63,6 +63,7 @@ public partial class MainWindow : Window
     private string _stopHotkey = "Ctrl+Shift+F8";
     private int _refreshFps = 60;
     private double _layoutSlotScale = 1.5;
+    private double _layoutGridSnapSize = 8;
 
     public MainWindow()
     {
@@ -299,7 +300,7 @@ public partial class MainWindow : Window
             }
 
             var rect = new Rect(cursorX, cursorY, width, height);
-            var slot = new OverlaySlot(candidate, rect, crop);
+            var slot = new OverlaySlot(candidate, rect, crop, scale: ReadLayoutSlotScale());
             _overlaySlots.Add(slot);
             cursorX += width + 8;
             rowHeight = Math.Max(rowHeight, height);
@@ -625,6 +626,7 @@ public partial class MainWindow : Window
             _stopHotkey,
             _refreshFps,
             _layoutSlotScale,
+            _layoutGridSnapSize,
             _overlaySlots)
         {
             Owner = this
@@ -638,6 +640,7 @@ public partial class MainWindow : Window
         _stopHotkey = editor.StopHotkey;
         _refreshFps = editor.RefreshFps;
         _layoutSlotScale = editor.SlotScale;
+        _layoutGridSnapSize = editor.GridSnapSize;
         UpdateLayoutSummary();
         SetStatus("Layout editor closed. Overlay settings updated.");
     }
@@ -674,6 +677,7 @@ public partial class MainWindow : Window
             RefreshIntervalMs = RefreshIntervalFromFps(_refreshFps),
             RefreshFps = _refreshFps,
             LayoutSlotScale = ReadLayoutSlotScale(),
+            GridSnapSize = _layoutGridSnapSize,
             SlotInnerSize = Math.Min(ReadSlotInnerWidth(), ReadSlotInnerHeight()),
             SlotInnerWidth = ReadSlotInnerWidth(),
             SlotInnerHeight = ReadSlotInnerHeight(),
@@ -697,7 +701,9 @@ public partial class MainWindow : Window
                 OverlayX = slot.OverlayRect.X,
                 OverlayY = slot.OverlayRect.Y,
                 OverlayWidth = slot.OverlayRect.Width,
-                OverlayHeight = slot.OverlayRect.Height
+                OverlayHeight = slot.OverlayRect.Height,
+                Opacity = slot.Opacity,
+                Scale = slot.Scale
             }).ToList()
         };
 
@@ -734,6 +740,7 @@ public partial class MainWindow : Window
             ? profile.RefreshFps
             : FpsFromInterval(profile.RefreshIntervalMs));
         _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
+        _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 8, 1, 64);
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
         SlotWidthBox.Text = ReadSlotDimensionText(profileWidth, ReadSlotInnerWidth());
@@ -758,7 +765,9 @@ public partial class MainWindow : Window
             var slot = new OverlaySlot(
                 candidate,
                 new Rect(savedSlot.OverlayX, savedSlot.OverlayY, savedSlot.OverlayWidth, savedSlot.OverlayHeight),
-                crop);
+                crop,
+                savedSlot.Opacity > 0 ? savedSlot.Opacity : 1,
+                savedSlot.Scale > 0 ? savedSlot.Scale : InferSlotScale(savedSlot));
             _overlaySlots.Add(slot);
         }
 
@@ -1732,6 +1741,14 @@ public partial class MainWindow : Window
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
+    private static double InferSlotScale(OverlayProfileSlot slot)
+    {
+        var scaleX = slot.SourceWidth > 0 ? slot.OverlayWidth / slot.SourceWidth : 1;
+        var scaleY = slot.SourceHeight > 0 ? slot.OverlayHeight / slot.SourceHeight : 1;
+        var scale = Math.Min(scaleX > 0 ? scaleX : 1, scaleY > 0 ? scaleY : 1);
+        return Math.Clamp(scale, 0.1, 10);
+    }
+
     private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 0, 30);
 
     private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 0, 30);
@@ -1863,7 +1880,7 @@ public partial class MainWindow : Window
         LayoutSummaryText.Text =
             $"Slots: {_overlaySlots.Count} | Canvas: {_layoutCanvasWidth:0}x{_layoutCanvasHeight:0} | " +
             $"Screen: {_overlayLeft:0}, {_overlayTop:0} | Opacity: {_overlayOpacity:0.00} | " +
-            $"Scale: {_layoutSlotScale:0.0}x | Hotkey: {_stopHotkey} | Max FPS: {_refreshFps}";
+            $"Scale: {_layoutSlotScale:0.0}x | Grid: {_layoutGridSnapSize:0}px | Hotkey: {_stopHotkey} | Max FPS: {_refreshFps}";
     }
 
     private void SetStatus(string message)
