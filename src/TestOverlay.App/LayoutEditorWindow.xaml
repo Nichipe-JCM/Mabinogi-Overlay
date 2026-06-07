@@ -6,7 +6,8 @@
         Height="720"
         MinWidth="760"
         MinHeight="520"
-        Background="#F3F5F7">
+        Background="#F3F5F7"
+        KeyDown="Window_KeyDown">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -16,6 +17,10 @@
 
         <Grid Grid.Row="0" Margin="0,0,0,12">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="10"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="8"/>
                 <RowDefinition Height="Auto"/>
@@ -64,7 +69,12 @@
                 <ComboBox x:Name="RefreshFpsCombo"/>
             </StackPanel>
 
-            <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Height="128" BorderBrush="#9AA4B2" BorderThickness="1" Background="#111827">
+            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4">
+                <TextBlock x:Name="GridSizeText"/>
+                <Slider x:Name="GridSizeSlider" Minimum="1" Maximum="64" Value="8" TickFrequency="1" IsSnapToTickEnabled="True"/>
+            </StackPanel>
+
+            <Border Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4" Height="128" BorderBrush="#9AA4B2" BorderThickness="1" Background="#111827">
                 <Canvas x:Name="ScreenPreviewCanvas"
                         Background="#111827"
                         MouseMove="ScreenPreviewCanvas_MouseMove"
@@ -75,7 +85,9 @@
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">
             <Border BorderBrush="#2F3645" BorderThickness="1" Background="#202633">
                 <Canvas x:Name="EditorCanvas"
+                        Focusable="True"
                         Background="#202633"
+                        MouseLeftButtonDown="EditorCanvas_MouseLeftButtonDown"
                         MouseMove="EditorCanvas_MouseMove"
                         MouseLeftButtonUp="EditorCanvas_MouseLeftButtonUp"/>
             </Border>

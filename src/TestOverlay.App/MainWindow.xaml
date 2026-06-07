@@ -71,6 +71,7 @@
                                   Background="#111827"
                                   PreviewMouseWheel="PreviewScrollViewer_PreviewMouseWheel">
                         <Canvas x:Name="CaptureCanvas"
+                                Focusable="True"
                                 Background="#111827"
                                 MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
                                 MouseMove="CaptureCanvas_MouseMove"

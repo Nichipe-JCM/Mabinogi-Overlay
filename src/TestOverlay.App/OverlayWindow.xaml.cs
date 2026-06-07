@@ -25,6 +25,14 @@ public partial class OverlayWindow : Window
         Width = Math.Max(120, width);
         Height = Math.Max(80, height);
         Opacity = opacity;
+        SourceInitialized += (_, _) =>
+        {
+            ConfigureClickThrough();
+            if (PresentationSource.FromVisual(this) is HwndSource source)
+            {
+                source.AddHook(WndProc);
+            }
+        };
         Loaded += (_, _) => ConfigureClickThrough();
         RenderSlots(slots);
     }
@@ -74,6 +82,17 @@ public partial class OverlayWindow : Window
             IsNoActivateConfigured = false;
             IsTopmostConfigured = Topmost;
         }
+    }
+
+    private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        if (msg == Win32Methods.WmNcHitTest)
+        {
+            handled = true;
+            return Win32Methods.HtTransparent;
+        }
+
+        return nint.Zero;
     }
 
     private static bool HasStyle(int value, int style) => (value & style) == style;

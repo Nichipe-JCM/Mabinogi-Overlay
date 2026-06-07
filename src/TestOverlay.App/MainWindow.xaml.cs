@@ -1093,6 +1093,8 @@ public partial class MainWindow : Window
             return false;
         }
 
+        Keyboard.ClearFocus();
+        CaptureCanvas.Focus();
         var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
         if (selected.Count == 0 && CandidateList.SelectedItem is SlotCandidate highlighted)
         {
@@ -1211,6 +1213,7 @@ public partial class MainWindow : Window
         _selectedSection = null;
         _nextSectionId = 1;
         SectionCombo.SelectedItem = null;
+        RefreshSectionLabels();
     }
 
     private void RemoveSectionsContaining(IReadOnlyCollection<SlotCandidate> candidates)
@@ -1232,8 +1235,20 @@ public partial class MainWindow : Window
 
     private void RefreshSectionLabels()
     {
+        foreach (var candidate in _candidates)
+        {
+            candidate.SectionMembership = string.Empty;
+        }
+
         foreach (var section in _sections)
         {
+            foreach (var candidate in section.Candidates.Where(candidate => _candidates.Contains(candidate)))
+            {
+                candidate.SectionMembership = string.IsNullOrWhiteSpace(candidate.SectionMembership)
+                    ? $"section {section.Id:00}"
+                    : $"{candidate.SectionMembership},{section.Id:00}";
+            }
+
             section.RefreshLabel();
         }
 

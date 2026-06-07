@@ -7,6 +7,7 @@ namespace TestOverlay.App.Models;
 public sealed class SlotCandidate : INotifyPropertyChanged
 {
     private bool _isSelected;
+    private string _sectionMembership = string.Empty;
 
     public SlotCandidate(int id, Rect sourceRect, double score)
     {
@@ -37,8 +38,26 @@ public sealed class SlotCandidate : INotifyPropertyChanged
         }
     }
 
+    public string SectionMembership
+    {
+        get => _sectionMembership;
+        set
+        {
+            if (_sectionMembership == value)
+            {
+                return;
+            }
+
+            _sectionMembership = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Label));
+        }
+    }
+
     public string Label =>
-        $"#{Id:000}  x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}";
+        string.IsNullOrWhiteSpace(SectionMembership)
+            ? $"#{Id:000}  x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}"
+            : $"#{Id:000}  {SectionMembership}  x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}";
 
     public void MoveTo(double x, double y)
     {
