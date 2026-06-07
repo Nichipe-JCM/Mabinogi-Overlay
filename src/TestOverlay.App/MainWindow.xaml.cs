@@ -15,6 +15,7 @@ namespace TestOverlay.App;
 public partial class MainWindow : Window
 {
     private const int CandidateBorderPixels = 1;
+    private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
@@ -47,7 +48,7 @@ public partial class MainWindow : Window
     private double _overlayTop = 120;
     private double _overlayOpacity = 0.8;
     private string _stopHotkey = "Ctrl+Shift+F8";
-    private int _refreshIntervalMs = 500;
+    private int _refreshFps = 60;
     private double _layoutSlotScale = 1.5;
 
     public MainWindow()
@@ -394,7 +395,7 @@ public partial class MainWindow : Window
             _overlayTop,
             _overlayOpacity,
             _stopHotkey,
-            _refreshIntervalMs,
+            _refreshFps,
             _layoutSlotScale,
             _overlaySlots)
         {
@@ -407,7 +408,7 @@ public partial class MainWindow : Window
         _overlayTop = editor.ScreenTop;
         _overlayOpacity = editor.OverlayOpacity;
         _stopHotkey = editor.StopHotkey;
-        _refreshIntervalMs = editor.RefreshIntervalMs;
+        _refreshFps = editor.RefreshFps;
         _layoutSlotScale = editor.SlotScale;
         UpdateLayoutSummary();
         SetStatus("Layout editor closed. Overlay settings updated.");
@@ -429,7 +430,8 @@ public partial class MainWindow : Window
             ScreenTop = _overlayTop,
             Opacity = _overlayOpacity,
             StopHotkey = _stopHotkey,
-            RefreshIntervalMs = _refreshIntervalMs,
+            RefreshIntervalMs = RefreshIntervalFromFps(_refreshFps),
+            RefreshFps = _refreshFps,
             LayoutSlotScale = ReadLayoutSlotScale(),
             Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
             {
@@ -470,7 +472,9 @@ public partial class MainWindow : Window
         _overlayTop = profile.ScreenTop;
         _overlayOpacity = Math.Clamp(profile.Opacity, 0.2, 1);
         _stopHotkey = profile.StopHotkey;
-        _refreshIntervalMs = Math.Clamp(profile.RefreshIntervalMs, 100, 5000);
+        _refreshFps = CoerceRefreshFps(profile.RefreshFps > 0
+            ? profile.RefreshFps
+            : FpsFromInterval(profile.RefreshIntervalMs));
         _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
 
         _overlaySlots.Clear();
@@ -516,7 +520,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(_refreshIntervalMs);
+            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
             _overlayWindow = new OverlayWindow(_layoutCanvasWidth, _layoutCanvasHeight, _overlayOpacity, _overlaySlots)
             {
                 Left = _overlayLeft,
@@ -530,7 +534,7 @@ public partial class MainWindow : Window
             }
 
             var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
-            _log.Info($"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
+            _log.Info($"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
             SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {_stopHotkey}");
         }
         catch (Exception ex)
@@ -1064,6 +1068,15 @@ public partial class MainWindow : Window
 
     private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 0, 32);
 
+    private static int CoerceRefreshFps(int fps) =>
+        RefreshFpsOptions.OrderBy(option => Math.Abs(option - fps)).First();
+
+    private static int RefreshIntervalFromFps(int fps) =>
+        (int)Math.Max(1, Math.Round(1000.0 / CoerceRefreshFps(fps)));
+
+    private static int FpsFromInterval(int intervalMs) =>
+        intervalMs <= 0 ? 60 : (int)Math.Round(1000.0 / intervalMs);
+
     private void UpdateSizeLabels()
     {
         SlotSizeText.Text = $"inside {ReadSlotInnerSize()}px, box {ReadCandidateBoxSize()}px";
@@ -1085,7 +1098,7 @@ public partial class MainWindow : Window
         LayoutSummaryText.Text =
             $"Slots: {_overlaySlots.Count} | Canvas: {_layoutCanvasWidth:0}x{_layoutCanvasHeight:0} | " +
             $"Screen: {_overlayLeft:0}, {_overlayTop:0} | Opacity: {_overlayOpacity:0.00} | " +
-            $"Scale: {_layoutSlotScale:0.0}x | Hotkey: {_stopHotkey} | Refresh: {_refreshIntervalMs}ms";
+            $"Scale: {_layoutSlotScale:0.0}x | Hotkey: {_stopHotkey} | Max FPS: {_refreshFps}";
     }
 
     private void SetStatus(string message)

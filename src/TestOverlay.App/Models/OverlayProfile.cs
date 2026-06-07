@@ -18,6 +18,8 @@ public sealed class OverlayProfile
 
     public int RefreshIntervalMs { get; set; } = 500;
 
+    public int RefreshFps { get; set; } = 60;
+
     public double LayoutSlotScale { get; set; } = 1.5;
 
     public List<OverlayProfileSlot> Slots { get; set; } = [];

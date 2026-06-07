@@ -60,8 +60,8 @@
                 <TextBox x:Name="HotkeyBox"/>
             </StackPanel>
             <StackPanel Grid.Row="2" Grid.Column="3">
-                <TextBlock Text="Refresh ms"/>
-                <TextBox x:Name="RefreshIntervalBox"/>
+                <TextBlock Text="Max FPS"/>
+                <ComboBox x:Name="RefreshFpsCombo"/>
             </StackPanel>
 
             <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Height="128" BorderBrush="#9AA4B2" BorderThickness="1" Background="#111827">

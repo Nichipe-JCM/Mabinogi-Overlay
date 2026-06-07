@@ -34,6 +34,7 @@ public sealed class WgcCaptureService
         };
 
         session.IsCursorCaptureEnabled = false;
+        TryDisableCaptureBorder(session);
         session.StartCapture();
 
         using var capturedFrame = await frameTask.Task.ConfigureAwait(false);
@@ -69,5 +70,18 @@ public sealed class WgcCaptureService
             stride);
         bitmap.Freeze();
         return bitmap;
+    }
+
+    private static void TryDisableCaptureBorder(GraphicsCaptureSession session)
+    {
+        try
+        {
+            var property = typeof(GraphicsCaptureSession).GetProperty("IsBorderRequired");
+            property?.SetValue(session, false);
+        }
+        catch
+        {
+            // Best effort only. Older Windows builds or missing borderless consent may ignore this.
+        }
     }
 }

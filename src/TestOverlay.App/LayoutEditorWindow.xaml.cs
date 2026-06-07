@@ -12,6 +12,7 @@ public partial class LayoutEditorWindow : Window
     private readonly IReadOnlyList<OverlaySlot> _slots;
     private readonly Dictionary<Image, OverlaySlot> _images = new();
     private readonly Dictionary<OverlaySlot, double> _sourceSizes = new();
+    private static readonly int[] FpsOptions = [30, 60, 120, 144];
     private readonly Rectangle _overlayPreviewRect = new();
     private Image? _draggingImage;
     private bool _isDraggingOverlayPreview;
@@ -24,7 +25,7 @@ public partial class LayoutEditorWindow : Window
         double screenTop,
         double opacity,
         string hotkey,
-        int refreshIntervalMs,
+        int refreshFps,
         double slotScale,
         IReadOnlyList<OverlaySlot> slots)
     {
@@ -36,7 +37,7 @@ public partial class LayoutEditorWindow : Window
         ScreenTop = screenTop;
         OverlayOpacity = Math.Clamp(opacity, 0.2, 1);
         StopHotkey = hotkey;
-        RefreshIntervalMs = Math.Clamp(refreshIntervalMs, 100, 5000);
+        RefreshFps = CoerceFps(refreshFps);
         SlotScale = Math.Clamp(slotScale, 1, 3);
         foreach (var slot in _slots)
         {
@@ -65,7 +66,7 @@ public partial class LayoutEditorWindow : Window
 
     public string StopHotkey { get; private set; } = "Ctrl+Shift+F8";
 
-    public int RefreshIntervalMs { get; private set; }
+    public int RefreshFps { get; private set; }
 
     public double SlotScale { get; private set; }
 
@@ -78,7 +79,8 @@ public partial class LayoutEditorWindow : Window
         ScreenTopBox.Text = ScreenTop.ToString("0");
         OpacitySlider.Value = OverlayOpacity;
         HotkeyBox.Text = StopHotkey;
-        RefreshIntervalBox.Text = RefreshIntervalMs.ToString();
+        RefreshFpsCombo.ItemsSource = FpsOptions;
+        RefreshFpsCombo.SelectedItem = RefreshFps;
         SlotScaleSlider.Value = SlotScale;
         SlotScaleText.Text = $"{SlotScale:0.0}x";
     }
@@ -182,7 +184,9 @@ public partial class LayoutEditorWindow : Window
         ScreenTop = ReadDouble(ScreenTopBox.Text, ScreenTop);
         OverlayOpacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
         StopHotkey = HotkeyBox.Text;
-        RefreshIntervalMs = Math.Clamp(ReadPositiveInt(RefreshIntervalBox.Text, RefreshIntervalMs), 100, 5000);
+        RefreshFps = RefreshFpsCombo.SelectedItem is int selectedFps
+            ? selectedFps
+            : CoerceFps(RefreshFps);
         SlotScale = Math.Clamp(SlotScaleSlider.Value, 1, 3);
         ApplyCanvasSize();
         UpdateOverlayPreview();
@@ -322,6 +326,9 @@ public partial class LayoutEditorWindow : Window
 
     private static double ReadDouble(string text, double fallback) =>
         double.TryParse(text, out var value) ? value : fallback;
+
+    private static int CoerceFps(int fps) =>
+        FpsOptions.OrderBy(option => Math.Abs(option - fps)).First();
 
     private sealed record PreviewGeometry(double Left, double Top, double Width, double Height, double Scale);
 }
