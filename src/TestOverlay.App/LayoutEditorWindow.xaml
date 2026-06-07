@@ -19,6 +19,8 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="8"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -61,6 +63,13 @@
                 <TextBlock Text="Refresh ms"/>
                 <TextBox x:Name="RefreshIntervalBox"/>
             </StackPanel>
+
+            <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Height="128" BorderBrush="#9AA4B2" BorderThickness="1" Background="#111827">
+                <Canvas x:Name="ScreenPreviewCanvas"
+                        Background="#111827"
+                        MouseMove="ScreenPreviewCanvas_MouseMove"
+                        MouseLeftButtonUp="ScreenPreviewCanvas_MouseLeftButtonUp"/>
+            </Border>
         </Grid>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">

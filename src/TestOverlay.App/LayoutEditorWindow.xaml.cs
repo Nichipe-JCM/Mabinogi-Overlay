@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using TestOverlay.App.Models;
 
 namespace TestOverlay.App;
@@ -11,7 +12,9 @@ public partial class LayoutEditorWindow : Window
     private readonly IReadOnlyList<OverlaySlot> _slots;
     private readonly Dictionary<Image, OverlaySlot> _images = new();
     private readonly Dictionary<OverlaySlot, double> _sourceSizes = new();
+    private readonly Rectangle _overlayPreviewRect = new();
     private Image? _draggingImage;
+    private bool _isDraggingOverlayPreview;
     private Point _dragOffset;
 
     public LayoutEditorWindow(
@@ -46,6 +49,7 @@ public partial class LayoutEditorWindow : Window
             ResizeSlotsToScale(SlotScaleSlider.Value);
         };
         PopulateControls();
+        InitializeOverlayPreview();
         RenderSlots();
     }
 
@@ -77,6 +81,22 @@ public partial class LayoutEditorWindow : Window
         RefreshIntervalBox.Text = RefreshIntervalMs.ToString();
         SlotScaleSlider.Value = SlotScale;
         SlotScaleText.Text = $"{SlotScale:0.0}x";
+    }
+
+    private void InitializeOverlayPreview()
+    {
+        _overlayPreviewRect.Stroke = Brushes.DeepSkyBlue;
+        _overlayPreviewRect.StrokeThickness = 2;
+        _overlayPreviewRect.Fill = new VisualBrush(EditorCanvas)
+        {
+            Opacity = 0.85,
+            Stretch = Stretch.Fill
+        };
+        _overlayPreviewRect.Cursor = Cursors.SizeAll;
+        _overlayPreviewRect.MouseLeftButtonDown += OverlayPreviewRect_MouseLeftButtonDown;
+        ScreenPreviewCanvas.Children.Add(_overlayPreviewRect);
+        ScreenPreviewCanvas.SizeChanged += (_, _) => UpdateOverlayPreview();
+        UpdateOverlayPreview();
     }
 
     private void RenderSlots()
@@ -151,6 +171,7 @@ public partial class LayoutEditorWindow : Window
         ScreenTop = Math.Max(0, SystemParameters.WorkArea.Top + 120);
         ScreenLeftBox.Text = ScreenLeft.ToString("0");
         ScreenTopBox.Text = ScreenTop.ToString("0");
+        UpdateOverlayPreview();
     }
 
     private void ApplySettingsFromControls()
@@ -164,6 +185,7 @@ public partial class LayoutEditorWindow : Window
         RefreshIntervalMs = Math.Clamp(ReadPositiveInt(RefreshIntervalBox.Text, RefreshIntervalMs), 100, 5000);
         SlotScale = Math.Clamp(SlotScaleSlider.Value, 1, 3);
         ApplyCanvasSize();
+        UpdateOverlayPreview();
     }
 
     private void ApplyCanvasSize()
@@ -185,6 +207,94 @@ public partial class LayoutEditorWindow : Window
 
         ClampSlotsToCanvas();
         RenderSlots();
+        UpdateOverlayPreview();
+    }
+
+    private void OverlayPreviewRect_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingOverlayPreview = true;
+        _dragOffset = e.GetPosition(_overlayPreviewRect);
+        _overlayPreviewRect.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ScreenPreviewCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingOverlayPreview || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var preview = GetPreviewGeometry();
+        if (preview.Scale <= 0)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(ScreenPreviewCanvas);
+        var previewLeft = Math.Clamp(
+            position.X - _dragOffset.X,
+            preview.Left,
+            Math.Max(preview.Left, preview.Left + preview.Width - _overlayPreviewRect.Width));
+        var previewTop = Math.Clamp(
+            position.Y - _dragOffset.Y,
+            preview.Top,
+            Math.Max(preview.Top, preview.Top + preview.Height - _overlayPreviewRect.Height));
+
+        ScreenLeft = Math.Round(SystemParameters.WorkArea.Left + (previewLeft - preview.Left) / preview.Scale);
+        ScreenTop = Math.Round(SystemParameters.WorkArea.Top + (previewTop - preview.Top) / preview.Scale);
+        ScreenLeftBox.Text = ScreenLeft.ToString("0");
+        ScreenTopBox.Text = ScreenTop.ToString("0");
+        UpdateOverlayPreview();
+    }
+
+    private void ScreenPreviewCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingOverlayPreview)
+        {
+            return;
+        }
+
+        _overlayPreviewRect.ReleaseMouseCapture();
+        _isDraggingOverlayPreview = false;
+    }
+
+    private void UpdateOverlayPreview()
+    {
+        if (!ScreenPreviewCanvas.Children.Contains(_overlayPreviewRect))
+        {
+            return;
+        }
+
+        var preview = GetPreviewGeometry();
+        if (preview.Scale <= 0)
+        {
+            return;
+        }
+
+        _overlayPreviewRect.Width = Math.Max(8, CanvasWidth * preview.Scale);
+        _overlayPreviewRect.Height = Math.Max(8, CanvasHeight * preview.Scale);
+        var left = preview.Left + (ScreenLeft - SystemParameters.WorkArea.Left) * preview.Scale;
+        var top = preview.Top + (ScreenTop - SystemParameters.WorkArea.Top) * preview.Scale;
+        Canvas.SetLeft(_overlayPreviewRect, Math.Clamp(left, preview.Left, Math.Max(preview.Left, preview.Left + preview.Width - _overlayPreviewRect.Width)));
+        Canvas.SetTop(_overlayPreviewRect, Math.Clamp(top, preview.Top, Math.Max(preview.Top, preview.Top + preview.Height - _overlayPreviewRect.Height)));
+    }
+
+    private PreviewGeometry GetPreviewGeometry()
+    {
+        var availableWidth = Math.Max(1, ScreenPreviewCanvas.ActualWidth - 16);
+        var availableHeight = Math.Max(1, ScreenPreviewCanvas.ActualHeight - 16);
+        var screenWidth = Math.Max(1, SystemParameters.WorkArea.Width);
+        var screenHeight = Math.Max(1, SystemParameters.WorkArea.Height);
+        var scale = Math.Min(availableWidth / screenWidth, availableHeight / screenHeight);
+        var width = screenWidth * scale;
+        var height = screenHeight * scale;
+        return new PreviewGeometry(
+            (ScreenPreviewCanvas.ActualWidth - width) / 2,
+            (ScreenPreviewCanvas.ActualHeight - height) / 2,
+            width,
+            height,
+            scale);
     }
 
     private void ClampSlotsToCanvas()
@@ -212,4 +322,6 @@ public partial class LayoutEditorWindow : Window
 
     private static double ReadDouble(string text, double fallback) =>
         double.TryParse(text, out var value) ? value : fallback;
+
+    private sealed record PreviewGeometry(double Left, double Top, double Width, double Height, double Scale);
 }

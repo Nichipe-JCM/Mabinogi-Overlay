@@ -94,6 +94,8 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="10"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="8"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -117,10 +119,14 @@
                                 <Button x:Name="AddSectionFromSelectedButton" Height="28" Content="Add Section" Click="AddSectionFromSelectedButton_Click"/>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="0">
-                                <TextBlock x:Name="SmallGapText"/>
-                                <Slider x:Name="SmallGapSlider" Minimum="0" Maximum="8" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <TextBlock x:Name="SmallGapXText"/>
+                                <Slider x:Name="SmallGapXSlider" Minimum="0" Maximum="8" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="2">
+                                <TextBlock x:Name="SmallGapYText"/>
+                                <Slider x:Name="SmallGapYSlider" Minimum="0" Maximum="8" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock x:Name="LargeGapText"/>
                                 <Slider x:Name="LargeGapSlider" Minimum="0" Maximum="32" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
@@ -173,6 +179,7 @@
                             <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Save" Click="SaveProfileButton_Click"/>
                             <Button x:Name="LoadProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Load" Click="LoadProfileButton_Click"/>
                             <Button x:Name="StartOverlayButton" Width="70" Height="34" Margin="4,0,0,6" Content="Start" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="StopOverlayLayoutButton" Width="70" Height="34" Margin="4,0,0,6" Content="Stop" Click="StopOverlayButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>

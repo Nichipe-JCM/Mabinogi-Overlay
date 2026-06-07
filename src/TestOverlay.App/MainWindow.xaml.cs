@@ -14,6 +14,8 @@ namespace TestOverlay.App;
 
 public partial class MainWindow : Window
 {
+    private const int CandidateBorderPixels = 1;
+
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
     private readonly WgcCaptureService _wgcCaptureService = new();
@@ -53,7 +55,17 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
-        SmallGapSlider.ValueChanged += (_, _) =>
+        SectionPatternCombo.SelectionChanged += (_, _) =>
+        {
+            UpdateSectionGapLabels();
+            RebuildActiveSection();
+        };
+        SmallGapXSlider.ValueChanged += (_, _) =>
+        {
+            UpdateSectionGapLabels();
+            RebuildActiveSection();
+        };
+        SmallGapYSlider.ValueChanged += (_, _) =>
         {
             UpdateSectionGapLabels();
             RebuildActiveSection();
@@ -156,13 +168,13 @@ public partial class MainWindow : Window
         ClearCandidateRects();
         _activeSection = null;
 
-        var slotSize = ReadSlotSize();
+        var slotSize = ReadCandidateBoxSize();
         foreach (var candidate in _slotDetection.Detect(_capturedImage, slotSize, slotSize))
         {
             AddCandidate(candidate);
         }
 
-        _log.Info($"Slot detection completed: count={_candidates.Count}, slotSize={slotSize}");
+        _log.Info($"Slot detection completed: count={_candidates.Count}, innerSlotSize={ReadSlotInnerSize()}, candidateBoxSize={slotSize}");
         SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
     }
 
@@ -243,7 +255,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var size = ReadSlotSize();
+        var size = ReadCandidateBoxSize();
         var source = CandidateList.SelectedItem is SlotCandidate selected
             ? new Rect(
                 Math.Clamp(selected.SourceRect.X + selected.SourceRect.Width + 4, 0, Math.Max(0, CaptureCanvas.Width - size)),
@@ -768,7 +780,7 @@ public partial class MainWindow : Window
         var sectionCandidates = new List<SlotCandidate>();
 
         ClearCandidateSelection();
-        foreach (var offset in BuildSectionOffsets(seed, pattern, ReadSmallGap(), ReadLargeGap()))
+        foreach (var offset in BuildSectionOffsets(seed, pattern, ReadSmallGapX(), ReadSmallGapY(), ReadLargeGap()))
         {
             var rect = new Rect(
                 seed.SourceRect.X + offset.X,
@@ -804,12 +816,13 @@ public partial class MainWindow : Window
         SlotCandidate seed,
         SectionPattern pattern,
         double smallGap,
+        double smallGapY,
         double largeGap)
     {
         var slotWidth = seed.SourceRect.Width;
         var slotHeight = seed.SourceRect.Height;
         var innerPitchX = slotWidth + pattern.InnerGapX(smallGap);
-        var innerPitchY = slotHeight + pattern.InnerGapY(smallGap);
+        var innerPitchY = slotHeight + pattern.InnerGapY(smallGapY);
         var groupPitchX = pattern.GroupColumns * innerPitchX + pattern.GroupGapX(largeGap);
         var groupPitchY = pattern.GroupRows * innerPitchY + pattern.GroupGapY(largeGap);
 
@@ -861,7 +874,8 @@ public partial class MainWindow : Window
         var offsets = BuildSectionOffsets(
                 _activeSection.Seed,
                 _activeSection.Pattern,
-                ReadSmallGap(),
+                ReadSmallGapX(),
+                ReadSmallGapY(),
                 ReadLargeGap())
             .ToList();
         var count = Math.Min(offsets.Count, _activeSection.Candidates.Count);
@@ -874,7 +888,7 @@ public partial class MainWindow : Window
             MoveCandidate(candidate, x, y);
         }
 
-        SetStatus($"Adjusted {_activeSection.Pattern.Name}: small gap {ReadSmallGap():0}px, large gap {ReadLargeGap():0}px.");
+        SetStatus($"Adjusted {_activeSection.Pattern.Name}: gap X {ReadSmallGapX():0}px, gap Y {ReadSmallGapY():0}px, large gap {ReadLargeGap():0}px.");
     }
 
     private bool TryNudgeSelectedCandidates(Key key)
@@ -1038,23 +1052,32 @@ public partial class MainWindow : Window
         return registered;
     }
 
-    private int ReadSlotSize() => Math.Clamp((int)SlotSizeSlider.Value, 12, 180);
+    private int ReadSlotInnerSize() => Math.Clamp((int)SlotSizeSlider.Value, 12, 180);
+
+    private int ReadCandidateBoxSize() => ReadSlotInnerSize() + CandidateBorderPixels * 2;
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
-    private double ReadSmallGap() => Math.Clamp(SmallGapSlider.Value, 0, 8);
+    private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 0, 8);
+
+    private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 0, 8);
 
     private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 0, 32);
 
     private void UpdateSizeLabels()
     {
-        SlotSizeText.Text = $"{ReadSlotSize()}px";
+        SlotSizeText.Text = $"inside {ReadSlotInnerSize()}px, box {ReadCandidateBoxSize()}px";
     }
 
     private void UpdateSectionGapLabels()
     {
-        SmallGapText.Text = $"Small gap {ReadSmallGap():0}px";
-        LargeGapText.Text = $"Large gap {ReadLargeGap():0}px";
+        var usesLargeGap = SectionPatternCombo.SelectedIndex == 0;
+        SmallGapXText.Text = $"Small gap X {ReadSmallGapX():0}px";
+        SmallGapYText.Text = $"Small gap Y {ReadSmallGapY():0}px";
+        LargeGapText.Text = usesLargeGap
+            ? $"Large gap {ReadLargeGap():0}px"
+            : "Large gap unused";
+        LargeGapSlider.IsEnabled = usesLargeGap;
     }
 
     private void UpdateLayoutSummary()
