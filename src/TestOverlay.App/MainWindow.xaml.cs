@@ -679,7 +679,7 @@ public partial class MainWindow : Window
                 Left = _overlayLeft,
                 Top = _overlayTop
             };
-            _overlayWindow.ShowOverlayNoActivate();
+            _overlayWindow.Show();
             _liveOverlayTimer.Start();
             if (_overlayWindow.ClickThroughConfigurationException is not null)
             {
@@ -687,7 +687,7 @@ public partial class MainWindow : Window
             }
 
             var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
-            _log.Info($"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}");
+            _log.Info($"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}, inputHook={_overlayWindow.IsInputHookConfigured}");
             SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {_stopHotkey}");
         }
         catch (Exception ex)

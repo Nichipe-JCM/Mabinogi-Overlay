@@ -15,6 +15,8 @@ public partial class OverlayWindow : Window
 
     public bool IsTopmostConfigured { get; private set; }
 
+    public bool IsInputHookConfigured { get; private set; }
+
     public int AppliedExtendedStyle { get; private set; }
 
     public Exception? ClickThroughConfigurationException { get; private set; }
@@ -34,19 +36,11 @@ public partial class OverlayWindow : Window
             if (PresentationSource.FromVisual(this) is HwndSource source)
             {
                 source.AddHook(WndProc);
+                IsInputHookConfigured = true;
             }
         };
         Loaded += (_, _) => ConfigureClickThrough();
         RenderSlots(slots);
-    }
-
-    public void ShowOverlayNoActivate()
-    {
-        var helper = new WindowInteropHelper(this);
-        helper.EnsureHandle();
-        ConfigureClickThrough();
-        Win32Methods.ShowWindow(helper.Handle, Win32Methods.SwShownoactivate);
-        ApplyNativeTopmost(helper.Handle);
     }
 
     public void RenderSlots(IReadOnlyList<OverlaySlot> slots)
