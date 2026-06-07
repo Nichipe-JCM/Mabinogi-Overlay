@@ -679,7 +679,7 @@ public partial class MainWindow : Window
                 Left = _overlayLeft,
                 Top = _overlayTop
             };
-            _overlayWindow.Show();
+            _overlayWindow.ShowOverlayNoActivate();
             _liveOverlayTimer.Start();
             if (_overlayWindow.ClickThroughConfigurationException is not null)
             {

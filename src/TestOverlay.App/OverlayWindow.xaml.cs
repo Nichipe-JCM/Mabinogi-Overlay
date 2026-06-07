@@ -27,7 +27,7 @@ public partial class OverlayWindow : Window
         Opacity = opacity;
         Focusable = false;
         ShowActivated = false;
-        Topmost = false;
+        Topmost = true;
         SourceInitialized += (_, _) =>
         {
             ConfigureClickThrough();
@@ -38,6 +38,15 @@ public partial class OverlayWindow : Window
         };
         Loaded += (_, _) => ConfigureClickThrough();
         RenderSlots(slots);
+    }
+
+    public void ShowOverlayNoActivate()
+    {
+        var helper = new WindowInteropHelper(this);
+        helper.EnsureHandle();
+        ConfigureClickThrough();
+        Win32Methods.ShowWindow(helper.Handle, Win32Methods.SwShownoactivate);
+        ApplyNativeTopmost(helper.Handle);
     }
 
     public void RenderSlots(IReadOnlyList<OverlaySlot> slots)
@@ -71,17 +80,7 @@ public partial class OverlayWindow : Window
                        Win32Methods.WsExNoActivate |
                        Win32Methods.WsExTopmost;
             Win32Methods.SetWindowLong(handle, Win32Methods.GwlExStyle, exStyle);
-            Win32Methods.SetWindowPos(
-                handle,
-                Win32Methods.HwndTopmost,
-                0,
-                0,
-                0,
-                0,
-                Win32Methods.SwpNomove |
-                Win32Methods.SwpNosize |
-                Win32Methods.SwpNoactivate |
-                Win32Methods.SwpFramechanged);
+            ApplyNativeTopmost(handle);
             AppliedExtendedStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
             IsClickThroughConfigured =
                 HasStyle(AppliedExtendedStyle, Win32Methods.WsExLayered) &&
@@ -97,6 +96,19 @@ public partial class OverlayWindow : Window
             IsTopmostConfigured = Topmost;
         }
     }
+
+    private static void ApplyNativeTopmost(nint handle) =>
+        Win32Methods.SetWindowPos(
+            handle,
+            Win32Methods.HwndTopmost,
+            0,
+            0,
+            0,
+            0,
+            Win32Methods.SwpNomove |
+            Win32Methods.SwpNosize |
+            Win32Methods.SwpNoactivate |
+            Win32Methods.SwpFramechanged);
 
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
     {

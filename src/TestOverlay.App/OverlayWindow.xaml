@@ -7,6 +7,7 @@
         ShowInTaskbar="False"
         ShowActivated="False"
         AllowsTransparency="True"
-        Background="Transparent">
+        Background="Transparent"
+        Topmost="True">
     <Canvas x:Name="OverlayCanvas" Background="Transparent" Focusable="False" IsHitTestVisible="False"/>
 </Window>

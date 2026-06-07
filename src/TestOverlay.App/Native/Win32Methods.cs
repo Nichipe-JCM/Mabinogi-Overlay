@@ -23,6 +23,7 @@ internal static partial class Win32Methods
     public const uint SwpNomove = 0x0002;
     public const uint SwpNoactivate = 0x0010;
     public const uint SwpFramechanged = 0x0020;
+    public const int SwShownoactivate = 4;
     public static readonly nint HwndTopmost = new(-1);
     public const uint ModAlt = 0x0001;
     public const uint ModControl = 0x0002;
@@ -73,6 +74,10 @@ internal static partial class Win32Methods
         int cx,
         int cy,
         uint flags);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ShowWindow(nint hWnd, int nCmdShow);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
