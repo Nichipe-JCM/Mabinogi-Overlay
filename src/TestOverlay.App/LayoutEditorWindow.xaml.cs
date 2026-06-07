@@ -15,6 +15,7 @@ public partial class LayoutEditorWindow : Window
     private static readonly int[] FpsOptions = [30, 60, 120, 144];
     private readonly Rectangle _overlayPreviewRect = new();
     private Image? _draggingImage;
+    private OverlayPlacementPreviewWindow? _placementPreviewWindow;
     private bool _isDraggingOverlayPreview;
     private Point _dragOffset;
 
@@ -176,6 +177,41 @@ public partial class LayoutEditorWindow : Window
         UpdateOverlayPreview();
     }
 
+    private void ScreenPreviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        ApplySettingsFromControls();
+        _placementPreviewWindow?.Close();
+        _placementPreviewWindow = new OverlayPlacementPreviewWindow(
+            ScreenLeft,
+            ScreenTop,
+            CanvasWidth,
+            CanvasHeight,
+            OverlayOpacity,
+            _slots,
+            ApplyPlacementFromPreview)
+        {
+            Owner = this
+        };
+        _placementPreviewWindow.Closed += (_, _) => _placementPreviewWindow = null;
+        _placementPreviewWindow.Show();
+    }
+
+    private void ApplyPlacementFromPreview(double left, double top, double width, double height)
+    {
+        ScreenLeft = left;
+        ScreenTop = top;
+        CanvasWidth = Math.Max(120, width);
+        CanvasHeight = Math.Max(80, height);
+        ScreenLeftBox.Text = ScreenLeft.ToString("0");
+        ScreenTopBox.Text = ScreenTop.ToString("0");
+        CanvasWidthBox.Text = CanvasWidth.ToString("0");
+        CanvasHeightBox.Text = CanvasHeight.ToString("0");
+        ApplyCanvasSize();
+        ClampSlotsToCanvas();
+        RenderSlots();
+        UpdateOverlayPreview();
+    }
+
     private void ApplySettingsFromControls()
     {
         CanvasWidth = ReadPositiveDouble(CanvasWidthBox.Text, CanvasWidth);
@@ -315,6 +351,7 @@ public partial class LayoutEditorWindow : Window
     {
         ApplySettingsFromControls();
         ClampSlotsToCanvas();
+        _placementPreviewWindow?.Close();
         base.OnClosing(e);
     }
 

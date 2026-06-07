@@ -15,19 +15,38 @@ public sealed class ProfileStore
 
     public string DefaultProfilePath => Path.Combine(ProfileDirectory, "default.json");
 
-    public void Save(OverlayProfile profile)
+    public string GetProfilePath(string? profileName) =>
+        Path.Combine(ProfileDirectory, $"{NormalizeProfileName(profileName)}.json");
+
+    public string Save(OverlayProfile profile, string? profileName)
     {
         Directory.CreateDirectory(ProfileDirectory);
-        File.WriteAllText(DefaultProfilePath, JsonSerializer.Serialize(profile, Options));
+        var path = GetProfilePath(profileName);
+        File.WriteAllText(path, JsonSerializer.Serialize(profile, Options));
+        return path;
     }
 
-    public OverlayProfile? LoadDefault()
+    public OverlayProfile? Load(string? profileName)
     {
-        if (!File.Exists(DefaultProfilePath))
+        var path = GetProfilePath(profileName);
+        if (!File.Exists(path))
         {
             return null;
         }
 
-        return JsonSerializer.Deserialize<OverlayProfile>(File.ReadAllText(DefaultProfilePath), Options);
+        return JsonSerializer.Deserialize<OverlayProfile>(File.ReadAllText(path), Options);
+    }
+
+    public OverlayProfile? LoadDefault() => Load("default");
+
+    private static string NormalizeProfileName(string? profileName)
+    {
+        var name = string.IsNullOrWhiteSpace(profileName) ? "default" : profileName.Trim();
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+        {
+            name = name.Replace(invalid, '_');
+        }
+
+        return string.IsNullOrWhiteSpace(name) ? "default" : name;
     }
 }

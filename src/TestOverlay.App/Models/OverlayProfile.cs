@@ -22,7 +22,26 @@ public sealed class OverlayProfile
 
     public double LayoutSlotScale { get; set; } = 1.5;
 
+    public int SlotInnerSize { get; set; } = 29;
+
+    public int SelectedSectionPattern { get; set; }
+
+    public List<OverlayProfileSectionSettings> SectionSettings { get; set; } = [];
+
     public List<OverlayProfileSlot> Slots { get; set; } = [];
+}
+
+public sealed class OverlayProfileSectionSettings
+{
+    public int PatternIndex { get; set; }
+
+    public string PatternName { get; set; } = string.Empty;
+
+    public double SmallGapX { get; set; } = 1;
+
+    public double SmallGapY { get; set; } = 5;
+
+    public double LargeGap { get; set; } = 16;
 }
 
 public sealed class OverlayProfileSlot

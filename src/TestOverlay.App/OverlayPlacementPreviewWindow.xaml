@@ -1,0 +1,36 @@
+<Window x:Class="TestOverlay.App.OverlayPlacementPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Overlay Placement Preview"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        MinWidth="120"
+        MinHeight="80">
+    <Grid>
+        <Border x:Name="PreviewBorder"
+                BorderBrush="#00A6FF"
+                BorderThickness="2"
+                Background="#2200A6FF"
+                MouseLeftButtonDown="PreviewBorder_MouseLeftButtonDown">
+            <Canvas x:Name="PreviewCanvas"
+                    IsHitTestVisible="False"/>
+        </Border>
+        <Thumb x:Name="ResizeThumb"
+               Width="18"
+               Height="18"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Bottom"
+               Cursor="SizeNWSE"
+               DragDelta="ResizeThumb_DragDelta">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="#CC00A6FF" BorderBrush="White" BorderThickness="1"/>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+    </Grid>
+</Window>

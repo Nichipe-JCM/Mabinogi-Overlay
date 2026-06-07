@@ -29,6 +29,13 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
+    private readonly SectionSettings[] _sectionSettings =
+    [
+        new(1, 5, 16),
+        new(1, 5, 0)
+    ];
+    private readonly Stack<CandidateEditSnapshot> _undoStack = new();
+    private readonly Stack<CandidateEditSnapshot> _redoStack = new();
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
@@ -40,8 +47,11 @@ public partial class MainWindow : Window
     private Rectangle? _selectionRect;
     private Point _selectionStartPosition;
     private bool _isSelectingCandidates;
+    private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private ActiveSection? _activeSection;
     private bool _isLiveRefreshInProgress;
+    private bool _isUpdatingSectionControls;
+    private int _currentSectionIndex;
     private double _layoutCanvasWidth = 360;
     private double _layoutCanvasHeight = 160;
     private double _overlayLeft = 120;
@@ -58,28 +68,41 @@ public partial class MainWindow : Window
         SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         SectionPatternCombo.SelectionChanged += (_, _) =>
         {
+            if (_isUpdatingSectionControls)
+            {
+                return;
+            }
+
+            SaveCurrentSectionSettings();
+            _currentSectionIndex = Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1);
+            ApplySectionSettingsToControls(_currentSectionIndex);
             UpdateSectionGapLabels();
             RebuildActiveSection();
         };
         SmallGapXSlider.ValueChanged += (_, _) =>
         {
+            SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
             RebuildActiveSection();
         };
         SmallGapYSlider.ValueChanged += (_, _) =>
         {
+            SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
             RebuildActiveSection();
         };
         LargeGapSlider.ValueChanged += (_, _) =>
         {
+            SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
             RebuildActiveSection();
         };
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closed += (_, _) => StopOverlay(setStatus: false);
+        ApplySectionSettingsToControls(_currentSectionIndex);
         UpdateSizeLabels();
+        CaptureZoomText.Text = "100%";
         UpdateSectionGapLabels();
         UpdateLayoutSummary();
     }
@@ -89,6 +112,20 @@ public partial class MainWindow : Window
         RefreshWindows();
         _log.Info("Application loaded.");
     }
+
+    private void CaptureZoomSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (CaptureZoomText is not null)
+        {
+            CaptureZoomText.Text = $"{CaptureZoomSlider.Value * 100:0}%";
+        }
+    }
+
+    private void ZoomInButton_Click(object sender, RoutedEventArgs e) =>
+        CaptureZoomSlider.Value = Math.Min(CaptureZoomSlider.Maximum, CaptureZoomSlider.Value + 0.25);
+
+    private void ZoomOutButton_Click(object sender, RoutedEventArgs e) =>
+        CaptureZoomSlider.Value = Math.Max(CaptureZoomSlider.Minimum, CaptureZoomSlider.Value - 0.25);
 
     private void RefreshWindowsButton_Click(object sender, RoutedEventArgs e) => RefreshWindows();
 
@@ -165,6 +202,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        var before = CaptureCandidateSnapshot();
         _candidates.Clear();
         ClearCandidateRects();
         _activeSection = null;
@@ -175,6 +213,7 @@ public partial class MainWindow : Window
             AddCandidate(candidate);
         }
 
+        PushUndoIfChanged(before);
         _log.Info($"Slot detection completed: count={_candidates.Count}, innerSlotSize={slotSize}, visualBoxSize={ReadCandidateBoxSize()}");
         SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
     }
@@ -256,6 +295,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        var before = CaptureCandidateSnapshot();
         var size = ReadSlotInnerSize();
         var source = CandidateList.SelectedItem is SlotCandidate selected
             ? new Rect(
@@ -268,6 +308,7 @@ public partial class MainWindow : Window
         var candidate = new SlotCandidate(NextCandidateId(), source, 100);
         AddCandidate(candidate);
         CandidateList.SelectedItem = candidate;
+        PushUndoIfChanged(before);
         SetStatus("Manual candidate added. Drag it over the target quickslot.");
     }
 
@@ -287,8 +328,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        var before = CaptureCandidateSnapshot();
         var pattern = ReadSectionPattern();
         var added = AddSectionCandidates(seed, pattern);
+        PushUndoIfChanged(before);
         _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}");
         SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Adjust small/large gap sliders to align the section.");
     }
@@ -300,6 +343,11 @@ public partial class MainWindow : Window
 
     private void CandidateList_KeyDown(object sender, KeyEventArgs e)
     {
+        if (TryHandleUndoRedo(e))
+        {
+            return;
+        }
+
         if (e.Key != Key.Delete)
         {
             if (TryNudgeSelectedCandidates(e.Key))
@@ -316,6 +364,11 @@ public partial class MainWindow : Window
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.OriginalSource is not TextBox && TryHandleUndoRedo(e))
+        {
+            return;
+        }
+
         if (e.Key != Key.Delete || e.OriginalSource is TextBox)
         {
             if (e.OriginalSource is not TextBox && TryNudgeSelectedCandidates(e.Key))
@@ -339,6 +392,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        var before = CaptureCandidateSnapshot();
         foreach (var candidate in selected)
         {
             if (_candidateRects.Remove(candidate, out var rect))
@@ -356,6 +410,7 @@ public partial class MainWindow : Window
         }
 
         UpdateLayoutSummary();
+        PushUndoIfChanged(before);
         SetStatus($"Deleted {selected.Count} selected candidates.");
     }
 
@@ -374,9 +429,11 @@ public partial class MainWindow : Window
 
     private void ClearCandidatesButton_Click(object sender, RoutedEventArgs e)
     {
+        var before = CaptureCandidateSnapshot();
         _candidates.Clear();
         ClearCandidateRects();
         _activeSection = null;
+        PushUndoIfChanged(before);
         SetStatus("Candidate list cleared.");
     }
 
@@ -422,8 +479,11 @@ public partial class MainWindow : Window
 
     private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
     {
+        SaveCurrentSectionSettings();
+        var profileName = ReadProfileName();
         var profile = new OverlayProfile
         {
+            Name = profileName,
             CanvasWidth = _layoutCanvasWidth,
             CanvasHeight = _layoutCanvasHeight,
             ScreenLeft = _overlayLeft,
@@ -433,6 +493,18 @@ public partial class MainWindow : Window
             RefreshIntervalMs = RefreshIntervalFromFps(_refreshFps),
             RefreshFps = _refreshFps,
             LayoutSlotScale = ReadLayoutSlotScale(),
+            SlotInnerSize = ReadSlotInnerSize(),
+            SelectedSectionPattern = Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1),
+            SectionSettings = _sectionSettings
+                .Select((settings, index) => new OverlayProfileSectionSettings
+                {
+                    PatternIndex = index,
+                    PatternName = GetSectionPatternName(index),
+                    SmallGapX = settings.SmallGapX,
+                    SmallGapY = settings.SmallGapY,
+                    LargeGap = settings.LargeGap
+                })
+                .ToList(),
             Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
             {
                 SourceX = slot.Source.SourceRect.X,
@@ -446,9 +518,9 @@ public partial class MainWindow : Window
             }).ToList()
         };
 
-        _profileStore.Save(profile);
-        _log.Info($"Profile saved: {_profileStore.DefaultProfilePath}, slots={profile.Slots.Count}");
-        SetStatus($"Profile saved: {_profileStore.DefaultProfilePath}");
+        var path = _profileStore.Save(profile, profileName);
+        _log.Info($"Profile saved: {path}, slots={profile.Slots.Count}");
+        SetStatus($"Profile saved: {path}");
     }
 
     private void LoadProfileButton_Click(object sender, RoutedEventArgs e)
@@ -459,13 +531,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var profile = _profileStore.LoadDefault();
+        var profileName = ReadProfileName();
+        var profile = _profileStore.Load(profileName);
         if (profile is null)
         {
-            SetStatus("No saved profile exists.");
+            SetStatus($"No saved profile exists: {_profileStore.GetProfilePath(profileName)}");
             return;
         }
 
+        ProfileNameBox.Text = profile.Name;
         _layoutCanvasWidth = Math.Max(120, profile.CanvasWidth);
         _layoutCanvasHeight = Math.Max(80, profile.CanvasHeight);
         _overlayLeft = profile.ScreenLeft;
@@ -476,6 +550,8 @@ public partial class MainWindow : Window
             ? profile.RefreshFps
             : FpsFromInterval(profile.RefreshIntervalMs));
         _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
+        SlotSizeSlider.Value = Math.Clamp(profile.SlotInnerSize > 0 ? profile.SlotInnerSize : ReadSlotInnerSize(), SlotSizeSlider.Minimum, SlotSizeSlider.Maximum);
+        ApplyProfileSectionSettings(profile);
 
         _overlaySlots.Clear();
         _candidates.Clear();
@@ -500,8 +576,8 @@ public partial class MainWindow : Window
         }
 
         UpdateLayoutSummary();
-        _log.Info($"Profile loaded: slots={profile.Slots.Count}");
-        SetStatus($"Profile loaded: {profile.Slots.Count} slots.");
+        _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, slots={profile.Slots.Count}");
+        SetStatus($"Profile loaded: {_profileStore.GetProfilePath(profileName)} ({profile.Slots.Count} slots).");
     }
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -601,8 +677,14 @@ public partial class MainWindow : Window
             rect.ReleaseMouseCapture();
         }
 
+        if (_candidateDragSnapshotBefore is not null)
+        {
+            PushUndoIfChanged(_candidateDragSnapshotBefore);
+        }
+
         _draggingCandidate = null;
         _candidateDragOrigins.Clear();
+        _candidateDragSnapshotBefore = null;
     }
 
     private void RefreshWindows()
@@ -662,6 +744,7 @@ public partial class MainWindow : Window
 
         _draggingCandidate = candidate;
         _candidateDragStartPosition = args.GetPosition(CaptureCanvas);
+        _candidateDragSnapshotBefore = CaptureCandidateSnapshot();
         _candidateDragOrigins = _candidates
             .Where(item => item.IsSelected)
             .ToDictionary(item => item, item => new Point(item.SourceRect.X, item.SourceRect.Y));
@@ -943,6 +1026,7 @@ public partial class MainWindow : Window
             return false;
         }
 
+        var before = CaptureCandidateSnapshot();
         foreach (var candidate in selected)
         {
             MoveCandidate(
@@ -950,6 +1034,7 @@ public partial class MainWindow : Window
                 candidate.SourceRect.X + delta.X,
                 candidate.SourceRect.Y + delta.Y);
         }
+        PushUndoIfChanged(before);
 
         SetStatus($"Nudged {selected.Count} candidate(s) by 1px.");
         return true;
@@ -1002,6 +1087,142 @@ public partial class MainWindow : Window
         }
 
         _candidateRects.Clear();
+    }
+
+    private bool TryHandleUndoRedo(KeyEventArgs e)
+    {
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            return false;
+        }
+
+        if (e.Key == Key.Z)
+        {
+            UndoCandidateEdit();
+            e.Handled = true;
+            return true;
+        }
+
+        if (e.Key == Key.Y)
+        {
+            RedoCandidateEdit();
+            e.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private CandidateEditSnapshot CaptureCandidateSnapshot()
+    {
+        var selectedId = CandidateList.SelectedItem is SlotCandidate selected ? selected.Id : 0;
+        return new CandidateEditSnapshot(
+            _candidates
+                .Select(candidate => new CandidateState(
+                    candidate.Id,
+                    candidate.SourceRect.X,
+                    candidate.SourceRect.Y,
+                    candidate.SourceRect.Width,
+                    candidate.SourceRect.Height,
+                    candidate.Score,
+                    candidate.IsSelected))
+                .ToList(),
+            selectedId);
+    }
+
+    private void PushUndoIfChanged(CandidateEditSnapshot before)
+    {
+        if (CandidateSnapshotsEqual(before, CaptureCandidateSnapshot()))
+        {
+            return;
+        }
+
+        _undoStack.Push(before);
+        _redoStack.Clear();
+    }
+
+    private void UndoCandidateEdit()
+    {
+        if (_undoStack.Count == 0)
+        {
+            SetStatus("No candidate edit to undo.");
+            return;
+        }
+
+        var current = CaptureCandidateSnapshot();
+        var previous = _undoStack.Pop();
+        _redoStack.Push(current);
+        RestoreCandidateSnapshot(previous);
+        SetStatus("Candidate edit undone.");
+    }
+
+    private void RedoCandidateEdit()
+    {
+        if (_redoStack.Count == 0)
+        {
+            SetStatus("No candidate edit to redo.");
+            return;
+        }
+
+        var current = CaptureCandidateSnapshot();
+        var next = _redoStack.Pop();
+        _undoStack.Push(current);
+        RestoreCandidateSnapshot(next);
+        SetStatus("Candidate edit redone.");
+    }
+
+    private void RestoreCandidateSnapshot(CandidateEditSnapshot snapshot)
+    {
+        _candidates.Clear();
+        ClearCandidateRects();
+        _activeSection = null;
+
+        SlotCandidate? selected = null;
+        var restoredById = new Dictionary<int, SlotCandidate>();
+        foreach (var saved in snapshot.Candidates)
+        {
+            var candidate = new SlotCandidate(
+                saved.Id,
+                new Rect(saved.X, saved.Y, saved.Width, saved.Height),
+                saved.Score)
+            {
+                IsSelected = saved.IsSelected
+            };
+            AddCandidate(candidate);
+            restoredById[candidate.Id] = candidate;
+            if (saved.Id == snapshot.SelectedId)
+            {
+                selected = candidate;
+            }
+        }
+
+        CandidateList.SelectedItem = selected;
+        foreach (var slot in _overlaySlots.ToList())
+        {
+            if (!restoredById.TryGetValue(slot.Source.Id, out var restoredSource))
+            {
+                _overlaySlots.Remove(slot);
+                continue;
+            }
+
+            slot.Source = restoredSource;
+            if (_capturedImage is not null)
+            {
+                slot.Preview = _captureService.Crop(_capturedImage, restoredSource.SourceRect);
+            }
+        }
+
+        UpdateLayoutSummary();
+    }
+
+    private static bool CandidateSnapshotsEqual(CandidateEditSnapshot left, CandidateEditSnapshot right)
+    {
+        if (left.SelectedId != right.SelectedId || left.Candidates.Count != right.Candidates.Count)
+        {
+            return false;
+        }
+
+        return left.Candidates.SequenceEqual(right.Candidates);
     }
 
     private int NextCandidateId() => _candidates.Count == 0 ? 1 : _candidates.Max(candidate => candidate.Id) + 1;
@@ -1102,11 +1323,11 @@ public partial class MainWindow : Window
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
-    private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 0, 8);
+    private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 0, 30);
 
-    private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 0, 8);
+    private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 0, 30);
 
-    private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 0, 32);
+    private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 0, 60);
 
     private static int CoerceRefreshFps(int fps) =>
         RefreshFpsOptions.OrderBy(option => Math.Abs(option - fps)).First();
@@ -1133,6 +1354,69 @@ public partial class MainWindow : Window
         LargeGapSlider.IsEnabled = usesLargeGap;
     }
 
+    private void SaveCurrentSectionSettings()
+    {
+        if (_isUpdatingSectionControls)
+        {
+            return;
+        }
+
+        var index = Math.Clamp(_currentSectionIndex, 0, _sectionSettings.Length - 1);
+        _sectionSettings[index] = new SectionSettings(ReadSmallGapX(), ReadSmallGapY(), ReadLargeGap());
+    }
+
+    private void ApplySectionSettingsToControls(int patternIndex)
+    {
+        _isUpdatingSectionControls = true;
+        try
+        {
+            var settings = _sectionSettings[Math.Clamp(patternIndex, 0, _sectionSettings.Length - 1)];
+            SmallGapXSlider.Value = Math.Clamp(settings.SmallGapX, SmallGapXSlider.Minimum, SmallGapXSlider.Maximum);
+            SmallGapYSlider.Value = Math.Clamp(settings.SmallGapY, SmallGapYSlider.Minimum, SmallGapYSlider.Maximum);
+            LargeGapSlider.Value = Math.Clamp(settings.LargeGap, LargeGapSlider.Minimum, LargeGapSlider.Maximum);
+        }
+        finally
+        {
+            _isUpdatingSectionControls = false;
+        }
+    }
+
+    private void ApplyProfileSectionSettings(OverlayProfile profile)
+    {
+        foreach (var saved in profile.SectionSettings)
+        {
+            if (saved.PatternIndex < 0 || saved.PatternIndex >= _sectionSettings.Length)
+            {
+                continue;
+            }
+
+            _sectionSettings[saved.PatternIndex] = new SectionSettings(
+                Math.Clamp(saved.SmallGapX, 0, 30),
+                Math.Clamp(saved.SmallGapY, 0, 30),
+                Math.Clamp(saved.LargeGap, 0, 60));
+        }
+
+        _currentSectionIndex = Math.Clamp(profile.SelectedSectionPattern, 0, _sectionSettings.Length - 1);
+        _isUpdatingSectionControls = true;
+        try
+        {
+            SectionPatternCombo.SelectedIndex = _currentSectionIndex;
+        }
+        finally
+        {
+            _isUpdatingSectionControls = false;
+        }
+
+        ApplySectionSettingsToControls(_currentSectionIndex);
+        UpdateSectionGapLabels();
+    }
+
+    private string ReadProfileName() =>
+        string.IsNullOrWhiteSpace(ProfileNameBox.Text) ? "default" : ProfileNameBox.Text.Trim();
+
+    private static string GetSectionPatternName(int index) =>
+        index == 1 ? SectionPattern.LeftVertical().Name : SectionPattern.TopGrouped().Name;
+
     private void UpdateLayoutSummary()
     {
         LayoutSummaryText.Text =
@@ -1148,6 +1432,12 @@ public partial class MainWindow : Window
     }
 
     private sealed record ActiveSection(SlotCandidate Seed, SectionPattern Pattern, List<SlotCandidate> Candidates);
+
+    private sealed record SectionSettings(double SmallGapX, double SmallGapY, double LargeGap);
+
+    private sealed record CandidateEditSnapshot(List<CandidateState> Candidates, int SelectedId);
+
+    private sealed record CandidateState(int Id, double X, double Y, double Width, double Height, double Score, bool IsSelected);
 
     private sealed record SectionPattern(
         string Name,

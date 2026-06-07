@@ -53,8 +53,15 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <DockPanel Grid.Row="0" Margin="14">
+                    <DockPanel Grid.Row="0" Margin="14" LastChildFill="False">
                         <TextBlock Text="Capture Preview" FontSize="16" FontWeight="SemiBold" Foreground="#20242B"/>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Width="28" Height="24" Margin="0,0,6,0" Content="-" Click="ZoomOutButton_Click"/>
+                            <TextBlock Text="Zoom" VerticalAlignment="Center" Foreground="#596273"/>
+                            <Slider x:Name="CaptureZoomSlider" Width="140" Minimum="0.25" Maximum="3" Value="1" TickFrequency="0.25" IsSnapToTickEnabled="True" Margin="8,0,8,0" ValueChanged="CaptureZoomSlider_ValueChanged"/>
+                            <TextBlock x:Name="CaptureZoomText" Width="44" VerticalAlignment="Center" Foreground="#596273"/>
+                            <Button Width="28" Height="24" Margin="6,0,12,0" Content="+" Click="ZoomInButton_Click"/>
+                        </StackPanel>
                         <TextBlock x:Name="CaptureInfoText" DockPanel.Dock="Right" Foreground="#596273"/>
                     </DockPanel>
                     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">
@@ -63,6 +70,9 @@
                                 MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
                                 MouseMove="CaptureCanvas_MouseMove"
                                 MouseLeftButtonUp="CaptureCanvas_MouseLeftButtonUp">
+                            <Canvas.LayoutTransform>
+                                <ScaleTransform ScaleX="{Binding ElementName=CaptureZoomSlider, Path=Value}" ScaleY="{Binding ElementName=CaptureZoomSlider, Path=Value}"/>
+                            </Canvas.LayoutTransform>
                             <Image x:Name="CaptureImage" Stretch="None"/>
                         </Canvas>
                     </ScrollViewer>
@@ -120,15 +130,15 @@
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="0">
                                 <TextBlock x:Name="SmallGapXText"/>
-                                <Slider x:Name="SmallGapXSlider" Minimum="0" Maximum="8" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapXSlider" Minimum="0" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="2">
                                 <TextBlock x:Name="SmallGapYText"/>
-                                <Slider x:Name="SmallGapYSlider" Minimum="0" Maximum="8" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapYSlider" Minimum="0" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock x:Name="LargeGapText"/>
-                                <Slider x:Name="LargeGapSlider" Minimum="0" Maximum="32" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="LargeGapSlider" Minimum="0" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                         </Grid>
 
@@ -175,6 +185,7 @@
                         </Border>
 
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,0,0,0">
+                            <TextBox x:Name="ProfileNameBox" Width="110" Height="34" Margin="4,0,8,6" Text="default" ToolTip="Profile name saved under the Profiles folder"/>
                             <Button x:Name="OpenLayoutEditorButton" Width="132" Height="34" Margin="4,0,0,6" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
                             <Button x:Name="ClearLayoutButton" Width="76" Height="34" Margin="4,0,0,6" Content="Clear" Click="ClearLayoutButton_Click"/>
                             <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Save" Click="SaveProfileButton_Click"/>

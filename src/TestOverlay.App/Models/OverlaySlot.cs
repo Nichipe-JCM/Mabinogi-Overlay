@@ -12,7 +12,7 @@ public sealed class OverlaySlot
         Preview = preview;
     }
 
-    public SlotCandidate Source { get; }
+    public SlotCandidate Source { get; set; }
 
     public Rect OverlayRect { get; set; }
 
