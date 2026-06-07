@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -23,6 +24,7 @@ internal static partial class Win32Methods
     public const uint SwpNomove = 0x0002;
     public const uint SwpNoactivate = 0x0010;
     public const uint SwpFramechanged = 0x0020;
+    public const uint SwpShowWindow = 0x0040;
     public static readonly nint HwndTopmost = new(-1);
     public const uint ModAlt = 0x0001;
     public const uint ModControl = 0x0002;
@@ -57,11 +59,57 @@ internal static partial class Win32Methods
     [LibraryImport("user32.dll")]
     public static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
 
-    [LibraryImport("user32.dll")]
-    public static partial int GetWindowLong(nint hWnd, int nIndex);
+    public static nint GetWindowLongPtrSafe(nint hwnd, int index) =>
+        nint.Size == 8
+            ? GetWindowLongPtr64(hwnd, index)
+            : new nint(GetWindowLong32(hwnd, index));
 
-    [LibraryImport("user32.dll")]
-    public static partial int SetWindowLong(nint hWnd, int nIndex, int dwNewLong);
+    public static nint SetWindowLongPtrSafe(nint hwnd, int index, nint newLong)
+    {
+        Marshal.SetLastPInvokeError(0);
+
+        var previous = nint.Size == 8
+            ? SetWindowLongPtr64(hwnd, index, newLong)
+            : new nint(SetWindowLong32(hwnd, index, newLong.ToInt32()));
+
+        if (previous == nint.Zero)
+        {
+            var error = Marshal.GetLastPInvokeError();
+            if (error != 0)
+            {
+                throw new Win32Exception(error);
+            }
+        }
+
+        return previous;
+    }
+
+    public static void SetWindowPosSafe(
+        nint hwnd,
+        nint hwndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint flags)
+    {
+        if (!SetWindowPos(hwnd, hwndInsertAfter, x, y, cx, cy, flags))
+        {
+            throw new Win32Exception(Marshal.GetLastPInvokeError());
+        }
+    }
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLong", SetLastError = true)]
+    private static partial int GetWindowLong32(nint hWnd, int nIndex);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLong", SetLastError = true)]
+    private static partial int SetWindowLong32(nint hWnd, int nIndex, int dwNewLong);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    private static partial nint GetWindowLongPtr64(nint hWnd, int nIndex);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    private static partial nint SetWindowLongPtr64(nint hWnd, int nIndex, nint dwNewLong);
 
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

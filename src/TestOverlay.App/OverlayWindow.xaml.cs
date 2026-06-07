@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using TestOverlay.App.Models;
 using TestOverlay.App.Native;
 
@@ -9,6 +10,8 @@ namespace TestOverlay.App;
 
 public partial class OverlayWindow : Window
 {
+    private HwndSource? _source;
+
     public bool IsClickThroughConfigured { get; private set; }
 
     public bool IsNoActivateConfigured { get; private set; }
@@ -17,35 +20,62 @@ public partial class OverlayWindow : Window
 
     public bool IsInputHookConfigured { get; private set; }
 
-    public int AppliedExtendedStyle { get; private set; }
+    public nint AppliedExtendedStyle { get; private set; }
 
     public Exception? ClickThroughConfigurationException { get; private set; }
 
     public OverlayWindow(double width, double height, double opacity, IReadOnlyList<OverlaySlot> slots)
     {
         InitializeComponent();
+
         Width = Math.Max(120, width);
         Height = Math.Max(80, height);
-        Opacity = opacity;
+        Opacity = Math.Clamp(opacity, 0.2, 1);
+
         Focusable = false;
         ShowActivated = false;
+        ShowInTaskbar = false;
         Topmost = true;
-        SourceInitialized += (_, _) =>
+
+        Loaded += (_, _) =>
         {
-            ConfigureClickThrough();
-            if (PresentationSource.FromVisual(this) is HwndSource source)
-            {
-                source.AddHook(WndProc);
-                IsInputHookConfigured = true;
-            }
+            Dispatcher.BeginInvoke(ApplyClickThroughStyles, DispatcherPriority.ApplicationIdle);
         };
-        Loaded += (_, _) => ConfigureClickThrough();
+
         RenderSlots(slots);
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        var handle = new WindowInteropHelper(this).Handle;
+        _source = HwndSource.FromHwnd(handle);
+
+        if (_source is not null)
+        {
+            _source.AddHook(WndProc);
+            IsInputHookConfigured = true;
+        }
+
+        ApplyClickThroughStyles();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (_source is not null)
+        {
+            _source.RemoveHook(WndProc);
+            _source = null;
+        }
+
+        base.OnClosed(e);
     }
 
     public void RenderSlots(IReadOnlyList<OverlaySlot> slots)
     {
         OverlayCanvas.Children.Clear();
+
         foreach (var slot in slots)
         {
             var image = new Image
@@ -54,33 +84,67 @@ public partial class OverlayWindow : Window
                 Height = slot.OverlayRect.Height,
                 Source = slot.Preview,
                 Stretch = Stretch.Fill,
+                Focusable = false,
                 IsHitTestVisible = false
             };
+
             Canvas.SetLeft(image, slot.OverlayRect.X);
             Canvas.SetTop(image, slot.OverlayRect.Y);
             OverlayCanvas.Children.Add(image);
         }
     }
 
-    private void ConfigureClickThrough()
+    private void ApplyClickThroughStyles()
     {
         try
         {
+            ClickThroughConfigurationException = null;
+
             var handle = new WindowInteropHelper(this).Handle;
-            var exStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
-            exStyle |= Win32Methods.WsExLayered |
-                       Win32Methods.WsExTransparent |
-                       Win32Methods.WsExToolWindow |
-                       Win32Methods.WsExNoActivate |
-                       Win32Methods.WsExTopmost;
-            Win32Methods.SetWindowLong(handle, Win32Methods.GwlExStyle, exStyle);
-            ApplyNativeTopmost(handle);
-            AppliedExtendedStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
+            if (handle == nint.Zero)
+            {
+                return;
+            }
+
+            var exStyle = Win32Methods.GetWindowLongPtrSafe(handle, Win32Methods.GwlExStyle);
+            exStyle |= Win32Methods.WsExLayered;
+            exStyle |= Win32Methods.WsExTransparent;
+            exStyle |= Win32Methods.WsExToolWindow;
+            exStyle |= Win32Methods.WsExNoActivate;
+            exStyle |= Win32Methods.WsExTopmost;
+
+            Win32Methods.SetWindowLongPtrSafe(handle, Win32Methods.GwlExStyle, exStyle);
+
+            Win32Methods.SetWindowPosSafe(
+                handle,
+                Win32Methods.HwndTopmost,
+                0,
+                0,
+                0,
+                0,
+                Win32Methods.SwpNomove |
+                Win32Methods.SwpNosize |
+                Win32Methods.SwpNoactivate |
+                Win32Methods.SwpFramechanged |
+                Win32Methods.SwpShowWindow);
+
+            AppliedExtendedStyle = Win32Methods.GetWindowLongPtrSafe(handle, Win32Methods.GwlExStyle);
+
             IsClickThroughConfigured =
                 HasStyle(AppliedExtendedStyle, Win32Methods.WsExLayered) &&
                 HasStyle(AppliedExtendedStyle, Win32Methods.WsExTransparent);
             IsNoActivateConfigured = HasStyle(AppliedExtendedStyle, Win32Methods.WsExNoActivate);
             IsTopmostConfigured = HasStyle(AppliedExtendedStyle, Win32Methods.WsExTopmost);
+
+            if (!IsClickThroughConfigured || !IsNoActivateConfigured || !IsTopmostConfigured)
+            {
+                throw new InvalidOperationException(
+                    "Overlay HWND style incomplete. " +
+                    $"exStyle=0x{AppliedExtendedStyle.ToInt64():X16}, " +
+                    $"clickThrough={IsClickThroughConfigured}, " +
+                    $"noActivate={IsNoActivateConfigured}, " +
+                    $"topmost={IsTopmostConfigured}");
+            }
         }
         catch (Exception ex)
         {
@@ -91,35 +155,23 @@ public partial class OverlayWindow : Window
         }
     }
 
-    private static void ApplyNativeTopmost(nint handle) =>
-        Win32Methods.SetWindowPos(
-            handle,
-            Win32Methods.HwndTopmost,
-            0,
-            0,
-            0,
-            0,
-            Win32Methods.SwpNomove |
-            Win32Methods.SwpNosize |
-            Win32Methods.SwpNoactivate |
-            Win32Methods.SwpFramechanged);
-
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
     {
-        if (msg == Win32Methods.WmMouseActivate)
-        {
-            handled = true;
-            return Win32Methods.MaNoActivate;
-        }
-
         if (msg == Win32Methods.WmNcHitTest)
         {
             handled = true;
-            return Win32Methods.HtTransparent;
+            return new nint(Win32Methods.HtTransparent);
+        }
+
+        if (msg == Win32Methods.WmMouseActivate)
+        {
+            handled = true;
+            return new nint(Win32Methods.MaNoActivate);
         }
 
         return nint.Zero;
     }
 
-    private static bool HasStyle(int value, int style) => (value & style) == style;
+    private static bool HasStyle(nint value, int style) =>
+        (value.ToInt64() & style) == style;
 }

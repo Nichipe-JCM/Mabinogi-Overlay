@@ -24,6 +24,10 @@ public sealed class OverlayProfile
 
     public int SlotInnerSize { get; set; } = 29;
 
+    public int SlotInnerWidth { get; set; } = 29;
+
+    public int SlotInnerHeight { get; set; } = 29;
+
     public int SelectedSectionPattern { get; set; }
 
     public List<OverlayProfileSectionSettings> SectionSettings { get; set; } = [];

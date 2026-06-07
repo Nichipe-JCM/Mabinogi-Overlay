@@ -69,7 +69,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SectionCombo.ItemsSource = _sections;
-        SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         SectionPatternCombo.SelectionChanged += (_, _) =>
         {
             if (_isUpdatingSectionControls)
@@ -129,6 +128,8 @@ public partial class MainWindow : Window
 
     private void ZoomOutButton_Click(object sender, RoutedEventArgs e) =>
         CaptureZoomSlider.Value = Math.Max(CaptureZoomSlider.Minimum, CaptureZoomSlider.Value - 0.25);
+
+    private void SlotSizeBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateSizeLabels();
 
     private void PreviewScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -222,14 +223,20 @@ public partial class MainWindow : Window
         ClearCandidateRects();
         ClearSections();
 
-        var slotSize = ReadSlotInnerSize();
-        foreach (var candidate in _slotDetection.Detect(_capturedImage, slotSize, slotSize))
+        var slotWidth = ReadSlotInnerWidth();
+        var slotHeight = ReadSlotInnerHeight();
+        var detectionSize = Math.Min(slotWidth, slotHeight);
+        foreach (var detected in _slotDetection.Detect(_capturedImage, detectionSize, detectionSize))
         {
+            var candidate = new SlotCandidate(
+                detected.Id,
+                new Rect(detected.SourceRect.X, detected.SourceRect.Y, slotWidth, slotHeight),
+                detected.Score);
             AddCandidate(candidate);
         }
 
         PushUndoIfChanged(before);
-        _log.Info($"Slot detection completed: count={_candidates.Count}, innerSlotSize={slotSize}, visualBoxSize={ReadCandidateBoxSize()}");
+        _log.Info($"Slot detection completed: count={_candidates.Count}, innerSlotSize={slotWidth}x{slotHeight}, visualBoxSize={ReadCandidateBoxWidth()}x{ReadCandidateBoxHeight()}");
         SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
     }
 
@@ -311,14 +318,15 @@ public partial class MainWindow : Window
         }
 
         var before = CaptureCandidateSnapshot();
-        var size = ReadSlotInnerSize();
+        var width = ReadSlotInnerWidth();
+        var height = ReadSlotInnerHeight();
         var source = CandidateList.SelectedItem is SlotCandidate selected
             ? new Rect(
-                Math.Clamp(selected.SourceRect.X + selected.SourceRect.Width + 4, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Width - size - CandidateBorderPixels)),
-                Math.Clamp(selected.SourceRect.Y, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Height - size - CandidateBorderPixels)),
-                size,
-                size)
-            : new Rect(8 + CandidateBorderPixels, 8 + CandidateBorderPixels, size, size);
+                Math.Clamp(selected.SourceRect.X + selected.SourceRect.Width + 4, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Width - width - CandidateBorderPixels)),
+                Math.Clamp(selected.SourceRect.Y, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Height - height - CandidateBorderPixels)),
+                width,
+                height)
+            : new Rect(8 + CandidateBorderPixels, 8 + CandidateBorderPixels, width, height);
 
         var candidate = new SlotCandidate(NextCandidateId(), source, 100);
         AddCandidate(candidate);
@@ -564,7 +572,9 @@ public partial class MainWindow : Window
             RefreshIntervalMs = RefreshIntervalFromFps(_refreshFps),
             RefreshFps = _refreshFps,
             LayoutSlotScale = ReadLayoutSlotScale(),
-            SlotInnerSize = ReadSlotInnerSize(),
+            SlotInnerSize = Math.Min(ReadSlotInnerWidth(), ReadSlotInnerHeight()),
+            SlotInnerWidth = ReadSlotInnerWidth(),
+            SlotInnerHeight = ReadSlotInnerHeight(),
             SelectedSectionPattern = Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1),
             SectionSettings = _sectionSettings
                 .Select((settings, index) => new OverlayProfileSectionSettings
@@ -622,7 +632,10 @@ public partial class MainWindow : Window
             ? profile.RefreshFps
             : FpsFromInterval(profile.RefreshIntervalMs));
         _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
-        SlotSizeSlider.Value = Math.Clamp(profile.SlotInnerSize > 0 ? profile.SlotInnerSize : ReadSlotInnerSize(), SlotSizeSlider.Minimum, SlotSizeSlider.Maximum);
+        var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
+        var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
+        SlotWidthBox.Text = ReadSlotDimensionText(profileWidth, ReadSlotInnerWidth());
+        SlotHeightBox.Text = ReadSlotDimensionText(profileHeight, ReadSlotInnerHeight());
         ApplyProfileSectionSettings(profile);
 
         _overlaySlots.Clear();
@@ -680,14 +693,46 @@ public partial class MainWindow : Window
                 Top = _overlayTop
             };
             _overlayWindow.Show();
-            _liveOverlayTimer.Start();
-            if (_overlayWindow.ClickThroughConfigurationException is not null)
+            _overlayWindow.UpdateLayout();
+
+            if (_overlayWindow.ClickThroughConfigurationException is not null ||
+                !_overlayWindow.IsClickThroughConfigured ||
+                !_overlayWindow.IsNoActivateConfigured ||
+                !_overlayWindow.IsTopmostConfigured ||
+                !_overlayWindow.IsInputHookConfigured)
             {
-                _log.Error("Overlay click-through configuration failed.", _overlayWindow.ClickThroughConfigurationException);
+                var detail = _overlayWindow.ClickThroughConfigurationException?.Message ??
+                             $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
+                             $"clickThrough={_overlayWindow.IsClickThroughConfigured}, " +
+                             $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
+                             $"topmost={_overlayWindow.IsTopmostConfigured}, " +
+                             $"inputHook={_overlayWindow.IsInputHookConfigured}";
+
+                _log.Error(
+                    "Overlay click-through configuration failed.",
+                    _overlayWindow.ClickThroughConfigurationException ?? new InvalidOperationException(detail));
+
+                _overlayWindow.Close();
+                _overlayWindow = null;
+                _wgcCaptureService.StopLiveCapture();
+                _liveOverlayTimer.Stop();
+
+                SetStatus($"Overlay click-through configuration failed: {detail}");
+                return;
             }
 
+            _liveOverlayTimer.Start();
             var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
-            _log.Info($"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, exStyle=0x{_overlayWindow.AppliedExtendedStyle:X8}, clickThrough={_overlayWindow.IsClickThroughConfigured}, noActivate={_overlayWindow.IsNoActivateConfigured}, topmost={_overlayWindow.IsTopmostConfigured}, inputHook={_overlayWindow.IsInputHookConfigured}");
+            _log.Info(
+                $"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, " +
+                $"left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, " +
+                $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, " +
+                $"refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, " +
+                $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
+                $"clickThrough={_overlayWindow.IsClickThroughConfigured}, " +
+                $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
+                $"topmost={_overlayWindow.IsTopmostConfigured}, " +
+                $"inputHook={_overlayWindow.IsInputHookConfigured}");
             SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {_stopHotkey}");
         }
         catch (Exception ex)
@@ -1562,9 +1607,21 @@ public partial class MainWindow : Window
         return registered;
     }
 
-    private int ReadSlotInnerSize() => Math.Clamp((int)SlotSizeSlider.Value, 12, 180);
+    private int ReadSlotInnerWidth() => ReadSlotDimension(SlotWidthBox?.Text, 29);
 
-    private int ReadCandidateBoxSize() => ReadSlotInnerSize() + CandidateBorderPixels * 2;
+    private int ReadSlotInnerHeight() => ReadSlotDimension(SlotHeightBox?.Text, 29);
+
+    private static int ReadSlotDimension(string? text, int fallback) =>
+        int.TryParse(text, out var value)
+            ? Math.Clamp(value, 1, 300)
+            : Math.Clamp(fallback, 1, 300);
+
+    private static string ReadSlotDimensionText(int value, int fallback) =>
+        Math.Clamp(value > 0 ? value : fallback, 1, 300).ToString();
+
+    private int ReadCandidateBoxWidth() => ReadSlotInnerWidth() + CandidateBorderPixels * 2;
+
+    private int ReadCandidateBoxHeight() => ReadSlotInnerHeight() + CandidateBorderPixels * 2;
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
 
@@ -1585,7 +1642,10 @@ public partial class MainWindow : Window
 
     private void UpdateSizeLabels()
     {
-        SlotSizeText.Text = $"inside {ReadSlotInnerSize()}px, box {ReadCandidateBoxSize()}px";
+        if (SlotSizeText is not null)
+        {
+            SlotSizeText.Text = $"inside {ReadSlotInnerWidth()}x{ReadSlotInnerHeight()}px, box {ReadCandidateBoxWidth()}x{ReadCandidateBoxHeight()}px";
+        }
     }
 
     private void UpdateSectionGapLabels()

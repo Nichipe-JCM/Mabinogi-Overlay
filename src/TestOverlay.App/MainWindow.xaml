@@ -120,7 +120,12 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock Text="Slot size"/>
-                                <Slider x:Name="SlotSizeSlider" Minimum="16" Maximum="96" Value="29" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <WrapPanel>
+                                    <TextBlock Text="W" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="SlotWidthBox" Width="64" Height="24" Margin="6,0,14,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
+                                    <TextBlock Text="H" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="SlotHeightBox" Width="64" Height="24" Margin="6,0,0,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
+                                </WrapPanel>
                                 <TextBlock x:Name="SlotSizeText"/>
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="0">

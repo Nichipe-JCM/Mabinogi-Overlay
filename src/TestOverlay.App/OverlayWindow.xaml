@@ -8,6 +8,10 @@
         ShowActivated="False"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True">
-    <Canvas x:Name="OverlayCanvas" Background="Transparent" Focusable="False" IsHitTestVisible="False"/>
+        Topmost="True"
+        Focusable="False">
+    <Canvas x:Name="OverlayCanvas"
+            Background="Transparent"
+            Focusable="False"
+            IsHitTestVisible="False"/>
 </Window>
