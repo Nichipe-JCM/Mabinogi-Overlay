@@ -169,13 +169,13 @@ public partial class MainWindow : Window
         ClearCandidateRects();
         _activeSection = null;
 
-        var slotSize = ReadCandidateBoxSize();
+        var slotSize = ReadSlotInnerSize();
         foreach (var candidate in _slotDetection.Detect(_capturedImage, slotSize, slotSize))
         {
             AddCandidate(candidate);
         }
 
-        _log.Info($"Slot detection completed: count={_candidates.Count}, innerSlotSize={ReadSlotInnerSize()}, candidateBoxSize={slotSize}");
+        _log.Info($"Slot detection completed: count={_candidates.Count}, innerSlotSize={slotSize}, visualBoxSize={ReadCandidateBoxSize()}");
         SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
     }
 
@@ -256,14 +256,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        var size = ReadCandidateBoxSize();
+        var size = ReadSlotInnerSize();
         var source = CandidateList.SelectedItem is SlotCandidate selected
             ? new Rect(
-                Math.Clamp(selected.SourceRect.X + selected.SourceRect.Width + 4, 0, Math.Max(0, CaptureCanvas.Width - size)),
-                Math.Clamp(selected.SourceRect.Y, 0, Math.Max(0, CaptureCanvas.Height - size)),
+                Math.Clamp(selected.SourceRect.X + selected.SourceRect.Width + 4, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Width - size - CandidateBorderPixels)),
+                Math.Clamp(selected.SourceRect.Y, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Height - size - CandidateBorderPixels)),
                 size,
                 size)
-            : new Rect(8, 8, size, size);
+            : new Rect(8 + CandidateBorderPixels, 8 + CandidateBorderPixels, size, size);
 
         var candidate = new SlotCandidate(NextCandidateId(), source, 100);
         AddCandidate(candidate);
@@ -555,7 +555,7 @@ public partial class MainWindow : Window
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var position = e.GetPosition(CaptureCanvas);
-        var hit = _candidates.FirstOrDefault(candidate => candidate.SourceRect.Contains(position));
+        var hit = _candidates.FirstOrDefault(candidate => GetCandidateVisualRect(candidate).Contains(position));
         if (hit is null)
         {
             BeginCandidateBoxSelection(position);
@@ -622,8 +622,8 @@ public partial class MainWindow : Window
     {
         var rect = new Rectangle
         {
-            Width = candidate.SourceRect.Width,
-            Height = candidate.SourceRect.Height,
+            Width = GetCandidateVisualRect(candidate).Width,
+            Height = GetCandidateVisualRect(candidate).Height,
             StrokeThickness = 2,
             Fill = new SolidColorBrush(Color.FromArgb(45, 30, 144, 255)),
             IsHitTestVisible = true,
@@ -637,8 +637,9 @@ public partial class MainWindow : Window
         };
         _candidateRects[candidate] = rect;
         CaptureCanvas.Children.Add(rect);
-        Canvas.SetLeft(rect, candidate.SourceRect.X);
-        Canvas.SetTop(rect, candidate.SourceRect.Y);
+        var visualRect = GetCandidateVisualRect(candidate);
+        Canvas.SetLeft(rect, visualRect.X);
+        Canvas.SetTop(rect, visualRect.Y);
         UpdateCandidateVisual(candidate);
     }
 
@@ -717,7 +718,7 @@ public partial class MainWindow : Window
                 _selectionRect.Height);
             foreach (var candidate in _candidates)
             {
-                if (selection.IntersectsWith(candidate.SourceRect))
+                if (selection.IntersectsWith(GetCandidateVisualRect(candidate)))
                 {
                     candidate.IsSelected = true;
                 }
@@ -740,10 +741,10 @@ public partial class MainWindow : Window
 
         var requestedDeltaX = position.X - _candidateDragStartPosition.X;
         var requestedDeltaY = position.Y - _candidateDragStartPosition.Y;
-        var minDeltaX = _candidateDragOrigins.Max(item => -item.Value.X);
-        var minDeltaY = _candidateDragOrigins.Max(item => -item.Value.Y);
-        var maxDeltaX = _candidateDragOrigins.Min(item => CaptureCanvas.Width - item.Value.X - item.Key.SourceRect.Width);
-        var maxDeltaY = _candidateDragOrigins.Min(item => CaptureCanvas.Height - item.Value.Y - item.Key.SourceRect.Height);
+        var minDeltaX = _candidateDragOrigins.Max(item => CandidateBorderPixels - item.Value.X);
+        var minDeltaY = _candidateDragOrigins.Max(item => CandidateBorderPixels - item.Value.Y);
+        var maxDeltaX = _candidateDragOrigins.Min(item => CaptureCanvas.Width - CandidateBorderPixels - item.Value.X - item.Key.SourceRect.Width);
+        var maxDeltaY = _candidateDragOrigins.Min(item => CaptureCanvas.Height - CandidateBorderPixels - item.Value.Y - item.Key.SourceRect.Height);
         var deltaX = Math.Clamp(requestedDeltaX, minDeltaX, maxDeltaX);
         var deltaY = Math.Clamp(requestedDeltaY, minDeltaY, maxDeltaY);
 
@@ -757,13 +758,16 @@ public partial class MainWindow : Window
 
     private void MoveCandidate(SlotCandidate candidate, double x, double y)
     {
-        var clampedX = Math.Clamp(x, 0, Math.Max(0, CaptureCanvas.Width - candidate.SourceRect.Width));
-        var clampedY = Math.Clamp(y, 0, Math.Max(0, CaptureCanvas.Height - candidate.SourceRect.Height));
+        var clampedX = Math.Clamp(x, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Width - candidate.SourceRect.Width - CandidateBorderPixels));
+        var clampedY = Math.Clamp(y, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Height - candidate.SourceRect.Height - CandidateBorderPixels));
         candidate.MoveTo(clampedX, clampedY);
         if (_candidateRects.TryGetValue(candidate, out var candidateRect))
         {
-            Canvas.SetLeft(candidateRect, clampedX);
-            Canvas.SetTop(candidateRect, clampedY);
+            var visualRect = GetCandidateVisualRect(candidate);
+            candidateRect.Width = visualRect.Width;
+            candidateRect.Height = visualRect.Height;
+            Canvas.SetLeft(candidateRect, visualRect.X);
+            Canvas.SetTop(candidateRect, visualRect.Y);
         }
     }
 
@@ -830,10 +834,16 @@ public partial class MainWindow : Window
     {
         var slotWidth = seed.SourceRect.Width;
         var slotHeight = seed.SourceRect.Height;
-        var innerPitchX = slotWidth + pattern.InnerGapX(smallGap);
-        var innerPitchY = slotHeight + pattern.InnerGapY(smallGapY);
-        var groupPitchX = pattern.GroupColumns * innerPitchX + pattern.GroupGapX(largeGap);
-        var groupPitchY = pattern.GroupRows * innerPitchY + pattern.GroupGapY(largeGap);
+        var smallGapX = pattern.InnerGapX(smallGap);
+        var smallGapYValue = pattern.InnerGapY(smallGapY);
+        var innerPitchX = slotWidth + smallGapX;
+        var innerPitchY = slotHeight + smallGapYValue;
+        var groupPitchX = (pattern.GroupColumns * slotWidth) +
+                          (Math.Max(0, pattern.GroupColumns - 1) * smallGapX) +
+                          pattern.GroupGapX(largeGap);
+        var groupPitchY = (pattern.GroupRows * slotHeight) +
+                          (Math.Max(0, pattern.GroupRows - 1) * smallGapYValue) +
+                          pattern.GroupGapY(largeGap);
 
         for (var groupY = 0; groupY < pattern.GroupRowsCount; groupY++)
         {
@@ -863,10 +873,17 @@ public partial class MainWindow : Window
     }
 
     private bool IsRectInsideCapture(Rect rect) =>
-        rect.X >= 0 &&
-        rect.Y >= 0 &&
-        rect.Right <= CaptureCanvas.Width &&
-        rect.Bottom <= CaptureCanvas.Height;
+        rect.X >= CandidateBorderPixels &&
+        rect.Y >= CandidateBorderPixels &&
+        rect.Right <= CaptureCanvas.Width - CandidateBorderPixels &&
+        rect.Bottom <= CaptureCanvas.Height - CandidateBorderPixels;
+
+    private static Rect GetCandidateVisualRect(SlotCandidate candidate)
+    {
+        var rect = candidate.SourceRect;
+        rect.Inflate(CandidateBorderPixels, CandidateBorderPixels);
+        return rect;
+    }
 
     private SectionPattern ReadSectionPattern() =>
         SectionPatternCombo.SelectedIndex == 1

@@ -71,9 +71,9 @@
 
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1.05*"/>
+                    <RowDefinition Height="1.35*"/>
                     <RowDefinition Height="12"/>
-                    <RowDefinition Height="1.05*"/>
+                    <RowDefinition Height="0.75*"/>
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="8">
@@ -136,6 +136,7 @@
                                  x:Name="CandidateList"
                                  ItemsSource="{Binding Candidates}"
                                  BorderBrush="#D9DEE7"
+                                 MinHeight="120"
                                  KeyDown="CandidateList_KeyDown">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
