@@ -64,7 +64,12 @@
                         </StackPanel>
                         <TextBlock x:Name="CaptureInfoText" DockPanel.Dock="Right" Foreground="#596273"/>
                     </DockPanel>
-                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">
+                    <ScrollViewer x:Name="PreviewScrollViewer"
+                                  Grid.Row="1"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="#111827"
+                                  PreviewMouseWheel="PreviewScrollViewer_PreviewMouseWheel">
                         <Canvas x:Name="CaptureCanvas"
                                 Background="#111827"
                                 MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
@@ -126,7 +131,11 @@
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="2">
                                 <TextBlock Text="Section"/>
-                                <Button x:Name="AddSectionFromSelectedButton" Height="28" Content="Add Section" Click="AddSectionFromSelectedButton_Click"/>
+                                <ComboBox x:Name="SectionCombo" Height="28" DisplayMemberPath="Label" SelectionChanged="SectionCombo_SelectionChanged"/>
+                                <WrapPanel Margin="0,6,0,0">
+                                    <Button x:Name="AddSectionFromSelectedButton" Width="112" Height="28" Content="Add Section" Click="AddSectionFromSelectedButton_Click"/>
+                                    <Button x:Name="DeleteSectionButton" Width="76" Height="28" Margin="6,0,0,0" Content="Delete" Click="DeleteSectionButton_Click"/>
+                                </WrapPanel>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="0">
                                 <TextBlock x:Name="SmallGapXText"/>

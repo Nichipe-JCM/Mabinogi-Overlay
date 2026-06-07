@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly AppLog _log = new();
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
+    private readonly ObservableCollection<QuickslotSection> _sections = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private readonly SectionSettings[] _sectionSettings =
@@ -48,10 +49,12 @@ public partial class MainWindow : Window
     private Point _selectionStartPosition;
     private bool _isSelectingCandidates;
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
-    private ActiveSection? _activeSection;
+    private QuickslotSection? _selectedSection;
     private bool _isLiveRefreshInProgress;
     private bool _isUpdatingSectionControls;
+    private bool _isUpdatingSectionSelection;
     private int _currentSectionIndex;
+    private int _nextSectionId = 1;
     private double _layoutCanvasWidth = 360;
     private double _layoutCanvasHeight = 160;
     private double _overlayLeft = 120;
@@ -65,6 +68,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
+        SectionCombo.ItemsSource = _sections;
         SlotSizeSlider.ValueChanged += (_, _) => UpdateSizeLabels();
         SectionPatternCombo.SelectionChanged += (_, _) =>
         {
@@ -75,27 +79,25 @@ public partial class MainWindow : Window
 
             SaveCurrentSectionSettings();
             _currentSectionIndex = Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1);
-            ApplySectionSettingsToControls(_currentSectionIndex);
             UpdateSectionGapLabels();
-            RebuildActiveSection();
         };
         SmallGapXSlider.ValueChanged += (_, _) =>
         {
             SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
-            RebuildActiveSection();
+            RebuildSelectedSection();
         };
         SmallGapYSlider.ValueChanged += (_, _) =>
         {
             SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
-            RebuildActiveSection();
+            RebuildSelectedSection();
         };
         LargeGapSlider.ValueChanged += (_, _) =>
         {
             SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
-            RebuildActiveSection();
+            RebuildSelectedSection();
         };
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
@@ -127,6 +129,18 @@ public partial class MainWindow : Window
 
     private void ZoomOutButton_Click(object sender, RoutedEventArgs e) =>
         CaptureZoomSlider.Value = Math.Max(CaptureZoomSlider.Minimum, CaptureZoomSlider.Value - 0.25);
+
+    private void PreviewScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            return;
+        }
+
+        var step = e.Delta > 0 ? 0.25 : -0.25;
+        CaptureZoomSlider.Value = Math.Clamp(CaptureZoomSlider.Value + step, CaptureZoomSlider.Minimum, CaptureZoomSlider.Maximum);
+        e.Handled = true;
+    }
 
     private void RefreshWindowsButton_Click(object sender, RoutedEventArgs e) => RefreshWindows();
 
@@ -181,7 +195,7 @@ public partial class MainWindow : Window
             CaptureInfoText.Text = $"{_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}";
             _candidates.Clear();
             ClearCandidateRects();
-            _activeSection = null;
+            ClearSections();
             SetStatus("Captured the verified Mabinogi window with WGC. Run slot detection next.");
         }
         catch (Exception ex)
@@ -206,7 +220,7 @@ public partial class MainWindow : Window
         var before = CaptureCandidateSnapshot();
         _candidates.Clear();
         ClearCandidateRects();
-        _activeSection = null;
+        ClearSections();
 
         var slotSize = ReadSlotInnerSize();
         foreach (var candidate in _slotDetection.Detect(_capturedImage, slotSize, slotSize))
@@ -331,10 +345,59 @@ public partial class MainWindow : Window
 
         var before = CaptureCandidateSnapshot();
         var pattern = ReadSectionPattern();
-        var added = AddSectionCandidates(seed, pattern);
+        var settings = new SectionSettings(ReadSmallGapX(), ReadSmallGapY(), ReadLargeGap());
+        var added = AddSectionCandidates(seed, pattern, Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1), settings);
         PushUndoIfChanged(before);
         _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}");
         SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Adjust small/large gap sliders to align the section.");
+    }
+
+    private void DeleteSectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedSection is null)
+        {
+            SetStatus("No section is selected.");
+            return;
+        }
+
+        var before = CaptureCandidateSnapshot();
+        var candidates = _selectedSection.Candidates.Where(candidate => _candidates.Contains(candidate)).ToList();
+        foreach (var candidate in candidates)
+        {
+            if (_candidateRects.Remove(candidate, out var rect))
+            {
+                CaptureCanvas.Children.Remove(rect);
+            }
+
+            _candidates.Remove(candidate);
+        }
+
+        _overlaySlots.RemoveAll(slot => candidates.Contains(slot.Source));
+        _sections.Remove(_selectedSection);
+        _selectedSection = null;
+        SectionCombo.SelectedItem = null;
+        RefreshSectionLabels();
+        UpdateLayoutSummary();
+        PushUndoIfChanged(before);
+        SetStatus($"Deleted section and {candidates.Count} candidate(s).");
+    }
+
+    private void SectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isUpdatingSectionSelection)
+        {
+            return;
+        }
+
+        _selectedSection = SectionCombo.SelectedItem as QuickslotSection;
+        if (_selectedSection is null)
+        {
+            return;
+        }
+
+        SelectSectionCandidates(_selectedSection);
+        LoadSectionControls(_selectedSection);
+        SetStatus($"Selected section {_selectedSection.Label}.");
     }
 
     private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -405,10 +468,7 @@ public partial class MainWindow : Window
         }
 
         _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
-        if (_activeSection is not null && selected.Any(candidate => _activeSection.Candidates.Contains(candidate)))
-        {
-            _activeSection = null;
-        }
+        RemoveSectionsContaining(selected);
 
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
@@ -433,7 +493,7 @@ public partial class MainWindow : Window
         var before = CaptureCandidateSnapshot();
         _candidates.Clear();
         ClearCandidateRects();
-        _activeSection = null;
+        ClearSections();
         PushUndoIfChanged(before);
         SetStatus("Candidate list cleared.");
     }
@@ -568,7 +628,7 @@ public partial class MainWindow : Window
         _overlaySlots.Clear();
         _candidates.Clear();
         ClearCandidateRects();
-        _activeSection = null;
+        ClearSections();
 
         var id = 1;
         foreach (var savedSlot in profile.Slots)
@@ -882,13 +942,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private int AddSectionCandidates(SlotCandidate seed, SectionPattern pattern)
+    private int AddSectionCandidates(SlotCandidate seed, SectionPattern pattern, int patternIndex, SectionSettings settings)
     {
         var added = 0;
         var sectionCandidates = new List<SlotCandidate>();
 
         ClearCandidateSelection();
-        foreach (var offset in BuildSectionOffsets(seed, pattern, ReadSmallGapX(), ReadSmallGapY(), ReadLargeGap()))
+        foreach (var offset in BuildSectionOffsets(seed, pattern, settings.SmallGapX, settings.SmallGapY, settings.LargeGap))
         {
             var rect = new Rect(
                 seed.SourceRect.X + offset.X,
@@ -916,7 +976,9 @@ public partial class MainWindow : Window
         }
 
         CandidateList.SelectedItem = seed;
-        _activeSection = new ActiveSection(seed, pattern, sectionCandidates);
+        var section = new QuickslotSection(_nextSectionId++, seed, patternIndex, settings, sectionCandidates);
+        _sections.Add(section);
+        SelectSection(section);
         return added;
     }
 
@@ -981,35 +1043,39 @@ public partial class MainWindow : Window
     }
 
     private SectionPattern ReadSectionPattern() =>
-        SectionPatternCombo.SelectedIndex == 1
-            ? SectionPattern.LeftVertical()
-            : SectionPattern.TopGrouped();
+        GetSectionPattern(Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1));
 
-    private void RebuildActiveSection()
+    private static SectionPattern GetSectionPattern(int index) =>
+        index == 1 ? SectionPattern.LeftVertical() : SectionPattern.TopGrouped();
+
+    private void RebuildSelectedSection()
     {
-        if (_activeSection is null || _capturedImage is null)
+        if (_selectedSection is null || _capturedImage is null || _isUpdatingSectionControls)
         {
             return;
         }
 
+        _selectedSection.Settings = new SectionSettings(ReadSmallGapX(), ReadSmallGapY(), ReadLargeGap());
+        var pattern = GetSectionPattern(_selectedSection.PatternIndex);
         var offsets = BuildSectionOffsets(
-                _activeSection.Seed,
-                _activeSection.Pattern,
-                ReadSmallGapX(),
-                ReadSmallGapY(),
-                ReadLargeGap())
+                _selectedSection.Seed,
+                pattern,
+                _selectedSection.Settings.SmallGapX,
+                _selectedSection.Settings.SmallGapY,
+                _selectedSection.Settings.LargeGap)
             .ToList();
-        var count = Math.Min(offsets.Count, _activeSection.Candidates.Count);
+        var count = Math.Min(offsets.Count, _selectedSection.Candidates.Count);
         for (var i = 0; i < count; i++)
         {
-            var candidate = _activeSection.Candidates[i];
+            var candidate = _selectedSection.Candidates[i];
             var offset = offsets[i];
-            var x = _activeSection.Seed.SourceRect.X + offset.X;
-            var y = _activeSection.Seed.SourceRect.Y + offset.Y;
+            var x = _selectedSection.Seed.SourceRect.X + offset.X;
+            var y = _selectedSection.Seed.SourceRect.Y + offset.Y;
             MoveCandidate(candidate, x, y);
         }
 
-        SetStatus($"Adjusted {_activeSection.Pattern.Name}: gap X {ReadSmallGapX():0}px, gap Y {ReadSmallGapY():0}px, large gap {ReadLargeGap():0}px.");
+        RefreshSectionLabels();
+        SetStatus($"Adjusted {_selectedSection.Label}: gap X {ReadSmallGapX():0}px, gap Y {ReadSmallGapY():0}px, large gap {ReadLargeGap():0}px.");
     }
 
     private bool TryNudgeSelectedCandidates(Key key)
@@ -1091,6 +1157,89 @@ public partial class MainWindow : Window
         UpdateLayoutSummary();
     }
 
+    private void SelectSection(QuickslotSection section)
+    {
+        _selectedSection = section;
+        _isUpdatingSectionSelection = true;
+        try
+        {
+            SectionCombo.SelectedItem = section;
+        }
+        finally
+        {
+            _isUpdatingSectionSelection = false;
+        }
+
+        SelectSectionCandidates(section);
+        LoadSectionControls(section);
+        RefreshSectionLabels();
+    }
+
+    private void SelectSectionCandidates(QuickslotSection section)
+    {
+        foreach (var candidate in _candidates)
+        {
+            candidate.IsSelected = section.Candidates.Contains(candidate);
+        }
+
+        CandidateList.SelectedItem = section.Seed;
+    }
+
+    private void LoadSectionControls(QuickslotSection section)
+    {
+        _currentSectionIndex = Math.Clamp(section.PatternIndex, 0, _sectionSettings.Length - 1);
+        _sectionSettings[_currentSectionIndex] = section.Settings;
+        _isUpdatingSectionControls = true;
+        try
+        {
+            SectionPatternCombo.SelectedIndex = _currentSectionIndex;
+            SmallGapXSlider.Value = Math.Clamp(section.Settings.SmallGapX, SmallGapXSlider.Minimum, SmallGapXSlider.Maximum);
+            SmallGapYSlider.Value = Math.Clamp(section.Settings.SmallGapY, SmallGapYSlider.Minimum, SmallGapYSlider.Maximum);
+            LargeGapSlider.Value = Math.Clamp(section.Settings.LargeGap, LargeGapSlider.Minimum, LargeGapSlider.Maximum);
+        }
+        finally
+        {
+            _isUpdatingSectionControls = false;
+        }
+
+        UpdateSectionGapLabels();
+    }
+
+    private void ClearSections()
+    {
+        _sections.Clear();
+        _selectedSection = null;
+        _nextSectionId = 1;
+        SectionCombo.SelectedItem = null;
+    }
+
+    private void RemoveSectionsContaining(IReadOnlyCollection<SlotCandidate> candidates)
+    {
+        var removed = _sections.Where(section => section.Candidates.Any(candidates.Contains)).ToList();
+        foreach (var section in removed)
+        {
+            _sections.Remove(section);
+        }
+
+        if (_selectedSection is not null && removed.Contains(_selectedSection))
+        {
+            _selectedSection = null;
+            SectionCombo.SelectedItem = null;
+        }
+
+        RefreshSectionLabels();
+    }
+
+    private void RefreshSectionLabels()
+    {
+        foreach (var section in _sections)
+        {
+            section.RefreshLabel();
+        }
+
+        SectionCombo.Items.Refresh();
+    }
+
     private void ClearCandidateRects()
     {
         foreach (var rect in _candidateRects.Values)
@@ -1128,6 +1277,7 @@ public partial class MainWindow : Window
     private CandidateEditSnapshot CaptureCandidateSnapshot()
     {
         var selectedId = CandidateList.SelectedItem is SlotCandidate selected ? selected.Id : 0;
+        var selectedSectionId = _selectedSection?.Id ?? 0;
         return new CandidateEditSnapshot(
             _candidates
                 .Select(candidate => new CandidateState(
@@ -1139,6 +1289,18 @@ public partial class MainWindow : Window
                     candidate.Score,
                     candidate.IsSelected))
                 .ToList(),
+            _sections
+                .Select(section => new SectionState(
+                    section.Id,
+                    section.Seed.Id,
+                    section.PatternIndex,
+                    section.Settings.SmallGapX,
+                    section.Settings.SmallGapY,
+                    section.Settings.LargeGap,
+                    section.Candidates.Select(candidate => candidate.Id).ToList()))
+                .ToList(),
+            selectedSectionId,
+            _nextSectionId,
             selectedId);
     }
 
@@ -1187,7 +1349,8 @@ public partial class MainWindow : Window
     {
         _candidates.Clear();
         ClearCandidateRects();
-        _activeSection = null;
+        _sections.Clear();
+        _selectedSection = null;
 
         SlotCandidate? selected = null;
         var restoredById = new Dictionary<int, SlotCandidate>();
@@ -1209,6 +1372,47 @@ public partial class MainWindow : Window
         }
 
         CandidateList.SelectedItem = selected;
+        QuickslotSection? selectedSection = null;
+        foreach (var savedSection in snapshot.Sections)
+        {
+            if (!restoredById.TryGetValue(savedSection.SeedId, out var seed))
+            {
+                continue;
+            }
+
+            var candidates = savedSection.CandidateIds
+                .Select(id => restoredById.TryGetValue(id, out var candidate) ? candidate : null)
+                .Where(candidate => candidate is not null)
+                .Cast<SlotCandidate>()
+                .ToList();
+            if (candidates.Count == 0)
+            {
+                continue;
+            }
+
+            var section = new QuickslotSection(
+                savedSection.Id,
+                seed,
+                savedSection.PatternIndex,
+                new SectionSettings(savedSection.SmallGapX, savedSection.SmallGapY, savedSection.LargeGap),
+                candidates);
+            _sections.Add(section);
+            if (savedSection.Id == snapshot.SelectedSectionId)
+            {
+                selectedSection = section;
+            }
+        }
+
+        _nextSectionId = Math.Max(snapshot.NextSectionId, _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1);
+        if (selectedSection is not null)
+        {
+            SelectSection(selectedSection);
+        }
+        else
+        {
+            SectionCombo.SelectedItem = null;
+        }
+
         foreach (var slot in _overlaySlots.ToList())
         {
             if (!restoredById.TryGetValue(slot.Source.Id, out var restoredSource))
@@ -1229,13 +1433,27 @@ public partial class MainWindow : Window
 
     private static bool CandidateSnapshotsEqual(CandidateEditSnapshot left, CandidateEditSnapshot right)
     {
-        if (left.SelectedId != right.SelectedId || left.Candidates.Count != right.Candidates.Count)
+        if (left.SelectedId != right.SelectedId ||
+            left.SelectedSectionId != right.SelectedSectionId ||
+            left.NextSectionId != right.NextSectionId ||
+            left.Candidates.Count != right.Candidates.Count ||
+            left.Sections.Count != right.Sections.Count)
         {
             return false;
         }
 
-        return left.Candidates.SequenceEqual(right.Candidates);
+        return left.Candidates.SequenceEqual(right.Candidates) &&
+               left.Sections.Zip(right.Sections).All(pair => SectionStatesEqual(pair.First, pair.Second));
     }
+
+    private static bool SectionStatesEqual(SectionState left, SectionState right) =>
+        left.Id == right.Id &&
+        left.SeedId == right.SeedId &&
+        left.PatternIndex == right.PatternIndex &&
+        left.SmallGapX.Equals(right.SmallGapX) &&
+        left.SmallGapY.Equals(right.SmallGapY) &&
+        left.LargeGap.Equals(right.LargeGap) &&
+        left.CandidateIds.SequenceEqual(right.CandidateIds);
 
     private int NextCandidateId() => _candidates.Count == 0 ? 1 : _candidates.Max(candidate => candidate.Id) + 1;
 
@@ -1374,7 +1592,12 @@ public partial class MainWindow : Window
         }
 
         var index = Math.Clamp(_currentSectionIndex, 0, _sectionSettings.Length - 1);
-        _sectionSettings[index] = new SectionSettings(ReadSmallGapX(), ReadSmallGapY(), ReadLargeGap());
+        var settings = new SectionSettings(ReadSmallGapX(), ReadSmallGapY(), ReadLargeGap());
+        _sectionSettings[index] = settings;
+        if (_selectedSection is not null && _selectedSection.PatternIndex == index)
+        {
+            _selectedSection.Settings = settings;
+        }
     }
 
     private void ApplySectionSettingsToControls(int patternIndex)
@@ -1467,13 +1690,53 @@ public partial class MainWindow : Window
         _log.Info($"Status: {message}");
     }
 
-    private sealed record ActiveSection(SlotCandidate Seed, SectionPattern Pattern, List<SlotCandidate> Candidates);
+    private sealed class QuickslotSection
+    {
+        public QuickslotSection(int id, SlotCandidate seed, int patternIndex, SectionSettings settings, List<SlotCandidate> candidates)
+        {
+            Id = id;
+            Seed = seed;
+            PatternIndex = patternIndex;
+            Settings = settings;
+            Candidates = candidates;
+        }
+
+        public int Id { get; }
+
+        public SlotCandidate Seed { get; }
+
+        public int PatternIndex { get; }
+
+        public SectionSettings Settings { get; set; }
+
+        public List<SlotCandidate> Candidates { get; }
+
+        public string Label => $"#{Id:00} {GetSectionPatternName(PatternIndex)} ({Candidates.Count})";
+
+        public void RefreshLabel()
+        {
+        }
+    }
 
     private sealed record SectionSettings(double SmallGapX, double SmallGapY, double LargeGap);
 
-    private sealed record CandidateEditSnapshot(List<CandidateState> Candidates, int SelectedId);
+    private sealed record CandidateEditSnapshot(
+        List<CandidateState> Candidates,
+        List<SectionState> Sections,
+        int SelectedSectionId,
+        int NextSectionId,
+        int SelectedId);
 
     private sealed record CandidateState(int Id, double X, double Y, double Width, double Height, double Score, bool IsSelected);
+
+    private sealed record SectionState(
+        int Id,
+        int SeedId,
+        int PatternIndex,
+        double SmallGapX,
+        double SmallGapY,
+        double LargeGap,
+        List<int> CandidateIds);
 
     private sealed record SectionPattern(
         string Name,
