@@ -179,6 +179,7 @@
                             <Button x:Name="AddManualCandidateButton" Width="82" Height="32" Margin="4,0,0,6" Content="Add" Click="AddManualCandidateButton_Click"/>
                             <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,6" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
                             <Button x:Name="AddSelectedButton" Width="104" Height="32" Margin="4,0,0,6" Content="Place" Click="AddSelectedButton_Click"/>
+                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,6" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
                             <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,6" Content="Clear" Click="ClearCandidatesButton_Click"/>
                         </WrapPanel>
                     </Grid>

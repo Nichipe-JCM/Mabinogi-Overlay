@@ -242,13 +242,21 @@ public partial class MainWindow : Window
 
     private void AddSelectedButton_Click(object sender, RoutedEventArgs e)
     {
+        PlaceSelectedCandidates(clearExisting: true);
+    }
+
+    private void AddToOverlayButton_Click(object sender, RoutedEventArgs e)
+    {
+        PlaceSelectedCandidates(clearExisting: false);
+    }
+
+    private void PlaceSelectedCandidates(bool clearExisting)
+    {
         if (_capturedImage is null)
         {
             SetStatus("Capture and detect candidates first.");
             return;
         }
-
-        _overlaySlots.Clear();
 
         var selected = _candidates.Where(candidate => candidate.IsSelected).ToList();
         if (selected.Count == 0)
@@ -257,8 +265,26 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (clearExisting)
+        {
+            _overlaySlots.Clear();
+        }
+        else
+        {
+            selected = selected
+                .Where(candidate => _overlaySlots.All(slot => !ReferenceEquals(slot.Source, candidate)))
+                .ToList();
+            if (selected.Count == 0)
+            {
+                SetStatus("Selected candidates are already on the overlay.");
+                return;
+            }
+        }
+
         var cursorX = 8.0;
-        var cursorY = 8.0;
+        var cursorY = clearExisting || _overlaySlots.Count == 0
+            ? 8.0
+            : _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + 8;
         var rowHeight = 0.0;
         foreach (var candidate in selected)
         {
@@ -286,8 +312,10 @@ public partial class MainWindow : Window
         }
 
         UpdateLayoutSummary();
-        _log.Info($"Placed overlay slots: count={_overlaySlots.Count}, canvas={_layoutCanvasWidth}x{_layoutCanvasHeight}");
-        SetStatus($"Placed {_overlaySlots.Count} slots. Open Manage Layout to arrange them.");
+        _log.Info($"Placed overlay slots: added={selected.Count}, total={_overlaySlots.Count}, clearExisting={clearExisting}, canvas={_layoutCanvasWidth}x{_layoutCanvasHeight}");
+        SetStatus(clearExisting
+            ? $"Placed {_overlaySlots.Count} slots. Open Manage Layout to arrange them."
+            : $"Added {selected.Count} slot(s) to overlay. Total {_overlaySlots.Count}.");
     }
 
     private void SelectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
