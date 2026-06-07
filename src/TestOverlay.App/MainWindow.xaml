@@ -7,6 +7,7 @@
         MinHeight="760"
         MinWidth="1120"
         Background="#F3F5F7"
+        PreviewKeyDown="Window_PreviewKeyDown"
         KeyDown="Window_KeyDown">
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -69,6 +70,7 @@
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
                                   Background="#111827"
+                                  PreviewKeyDown="PreviewScrollViewer_PreviewKeyDown"
                                   PreviewMouseWheel="PreviewScrollViewer_PreviewMouseWheel">
                         <Canvas x:Name="CaptureCanvas"
                                 Focusable="True"

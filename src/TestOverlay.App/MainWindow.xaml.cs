@@ -484,6 +484,27 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.OriginalSource is TextBox)
+        {
+            return;
+        }
+
+        if (TryHandleCandidateNudgeKey(e.Key))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void PreviewScrollViewer_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (TryHandleCandidateNudgeKey(e.Key))
+        {
+            e.Handled = true;
+        }
+    }
+
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.OriginalSource is not TextBox && TryHandleUndoRedo(e))
@@ -504,6 +525,9 @@ public partial class MainWindow : Window
         DeleteSelectedCandidates();
         e.Handled = true;
     }
+
+    private bool TryHandleCandidateNudgeKey(Key key) =>
+        key is Key.Left or Key.Right or Key.Up or Key.Down && TryNudgeSelectedCandidates(key);
 
     private void DeleteSelectedCandidates()
     {
