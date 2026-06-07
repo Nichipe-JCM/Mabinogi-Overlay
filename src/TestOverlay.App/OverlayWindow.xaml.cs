@@ -27,6 +27,7 @@ public partial class OverlayWindow : Window
         Opacity = opacity;
         Focusable = false;
         ShowActivated = false;
+        Topmost = false;
         SourceInitialized += (_, _) =>
         {
             ConfigureClickThrough();
@@ -70,12 +71,23 @@ public partial class OverlayWindow : Window
                        Win32Methods.WsExNoActivate |
                        Win32Methods.WsExTopmost;
             Win32Methods.SetWindowLong(handle, Win32Methods.GwlExStyle, exStyle);
+            Win32Methods.SetWindowPos(
+                handle,
+                Win32Methods.HwndTopmost,
+                0,
+                0,
+                0,
+                0,
+                Win32Methods.SwpNomove |
+                Win32Methods.SwpNosize |
+                Win32Methods.SwpNoactivate |
+                Win32Methods.SwpFramechanged);
             AppliedExtendedStyle = Win32Methods.GetWindowLong(handle, Win32Methods.GwlExStyle);
             IsClickThroughConfigured =
                 HasStyle(AppliedExtendedStyle, Win32Methods.WsExLayered) &&
                 HasStyle(AppliedExtendedStyle, Win32Methods.WsExTransparent);
             IsNoActivateConfigured = HasStyle(AppliedExtendedStyle, Win32Methods.WsExNoActivate);
-            IsTopmostConfigured = Topmost && HasStyle(AppliedExtendedStyle, Win32Methods.WsExTopmost);
+            IsTopmostConfigured = HasStyle(AppliedExtendedStyle, Win32Methods.WsExTopmost);
         }
         catch (Exception ex)
         {

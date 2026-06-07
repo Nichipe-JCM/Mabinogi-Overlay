@@ -19,6 +19,11 @@ internal static partial class Win32Methods
     public const int WmNcHitTest = 0x0084;
     public const int HtTransparent = -1;
     public const int MaNoActivate = 3;
+    public const uint SwpNosize = 0x0001;
+    public const uint SwpNomove = 0x0002;
+    public const uint SwpNoactivate = 0x0010;
+    public const uint SwpFramechanged = 0x0020;
+    public static readonly nint HwndTopmost = new(-1);
     public const uint ModAlt = 0x0001;
     public const uint ModControl = 0x0002;
     public const uint ModShift = 0x0004;
@@ -57,6 +62,17 @@ internal static partial class Win32Methods
 
     [LibraryImport("user32.dll")]
     public static partial int SetWindowLong(nint hWnd, int nIndex, int dwNewLong);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetWindowPos(
+        nint hWnd,
+        nint hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint flags);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
