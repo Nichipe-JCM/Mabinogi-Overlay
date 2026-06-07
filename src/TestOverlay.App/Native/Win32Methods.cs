@@ -99,16 +99,16 @@ internal static partial class Win32Methods
         }
     }
 
-    [LibraryImport("user32.dll", EntryPoint = "GetWindowLong", SetLastError = true)]
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
     private static partial int GetWindowLong32(nint hWnd, int nIndex);
 
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLong", SetLastError = true)]
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
     private static partial int SetWindowLong32(nint hWnd, int nIndex, int dwNewLong);
 
-    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static partial nint GetWindowLongPtr64(nint hWnd, int nIndex);
 
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static partial nint SetWindowLongPtr64(nint hWnd, int nIndex, nint dwNewLong);
 
     [LibraryImport("user32.dll", SetLastError = true)]
