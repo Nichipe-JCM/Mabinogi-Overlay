@@ -185,7 +185,7 @@
                         </Border>
 
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,0,0,0">
-                            <TextBox x:Name="ProfileNameBox" Width="110" Height="34" Margin="4,0,8,6" Text="default" ToolTip="Profile name saved under the Profiles folder"/>
+                            <ComboBox x:Name="ProfileCombo" Width="130" Height="34" Margin="4,0,8,6" ToolTip="Saved profiles under the portable Profiles folder"/>
                             <Button x:Name="OpenLayoutEditorButton" Width="132" Height="34" Margin="4,0,0,6" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
                             <Button x:Name="ClearLayoutButton" Width="76" Height="34" Margin="4,0,0,6" Content="Clear" Click="ClearLayoutButton_Click"/>
                             <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Save" Click="SaveProfileButton_Click"/>

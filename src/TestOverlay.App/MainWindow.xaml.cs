@@ -110,6 +110,7 @@ public partial class MainWindow : Window
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshWindows();
+        RefreshProfileList();
         _log.Info("Application loaded.");
     }
 
@@ -480,7 +481,17 @@ public partial class MainWindow : Window
     private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
     {
         SaveCurrentSectionSettings();
-        var profileName = ReadProfileName();
+        var dialog = new ProfileNameDialog(ReadSelectedProfileName())
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            SetStatus("Profile save canceled.");
+            return;
+        }
+
+        var profileName = dialog.ProfileName;
         var profile = new OverlayProfile
         {
             Name = profileName,
@@ -519,6 +530,7 @@ public partial class MainWindow : Window
         };
 
         var path = _profileStore.Save(profile, profileName);
+        RefreshProfileList(System.IO.Path.GetFileNameWithoutExtension(path));
         _log.Info($"Profile saved: {path}, slots={profile.Slots.Count}");
         SetStatus($"Profile saved: {path}");
     }
@@ -531,7 +543,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var profileName = ReadProfileName();
+        var profileName = ReadSelectedProfileName();
         var profile = _profileStore.Load(profileName);
         if (profile is null)
         {
@@ -539,7 +551,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        ProfileNameBox.Text = profile.Name;
+        RefreshProfileList(profileName);
         _layoutCanvasWidth = Math.Max(120, profile.CanvasWidth);
         _layoutCanvasHeight = Math.Max(80, profile.CanvasHeight);
         _overlayLeft = profile.ScreenLeft;
@@ -1411,8 +1423,32 @@ public partial class MainWindow : Window
         UpdateSectionGapLabels();
     }
 
-    private string ReadProfileName() =>
-        string.IsNullOrWhiteSpace(ProfileNameBox.Text) ? "default" : ProfileNameBox.Text.Trim();
+    private string ReadSelectedProfileName() =>
+        ProfileCombo.SelectedItem is string selected && !string.IsNullOrWhiteSpace(selected)
+            ? selected
+            : "default";
+
+    private void RefreshProfileList(string? selectedProfileName = null)
+    {
+        var names = _profileStore.ListProfileNames().ToList();
+        if (names.Count == 0)
+        {
+            names.Add("default");
+        }
+
+        var selected = string.IsNullOrWhiteSpace(selectedProfileName)
+            ? ReadSelectedProfileName()
+            : selectedProfileName.Trim();
+        if (!names.Contains(selected, StringComparer.OrdinalIgnoreCase))
+        {
+            names.Add(selected);
+            names = names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        ProfileCombo.ItemsSource = names;
+        ProfileCombo.SelectedItem = names.FirstOrDefault(name => string.Equals(name, selected, StringComparison.OrdinalIgnoreCase))
+                                    ?? names.FirstOrDefault();
+    }
 
     private static string GetSectionPatternName(int index) =>
         index == 1 ? SectionPattern.LeftVertical().Name : SectionPattern.TopGrouped().Name;

@@ -8,10 +8,7 @@ public sealed class ProfileStore
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
-    public string ProfileDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "TestOverlayProj",
-        "Profiles");
+    public string ProfileDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "Profiles");
 
     public string DefaultProfilePath => Path.Combine(ProfileDirectory, "default.json");
 
@@ -38,6 +35,21 @@ public sealed class ProfileStore
     }
 
     public OverlayProfile? LoadDefault() => Load("default");
+
+    public IReadOnlyList<string> ListProfileNames()
+    {
+        if (!Directory.Exists(ProfileDirectory))
+        {
+            return [];
+        }
+
+        return Directory
+            .EnumerateFiles(ProfileDirectory, "*.json", SearchOption.TopDirectoryOnly)
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     private static string NormalizeProfileName(string? profileName)
     {
