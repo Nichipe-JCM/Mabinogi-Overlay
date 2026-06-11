@@ -14,6 +14,7 @@ public sealed class RoiSectionDetectionService
     private const double RequiredVerticalSideCoverage = 0.85;
     private const int MaxAnchorCandidates = 48;
     private const int MaxRawAnchorCandidates = 1600;
+    private const int AnchorScanStep = 1;
     private const int MinGap = 2;
     private const int MaxSmallGap = 30;
     private const int MaxLargeGap = 60;
@@ -98,7 +99,7 @@ public sealed class RoiSectionDetectionService
             300,
             (int)Math.Floor(Math.Min(roi.Width / totalSlotColumns, roi.Height / totalSlotRows)));
         var minSize = Math.Max(MinDetectedSlotSize, (int)Math.Floor(maxSize * 0.62));
-        diagnostics?.Add($"anchor search roi={FormatRect(roi)} maxSize={maxSize} minSize={minSize}");
+        diagnostics?.Add($"anchor search roi={FormatRect(roi)} maxSize={maxSize} minSize={minSize} step={AnchorScanStep}");
         if (maxSize < minSize)
         {
             return [];
@@ -111,9 +112,9 @@ public sealed class RoiSectionDetectionService
 
         for (var slotSize = minSize; slotSize <= maxSize; slotSize++)
         {
-            for (var bottomRightY = top + slotSize - 1; bottomRightY < bottom; bottomRightY += 2)
+            for (var bottomRightY = top + slotSize - 1; bottomRightY < bottom; bottomRightY += AnchorScanStep)
             {
-                for (var bottomRightX = left + slotSize - 1; bottomRightX < right; bottomRightX += 2)
+                for (var bottomRightX = left + slotSize - 1; bottomRightX < right; bottomRightX += AnchorScanStep)
                 {
                     var x = bottomRightX - slotSize + 1;
                     var y = bottomRightY - slotSize + 1;
