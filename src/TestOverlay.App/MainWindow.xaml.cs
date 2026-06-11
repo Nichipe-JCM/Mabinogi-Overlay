@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private bool _isSelectingDetectionRoi;
     private bool _isAwaitingDebugDetectionRoi;
     private bool _isSelectingDebugDetectionRoi;
+    private QuickslotSectionPatternKind _debugDetectionPatternKind = QuickslotSectionPatternKind.TopGrouped;
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection;
     private bool _isLiveRefreshInProgress;
@@ -237,8 +238,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        var patternKind = ChooseDetectionPatternKind();
+        if (patternKind is null)
+        {
+            SetStatus("Debug detect canceled.");
+            return;
+        }
+
+        _debugDetectionPatternKind = patternKind.Value;
         SetDebugDetectionMode(active: true);
-        SetStatus("Debug detect: drag one top grouped 4x2 x3 ROI. It will run 100 simulations and save a log.");
+        SetStatus($"Debug detect: drag one {GetPatternDebugLabel(_debugDetectionPatternKind)} ROI. It will run 100 simulations and save a log.");
     }
 
     private void AddToOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -1114,7 +1123,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        RunDebugTopGroupedDetection(roi);
+        RunDebugDetection(roi, _debugDetectionPatternKind);
     }
 
     private void SetDetectionMode(bool active)
@@ -1204,7 +1213,17 @@ public partial class MainWindow : Window
             $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
     }
 
-    private void RunDebugTopGroupedDetection(Rect roi)
+    private static string GetPatternDebugLabel(QuickslotSectionPatternKind patternKind) =>
+        patternKind == QuickslotSectionPatternKind.Vertical
+            ? "vertical 2x8"
+            : "top grouped 4x2 x3";
+
+    private static DebugDetectionExpectation GetDebugDetectionExpectation(QuickslotSectionPatternKind patternKind) =>
+        patternKind == QuickslotSectionPatternKind.Vertical
+            ? new DebugDetectionExpectation(91, 417, 29, 3, 3, null)
+            : new DebugDetectionExpectation(7, 18, 29, 3, 8, 15);
+
+    private void RunDebugDetection(Rect roi, QuickslotSectionPatternKind patternKind)
     {
         if (_capturedImage is null)
         {
@@ -1212,18 +1231,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        const int expectedAbsoluteX = 7;
-        const int expectedAbsoluteY = 18;
-        const int expectedSize = 29;
-        const int expectedSmallGapX = 3;
-        const int expectedSmallGapY = 8;
-        const int expectedLargeGap = 15;
+        var expected = GetDebugDetectionExpectation(patternKind);
+        var expectedGapText = expected.LargeGap is int expectedLargeGap
+            ? $"gapX={expected.SmallGapX}, gapY={expected.SmallGapY}, large={expectedLargeGap}"
+            : $"gapX={expected.SmallGapX}, gapY={expected.SmallGapY}";
 
         var lines = new List<string>
         {
-            $"Debug top grouped ROI detect started {DateTimeOffset.Now:O}",
+            $"Debug {GetPatternDebugLabel(patternKind)} ROI detect started {DateTimeOffset.Now:O}",
             $"roi absolute x={roi.X:0.###}, y={roi.Y:0.###}, w={roi.Width:0.###}, h={roi.Height:0.###}",
-            $"expected absolute x={expectedAbsoluteX}, y={expectedAbsoluteY}, {expectedSize}x{expectedSize}, gapX={expectedSmallGapX}, gapY={expectedSmallGapY}, large={expectedLargeGap}",
+            $"expected absolute x={expected.AbsoluteX}, y={expected.AbsoluteY}, {expected.Size}x{expected.Size}, {expectedGapText}",
             $"runs={DebugDetectRuns}"
         };
 
@@ -1235,7 +1252,7 @@ public partial class MainWindow : Window
             var result = _roiSectionDetection.Detect(
                 _capturedImage,
                 roi,
-                QuickslotSectionPatternKind.TopGrouped,
+                patternKind,
                 diagnostics);
 
             if (result is null)
@@ -1257,13 +1274,13 @@ public partial class MainWindow : Window
             var gapY = (int)Math.Round(result.SmallGapY);
             var largeGap = (int)Math.Round(result.LargeGap);
             var isExact =
-                absoluteX == expectedAbsoluteX &&
-                absoluteY == expectedAbsoluteY &&
-                width == expectedSize &&
-                height == expectedSize &&
-                gapX == expectedSmallGapX &&
-                gapY == expectedSmallGapY &&
-                largeGap == expectedLargeGap;
+                absoluteX == expected.AbsoluteX &&
+                absoluteY == expected.AbsoluteY &&
+                width == expected.Size &&
+                height == expected.Size &&
+                gapX == expected.SmallGapX &&
+                gapY == expected.SmallGapY &&
+                (expected.LargeGap is null || largeGap == expected.LargeGap.Value);
 
             if (isExact)
             {
@@ -1283,6 +1300,14 @@ public partial class MainWindow : Window
         _log.Info($"Debug detect log saved: {logPath}");
         SetStatus($"Debug detect finished: exact {exactMatches}/{DebugDetectRuns}, detected {detections}/{DebugDetectRuns}. Log: {logPath}");
     }
+
+    private sealed record DebugDetectionExpectation(
+        int AbsoluteX,
+        int AbsoluteY,
+        int Size,
+        int SmallGapX,
+        int SmallGapY,
+        int? LargeGap);
 
     private string SaveDebugDetectLog(IReadOnlyCollection<string> lines)
     {
