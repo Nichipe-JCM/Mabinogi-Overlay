@@ -4,6 +4,7 @@ public sealed record GameWindowInfo(
     nint Handle,
     string Title,
     string ProcessName,
+    string ProcessExecutableName,
     int ClientWidth,
     int ClientHeight)
 {
@@ -14,13 +15,16 @@ public sealed record GameWindowInfo(
         Title.Contains("Mabinogi", StringComparison.OrdinalIgnoreCase) ||
         Title.Contains(MabinogiKoreanTitle, StringComparison.OrdinalIgnoreCase) ||
         ProcessName.Contains("mabinogi", StringComparison.OrdinalIgnoreCase) ||
+        IsExactClientExecutable ||
         IsPreferredMabinogiClient;
+
+    public bool IsExactClientExecutable =>
+        ProcessExecutableName.Equals("Client.exe", StringComparison.OrdinalIgnoreCase);
 
     public bool IsPreferredMabinogiClient =>
         Title.Contains(PreferredMabinogiClientTitle, StringComparison.OrdinalIgnoreCase) &&
-        (ProcessName.Equals("Client", StringComparison.OrdinalIgnoreCase) ||
-         ProcessName.Equals("Client.exe", StringComparison.OrdinalIgnoreCase));
+        IsExactClientExecutable;
 
     public string DisplayName =>
-        $"{Title} ({ProcessName}) - {ClientWidth}x{ClientHeight}";
+        $"{Title} ({ProcessExecutableName}) - {ClientWidth}x{ClientHeight}";
 }
