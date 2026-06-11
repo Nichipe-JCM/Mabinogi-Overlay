@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
     private readonly WgcCaptureService _wgcCaptureService = new();
-    private readonly SlotDetectionService _slotDetection = new();
+    private readonly RoiSectionDetectionService _roiSectionDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly ProfileStore _profileStore = new();
@@ -48,6 +48,8 @@ public partial class MainWindow : Window
     private Rectangle? _selectionRect;
     private Point _selectionStartPosition;
     private bool _isSelectingCandidates;
+    private bool _isAwaitingDetectionRoi;
+    private bool _isSelectingDetectionRoi;
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection;
     private bool _isLiveRefreshInProgress;
@@ -219,26 +221,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var before = CaptureCandidateSnapshot();
-        _candidates.Clear();
-        ClearCandidateRects();
-        ClearSections();
-
-        var slotWidth = ReadSlotInnerWidth();
-        var slotHeight = ReadSlotInnerHeight();
-        var detectionSize = Math.Min(slotWidth, slotHeight);
-        foreach (var detected in _slotDetection.Detect(_capturedImage, detectionSize, detectionSize))
-        {
-            var candidate = new SlotCandidate(
-                detected.Id,
-                new Rect(detected.SourceRect.X, detected.SourceRect.Y, slotWidth, slotHeight),
-                detected.Score);
-            AddCandidate(candidate);
-        }
-
-        PushUndoIfChanged(before);
-        _log.Info($"Slot detection completed: count={_candidates.Count}, innerSlotSize={slotWidth}x{slotHeight}, visualBoxSize={ReadCandidateBoxWidth()}x{ReadCandidateBoxHeight()}");
-        SetStatus($"Detected {_candidates.Count} slot candidates. Check only the slots to use, then place them.");
+        _isAwaitingDetectionRoi = true;
+        SetStatus("Drag a quickslot section area on the capture preview, then choose the section type.");
     }
 
     private void AddSelectedButton_Click(object sender, RoutedEventArgs e)
@@ -859,6 +843,13 @@ public partial class MainWindow : Window
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var position = e.GetPosition(CaptureCanvas);
+        if (_isAwaitingDetectionRoi)
+        {
+            BeginDetectionRoiSelection(position);
+            e.Handled = true;
+            return;
+        }
+
         var hit = _candidates.FirstOrDefault(candidate => GetCandidateVisualRect(candidate).Contains(position));
         if (hit is null)
         {
@@ -874,6 +865,12 @@ public partial class MainWindow : Window
         }
 
         var position = e.GetPosition(CaptureCanvas);
+        if (_isSelectingDetectionRoi)
+        {
+            UpdateDetectionRoiSelection(position);
+            return;
+        }
+
         if (_isSelectingCandidates)
         {
             UpdateCandidateBoxSelection(position);
@@ -894,6 +891,12 @@ public partial class MainWindow : Window
 
     private void CaptureCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_isSelectingDetectionRoi)
+        {
+            EndDetectionRoiSelection();
+            return;
+        }
+
         if (_isSelectingCandidates)
         {
             EndCandidateBoxSelection();
@@ -979,6 +982,113 @@ public partial class MainWindow : Window
         rect.CaptureMouse();
     }
 
+    private void BeginDetectionRoiSelection(Point position)
+    {
+        _isSelectingDetectionRoi = true;
+        _selectionStartPosition = position;
+        _selectionRect = new Rectangle
+        {
+            Stroke = Brushes.Gold,
+            StrokeThickness = 2,
+            StrokeDashArray = new DoubleCollection { 6, 3 },
+            Fill = new SolidColorBrush(Color.FromArgb(30, 255, 215, 0)),
+            IsHitTestVisible = false
+        };
+        CaptureCanvas.Children.Add(_selectionRect);
+        Canvas.SetLeft(_selectionRect, position.X);
+        Canvas.SetTop(_selectionRect, position.Y);
+        CaptureCanvas.CaptureMouse();
+    }
+
+    private void UpdateDetectionRoiSelection(Point position) => UpdateSelectionRectangle(position);
+
+    private void EndDetectionRoiSelection()
+    {
+        var roi = Rect.Empty;
+        if (_selectionRect is not null)
+        {
+            roi = new Rect(
+                Canvas.GetLeft(_selectionRect),
+                Canvas.GetTop(_selectionRect),
+                _selectionRect.Width,
+                _selectionRect.Height);
+            CaptureCanvas.Children.Remove(_selectionRect);
+            _selectionRect = null;
+        }
+
+        CaptureCanvas.ReleaseMouseCapture();
+        _isSelectingDetectionRoi = false;
+        _isAwaitingDetectionRoi = false;
+
+        if (roi.Width < 24 || roi.Height < 24)
+        {
+            SetStatus("Detection area is too small. Click Detect and drag a full quickslot section area.");
+            return;
+        }
+
+        var patternKind = ChooseDetectionPatternKind();
+        if (patternKind is null)
+        {
+            SetStatus("Section detection canceled.");
+            return;
+        }
+
+        DetectSectionInRoi(roi, patternKind.Value);
+    }
+
+    private QuickslotSectionPatternKind? ChooseDetectionPatternKind()
+    {
+        var result = MessageBox.Show(
+            this,
+            "Choose the quickslot section type.\n\nYes: Top grouped 4x2 x3\nNo: Vertical 2x8\nCancel: cancel detection",
+            "Section Type",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+        return result switch
+        {
+            MessageBoxResult.Yes => QuickslotSectionPatternKind.TopGrouped,
+            MessageBoxResult.No => QuickslotSectionPatternKind.Vertical,
+            _ => null
+        };
+    }
+
+    private void DetectSectionInRoi(Rect roi, QuickslotSectionPatternKind patternKind)
+    {
+        if (_capturedImage is null)
+        {
+            SetStatus("No captured image is available.");
+            return;
+        }
+
+        var before = CaptureCandidateSnapshot();
+        var result = _roiSectionDetection.Detect(
+            _capturedImage,
+            roi,
+            patternKind,
+            ReadSlotInnerWidth(),
+            ReadSlotInnerHeight());
+
+        if (result is null)
+        {
+            SetStatus("No matching quickslot section pattern was found in the selected area.");
+            return;
+        }
+
+        _candidates.Clear();
+        ClearCandidateRects();
+        ClearSections();
+        AddDetectedSection(result);
+        PushUndoIfChanged(before);
+
+        _log.Info(
+            $"ROI section detection completed: pattern={patternKind}, roi={roi.X:0},{roi.Y:0},{roi.Width:0}x{roi.Height:0}, " +
+            $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}");
+        SetStatus(
+            $"Detected {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
+            $"{result.Slots.Count} slots, gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
+    }
+
     private void BeginCandidateBoxSelection(Point position)
     {
         _isSelectingCandidates = true;
@@ -1002,6 +1112,11 @@ public partial class MainWindow : Window
     }
 
     private void UpdateCandidateBoxSelection(Point position)
+    {
+        UpdateSelectionRectangle(position);
+    }
+
+    private void UpdateSelectionRectangle(Point position)
     {
         if (_selectionRect is null)
         {
@@ -1143,6 +1258,37 @@ public partial class MainWindow : Window
         return added;
     }
 
+    private void AddDetectedSection(SectionDetectionResult result)
+    {
+        var patternIndex = PatternIndexFromKind(result.PatternKind);
+        var settings = new SectionSettings(result.SmallGapX, result.SmallGapY, result.LargeGap);
+        var sectionCandidates = new List<SlotCandidate>();
+
+        ClearCandidateSelection();
+        foreach (var rect in result.Slots)
+        {
+            var candidate = new SlotCandidate(NextCandidateId(), rect, result.Score);
+            candidate.IsSelected = true;
+            AddCandidate(candidate);
+            sectionCandidates.Add(candidate);
+        }
+
+        if (sectionCandidates.Count == 0)
+        {
+            return;
+        }
+
+        var seed = sectionCandidates
+            .OrderBy(candidate => candidate.SourceRect.Y)
+            .ThenBy(candidate => candidate.SourceRect.X)
+            .First();
+        CandidateList.SelectedItem = seed;
+        _sectionSettings[patternIndex] = settings;
+        var section = new QuickslotSection(_nextSectionId++, seed, patternIndex, settings, sectionCandidates);
+        _sections.Add(section);
+        SelectSection(section);
+    }
+
     private static IEnumerable<Point> BuildSectionOffsets(
         SlotCandidate seed,
         SectionPattern pattern,
@@ -1207,7 +1353,10 @@ public partial class MainWindow : Window
         GetSectionPattern(Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1));
 
     private static SectionPattern GetSectionPattern(int index) =>
-        index == 1 ? SectionPattern.LeftVertical() : SectionPattern.TopGrouped();
+        index == 1 ? SectionPattern.Vertical() : SectionPattern.TopGrouped();
+
+    private static int PatternIndexFromKind(QuickslotSectionPatternKind kind) =>
+        kind == QuickslotSectionPatternKind.Vertical ? 1 : 0;
 
     private void RebuildSelectedSection()
     {
@@ -1873,7 +2022,7 @@ public partial class MainWindow : Window
     }
 
     private static string GetSectionPatternName(int index) =>
-        index == 1 ? SectionPattern.LeftVertical().Name : SectionPattern.TopGrouped().Name;
+        index == 1 ? SectionPattern.Vertical().Name : SectionPattern.TopGrouped().Name;
 
     private void UpdateLayoutSummary()
     {
@@ -1959,8 +2108,8 @@ public partial class MainWindow : Window
             largeGap => largeGap,
             _ => 0);
 
-        public static SectionPattern LeftVertical() => new(
-            "left vertical 2x8",
+        public static SectionPattern Vertical() => new(
+            "vertical 2x8",
             2,
             8,
             1,

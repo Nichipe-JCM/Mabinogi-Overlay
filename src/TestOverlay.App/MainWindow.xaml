@@ -135,7 +135,7 @@
                                 <TextBlock Text="Section pattern"/>
                                 <ComboBox x:Name="SectionPatternCombo" SelectedIndex="0">
                                     <ComboBoxItem Content="Top grouped 4x2 x3"/>
-                                    <ComboBoxItem Content="Left vertical 2x8"/>
+                                    <ComboBoxItem Content="Vertical 2x8"/>
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="2">
