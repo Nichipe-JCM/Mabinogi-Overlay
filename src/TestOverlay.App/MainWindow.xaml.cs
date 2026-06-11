@@ -973,7 +973,7 @@ public partial class MainWindow : Window
         {
             Width = GetCandidateVisualRect(candidate).Width,
             Height = GetCandidateVisualRect(candidate).Height,
-            StrokeThickness = 2,
+            StrokeThickness = 1,
             Fill = new SolidColorBrush(Color.FromArgb(45, 30, 144, 255)),
             IsHitTestVisible = true,
             Cursor = Cursors.SizeAll
@@ -1212,8 +1212,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        const int expectedX = 7;
-        const int expectedY = 18;
+        const int expectedAbsoluteX = 7;
+        const int expectedAbsoluteY = 18;
         const int expectedSize = 29;
         const int expectedSmallGapX = 3;
         const int expectedSmallGapY = 8;
@@ -1223,7 +1223,7 @@ public partial class MainWindow : Window
         {
             $"Debug top grouped ROI detect started {DateTimeOffset.Now:O}",
             $"roi absolute x={roi.X:0.###}, y={roi.Y:0.###}, w={roi.Width:0.###}, h={roi.Height:0.###}",
-            $"expected relative x={expectedX}, y={expectedY}, {expectedSize}x{expectedSize}, gapX={expectedSmallGapX}, gapY={expectedSmallGapY}, large={expectedLargeGap}",
+            $"expected absolute x={expectedAbsoluteX}, y={expectedAbsoluteY}, {expectedSize}x{expectedSize}, gapX={expectedSmallGapX}, gapY={expectedSmallGapY}, large={expectedLargeGap}",
             $"runs={DebugDetectRuns}"
         };
 
@@ -1247,6 +1247,8 @@ public partial class MainWindow : Window
 
             detections++;
             var first = result.Slots[0];
+            var absoluteX = (int)Math.Round(first.X);
+            var absoluteY = (int)Math.Round(first.Y);
             var relativeX = (int)Math.Round(first.X - roi.X);
             var relativeY = (int)Math.Round(first.Y - roi.Y);
             var width = (int)Math.Round(first.Width);
@@ -1255,8 +1257,8 @@ public partial class MainWindow : Window
             var gapY = (int)Math.Round(result.SmallGapY);
             var largeGap = (int)Math.Round(result.LargeGap);
             var isExact =
-                relativeX == expectedX &&
-                relativeY == expectedY &&
+                absoluteX == expectedAbsoluteX &&
+                absoluteY == expectedAbsoluteY &&
                 width == expectedSize &&
                 height == expectedSize &&
                 gapX == expectedSmallGapX &&
@@ -1270,7 +1272,7 @@ public partial class MainWindow : Window
             }
 
             lines.Add(
-                $"RUN {run:000}: WRONG rel x={relativeX}, y={relativeY}, {width}x{height}, gapX={gapX}, gapY={gapY}, large={largeGap}, score={result.Score:0.000}");
+                $"RUN {run:000}: WRONG abs x={absoluteX}, y={absoluteY}, rel x={relativeX}, y={relativeY}, {width}x{height}, gapX={gapX}, gapY={gapY}, large={largeGap}, score={result.Score:0.000}");
             lines.Add(
                 $"  abs x={first.X:0.###}, y={first.Y:0.###}, w={first.Width:0.###}, h={first.Height:0.###}");
             lines.AddRange(diagnostics.Select(line => $"  {line}"));
