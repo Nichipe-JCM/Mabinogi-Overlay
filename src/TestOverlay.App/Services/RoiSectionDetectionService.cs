@@ -11,6 +11,7 @@ public sealed class RoiSectionDetectionService
     private const int DarkBorderTolerance = 140;
     private const double RequiredStrongSideCoverage = 0.90;
     private const double RequiredWeakSideCoverage = 0.70;
+    private const double RequiredVerticalSideCoverage = 0.85;
     private const int MaxAnchorCandidates = 48;
     private const int MaxRawAnchorCandidates = 1600;
     private const int MinGap = 2;
@@ -117,7 +118,7 @@ public sealed class RoiSectionDetectionService
                     var x = bottomRightX - slotSize + 1;
                     var y = bottomRightY - slotSize + 1;
                     var rect = new Rect(x, y, slotSize, slotSize);
-                    var anchorScore = edge.ScoreBottomRightAnchor(rect);
+                    var anchorScore = edge.ScoreAnchor(rect, patternKind);
                     if (anchorScore < 10)
                     {
                         continue;
@@ -186,7 +187,7 @@ public sealed class RoiSectionDetectionService
                         continue;
                     }
 
-                    var score = ScorePattern(edge, roi, slots);
+                    var score = ScorePattern(edge, roi, patternKind, slots);
                     yield return new PatternFit(slots, smallGapX, smallGapY, largeGap, score);
                 }
             }
@@ -228,9 +229,13 @@ public sealed class RoiSectionDetectionService
         }
     }
 
-    private static double ScorePattern(EdgeImage edge, Rect roi, IReadOnlyList<Rect> slots)
+    private static double ScorePattern(
+        EdgeImage edge,
+        Rect roi,
+        QuickslotSectionPatternKind patternKind,
+        IReadOnlyList<Rect> slots)
     {
-        var scores = slots.Select(edge.ScoreSlotBorder).ToList();
+        var scores = slots.Select(slot => edge.ScoreSlotBorder(slot, patternKind)).ToList();
         var average = scores.Average();
         var variance = scores.Sum(score => Math.Pow(score - average, 2)) / Math.Max(1, scores.Count);
         var deviation = Math.Sqrt(variance);
@@ -441,7 +446,12 @@ public sealed class RoiSectionDetectionService
         private static bool IsNearBlack(byte blue, byte green, byte red) =>
             blue + green + red < DarkBorderTolerance;
 
-        public double ScoreBottomRightAnchor(Rect rect)
+        public double ScoreAnchor(Rect rect, QuickslotSectionPatternKind patternKind) =>
+            patternKind == QuickslotSectionPatternKind.Vertical
+                ? ScoreFullFrameAnchor(rect)
+                : ScoreBottomRightAnchor(rect);
+
+        private double ScoreBottomRightAnchor(Rect rect)
         {
             var x = (int)Math.Round(rect.X);
             var y = (int)Math.Round(rect.Y);
@@ -473,7 +483,7 @@ public sealed class RoiSectionDetectionService
                    ((bottomAverage + rightAverage) * 0.04);
         }
 
-        public double ScoreSlotBorder(Rect rect)
+        private double ScoreFullFrameAnchor(Rect rect)
         {
             var x = (int)Math.Round(rect.X);
             var y = (int)Math.Round(rect.Y);
@@ -484,6 +494,53 @@ public sealed class RoiSectionDetectionService
                 return 0;
             }
 
+            var topCoverage = Coverage(x, y, width, 1);
+            var bottomCoverage = Coverage(x, y + height - 1, width, 1);
+            var leftCoverage = Coverage(x, y, 1, height);
+            var rightCoverage = Coverage(x + width - 1, y, 1, height);
+            if (topCoverage < RequiredVerticalSideCoverage ||
+                bottomCoverage < RequiredVerticalSideCoverage ||
+                leftCoverage < RequiredVerticalSideCoverage ||
+                rightCoverage < RequiredVerticalSideCoverage)
+            {
+                return 0;
+            }
+
+            var cornerSize = Math.Min(2, Math.Min(width, height));
+            var cornerCoverage =
+                (Coverage(x, y, cornerSize, cornerSize) +
+                 Coverage(x + width - cornerSize, y, cornerSize, cornerSize) +
+                 Coverage(x, y + height - cornerSize, cornerSize, cornerSize) +
+                 Coverage(x + width - cornerSize, y + height - cornerSize, cornerSize, cornerSize)) / 4;
+            var sideCoverage = (topCoverage + bottomCoverage + leftCoverage + rightCoverage) / 4;
+            var sideAverage =
+                (Average(x, y, width, 1) +
+                 Average(x, y + height - 1, width, 1) +
+                 Average(x, y, 1, height) +
+                 Average(x + width - 1, y, 1, height)) / 4;
+            return (sideCoverage * 90) +
+                   (cornerCoverage * 25) +
+                   (sideAverage * 0.04);
+        }
+
+        public double ScoreSlotBorder(Rect rect, QuickslotSectionPatternKind patternKind)
+        {
+            var x = (int)Math.Round(rect.X);
+            var y = (int)Math.Round(rect.Y);
+            var width = (int)Math.Round(rect.Width);
+            var height = (int)Math.Round(rect.Height);
+            if (width < 6 || height < 6)
+            {
+                return 0;
+            }
+
+            return patternKind == QuickslotSectionPatternKind.Vertical
+                ? ScoreStrictSlotBorder(x, y, width, height)
+                : ScoreLabeledSlotBorder(x, y, width, height);
+        }
+
+        private double ScoreLabeledSlotBorder(int x, int y, int width, int height)
+        {
             var topCoverage = Coverage(x, y, width, 1);
             var bottomCoverage = Coverage(x, y + height - 1, width, 1);
             var leftCoverage = Coverage(x, y, 1, height);
@@ -510,6 +567,38 @@ public sealed class RoiSectionDetectionService
             var innerHeight = Math.Max(1, height - 2);
             var innerAverage = Average(x + 1, y + 1, innerWidth, innerHeight);
             return sideCoverage * 100 + sideAverage * 0.08 - innerAverage * 0.04;
+        }
+
+        private double ScoreStrictSlotBorder(int x, int y, int width, int height)
+        {
+            var topCoverage = Coverage(x, y, width, 1);
+            var bottomCoverage = Coverage(x, y + height - 1, width, 1);
+            var leftCoverage = Coverage(x, y, 1, height);
+            var rightCoverage = Coverage(x + width - 1, y, 1, height);
+            if (topCoverage < RequiredVerticalSideCoverage ||
+                bottomCoverage < RequiredVerticalSideCoverage ||
+                leftCoverage < RequiredVerticalSideCoverage ||
+                rightCoverage < RequiredVerticalSideCoverage)
+            {
+                return 0;
+            }
+
+            var cornerSize = Math.Min(2, Math.Min(width, height));
+            var cornerCoverage =
+                (Coverage(x, y, cornerSize, cornerSize) +
+                 Coverage(x + width - cornerSize, y, cornerSize, cornerSize) +
+                 Coverage(x, y + height - cornerSize, cornerSize, cornerSize) +
+                 Coverage(x + width - cornerSize, y + height - cornerSize, cornerSize, cornerSize)) / 4;
+            var sideCoverage = (topCoverage + bottomCoverage + leftCoverage + rightCoverage) / 4;
+            var sideAverage =
+                (Average(x, y, width, 1) +
+                 Average(x, y + height - 1, width, 1) +
+                 Average(x, y, 1, height) +
+                 Average(x + width - 1, y, 1, height)) / 4;
+            var innerWidth = Math.Max(1, width - 2);
+            var innerHeight = Math.Max(1, height - 2);
+            var innerAverage = Average(x + 1, y + 1, innerWidth, innerHeight);
+            return sideCoverage * 100 + cornerCoverage * 20 + sideAverage * 0.08 - innerAverage * 0.04;
         }
 
         private double Average(int x, int y, int width, int height) =>
