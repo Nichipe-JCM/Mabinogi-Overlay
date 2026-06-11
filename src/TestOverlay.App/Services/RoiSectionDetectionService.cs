@@ -7,6 +7,9 @@ namespace TestOverlay.App.Services;
 
 public sealed class RoiSectionDetectionService
 {
+    private const double EdgeHitThreshold = 20;
+    private const double RequiredStrongSideCoverage = 0.90;
+    private const double RequiredWeakSideCoverage = 0.70;
     private const int MaxAnchorCandidates = 10;
     private const int MaxSmallGap = 30;
     private const int MaxLargeGap = 80;
@@ -268,12 +271,14 @@ public sealed class RoiSectionDetectionService
     private sealed class EdgeImage
     {
         private readonly double[] _integral;
+        private readonly double[] _hitIntegral;
 
-        private EdgeImage(int width, int height, double[] integral)
+        private EdgeImage(int width, int height, double[] integral, double[] hitIntegral)
         {
             Width = width;
             Height = height;
             _integral = integral;
+            _hitIntegral = hitIntegral;
         }
 
         public int Width { get; }
@@ -313,17 +318,22 @@ public sealed class RoiSectionDetectionService
             }
 
             var integral = new double[(width + 1) * (height + 1)];
+            var hitIntegral = new double[(width + 1) * (height + 1)];
             for (var y = 1; y <= height; y++)
             {
                 var rowSum = 0.0;
+                var hitRowSum = 0.0;
                 for (var x = 1; x <= width; x++)
                 {
-                    rowSum += edge[(y - 1) * width + (x - 1)];
+                    var edgeValue = edge[(y - 1) * width + (x - 1)];
+                    rowSum += edgeValue;
+                    hitRowSum += edgeValue >= EdgeHitThreshold ? 1 : 0;
                     integral[y * (width + 1) + x] = integral[(y - 1) * (width + 1) + x] + rowSum;
+                    hitIntegral[y * (width + 1) + x] = hitIntegral[(y - 1) * (width + 1) + x] + hitRowSum;
                 }
             }
 
-            return new EdgeImage(width, height, integral);
+            return new EdgeImage(width, height, integral, hitIntegral);
         }
 
         public double ScoreSlotBorder(Rect rect)
@@ -337,21 +347,39 @@ public sealed class RoiSectionDetectionService
                 return 0;
             }
 
-            var border = Math.Clamp(Math.Min(width, height) / 8, 2, 5);
-            var top = Average(x, y, width, border);
-            var bottom = Average(x, y + height - border, width, border);
-            var left = Average(x, y, border, height);
-            var right = Average(x + width - border, y, border, height);
-            var sideMinimum = Math.Min(Math.Min(top, bottom), Math.Min(left, right));
-            var sideAverage = (top + bottom + left + right) / 4;
-            var innerWidth = Math.Max(1, width - border * 2);
-            var innerHeight = Math.Max(1, height - border * 2);
-            var innerAverage = Average(x + border, y + border, innerWidth, innerHeight);
-            return sideMinimum * 0.68 + sideAverage * 0.32 - innerAverage * 0.12;
+            var topCoverage = Coverage(x, y, width, 1);
+            var bottomCoverage = Coverage(x, y + height - 1, width, 1);
+            var leftCoverage = Coverage(x, y, 1, height);
+            var rightCoverage = Coverage(x + width - 1, y, 1, height);
+            if (rightCoverage < RequiredStrongSideCoverage ||
+                bottomCoverage < RequiredStrongSideCoverage ||
+                leftCoverage < RequiredWeakSideCoverage ||
+                topCoverage < RequiredWeakSideCoverage)
+            {
+                return 0;
+            }
+
+            var sideCoverage =
+                (rightCoverage * 0.30) +
+                (bottomCoverage * 0.30) +
+                (leftCoverage * 0.20) +
+                (topCoverage * 0.20);
+            var sideAverage =
+                (Average(x, y, width, 1) +
+                 Average(x, y + height - 1, width, 1) +
+                 Average(x, y, 1, height) +
+                 Average(x + width - 1, y, 1, height)) / 4;
+            var innerWidth = Math.Max(1, width - 2);
+            var innerHeight = Math.Max(1, height - 2);
+            var innerAverage = Average(x + 1, y + 1, innerWidth, innerHeight);
+            return sideCoverage * 100 + sideAverage * 0.08 - innerAverage * 0.04;
         }
 
         private double Average(int x, int y, int width, int height) =>
             Sum(x, y, width, height) / Math.Max(1, width * height);
+
+        private double Coverage(int x, int y, int width, int height) =>
+            SumHits(x, y, width, height) / Math.Max(1, width * height);
 
         private double Sum(int x, int y, int width, int height)
         {
@@ -369,6 +397,24 @@ public sealed class RoiSectionDetectionService
                    - _integral[y1 * stride + x2]
                    - _integral[y2 * stride + x1]
                    + _integral[y1 * stride + x1];
+        }
+
+        private double SumHits(int x, int y, int width, int height)
+        {
+            var x1 = Math.Clamp(x, 0, Width);
+            var y1 = Math.Clamp(y, 0, Height);
+            var x2 = Math.Clamp(x + width, 0, Width);
+            var y2 = Math.Clamp(y + height, 0, Height);
+            if (x2 <= x1 || y2 <= y1)
+            {
+                return 0;
+            }
+
+            var stride = Width + 1;
+            return _hitIntegral[y2 * stride + x2]
+                   - _hitIntegral[y1 * stride + x2]
+                   - _hitIntegral[y2 * stride + x1]
+                   + _hitIntegral[y1 * stride + x1];
         }
     }
 }
