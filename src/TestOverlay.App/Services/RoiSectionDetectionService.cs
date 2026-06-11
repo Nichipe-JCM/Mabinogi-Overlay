@@ -70,10 +70,10 @@ public sealed class RoiSectionDetectionService
         var candidates = new List<SlotAnchor>();
         var totalSlotColumns = pattern.GroupColumns * pattern.GroupColumnsCount;
         var totalSlotRows = pattern.GroupRows * pattern.GroupRowsCount;
-        var minSize = 12;
         var maxSize = Math.Min(
             300,
             (int)Math.Floor(Math.Min(roi.Width / totalSlotColumns, roi.Height / totalSlotRows)));
+        var minSize = Math.Max(12, (int)Math.Floor(maxSize * 0.62));
         if (maxSize < minSize)
         {
             return [];
@@ -186,8 +186,10 @@ public sealed class RoiSectionDetectionService
         var bounds = BoundingRect(slots);
         var roiArea = Math.Max(1, roi.Width * roi.Height);
         var coverage = Math.Min(1, bounds.Width * bounds.Height / roiArea);
+        var slotArea = slots.Sum(slot => slot.Width * slot.Height);
+        var fillRatio = Math.Min(1, slotArea / Math.Max(1, bounds.Width * bounds.Height));
         var topLeftPenalty = ((bounds.Left - roi.Left) * 0.02) + ((bounds.Top - roi.Top) * 0.03);
-        return average - deviation * 0.25 + coverage * 8 - topLeftPenalty;
+        return average - deviation * 0.25 + coverage * 8 + fillRatio * 12 - topLeftPenalty;
     }
 
     private static Rect BoundingRect(IReadOnlyList<Rect> slots)
@@ -336,16 +338,20 @@ public sealed class RoiSectionDetectionService
             }
 
             var border = Math.Clamp(Math.Min(width, height) / 8, 2, 5);
-            var outer = Sum(x, y, width, height);
+            var top = Average(x, y, width, border);
+            var bottom = Average(x, y + height - border, width, border);
+            var left = Average(x, y, border, height);
+            var right = Average(x + width - border, y, border, height);
+            var sideMinimum = Math.Min(Math.Min(top, bottom), Math.Min(left, right));
+            var sideAverage = (top + bottom + left + right) / 4;
             var innerWidth = Math.Max(1, width - border * 2);
             var innerHeight = Math.Max(1, height - border * 2);
-            var inner = Sum(x + border, y + border, innerWidth, innerHeight);
-            var borderArea = Math.Max(1, width * height - innerWidth * innerHeight);
-            var innerArea = Math.Max(1, innerWidth * innerHeight);
-            var borderAverage = (outer - inner) / borderArea;
-            var innerAverage = inner / innerArea;
-            return borderAverage - innerAverage * 0.12;
+            var innerAverage = Average(x + border, y + border, innerWidth, innerHeight);
+            return sideMinimum * 0.68 + sideAverage * 0.32 - innerAverage * 0.12;
         }
+
+        private double Average(int x, int y, int width, int height) =>
+            Sum(x, y, width, height) / Math.Max(1, width * height);
 
         private double Sum(int x, int y, int width, int height)
         {
