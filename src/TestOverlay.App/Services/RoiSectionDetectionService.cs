@@ -11,7 +11,8 @@ public sealed class RoiSectionDetectionService
     private const int DarkBorderTolerance = 140;
     private const double RequiredStrongSideCoverage = 0.90;
     private const double RequiredWeakSideCoverage = 0.70;
-    private const int MaxAnchorCandidates = 10;
+    private const int MaxAnchorCandidates = 48;
+    private const int MaxRawAnchorCandidates = 1600;
     private const int MaxSmallGap = 30;
     private const int MaxLargeGap = 60;
 
@@ -39,7 +40,7 @@ public sealed class RoiSectionDetectionService
                 diagnostics)
             .ToList();
         diagnostics?.Add($"anchors={anchors.Count}");
-        foreach (var anchor in anchors.Take(10))
+        foreach (var anchor in anchors.Take(16))
         {
             diagnostics?.Add($"anchor {FormatRect(anchor.Rect)} score={anchor.Score:0.000}");
         }
@@ -119,21 +120,36 @@ public sealed class RoiSectionDetectionService
                         continue;
                     }
 
-                    var upperLeftBias = ((x - roi.Left) * 0.04) + ((y - roi.Top) * 0.07);
-                    candidates.Add(new SlotAnchor(rect, anchorScore - upperLeftBias));
+                    candidates.Add(new SlotAnchor(rect, anchorScore));
                 }
 
                 if (candidates.Count > 5000)
                 {
                     candidates = candidates
                         .OrderByDescending(candidate => candidate.Score)
-                        .Take(1200)
+                        .Take(MaxRawAnchorCandidates)
                         .ToList();
                 }
             }
         }
 
-        return NonMaximumSuppress(candidates.OrderByDescending(candidate => candidate.Score).Take(1200), 0.35)
+        var suppressed = NonMaximumSuppress(
+                candidates
+                    .OrderByDescending(candidate => candidate.Score)
+                    .Take(MaxRawAnchorCandidates),
+                0.35)
+            .ToList();
+        var feasible = suppressed
+            .Where(candidate => CanSeedFitPatternWithMinimumGaps(roi, pattern, candidate.Rect))
+            .ToList();
+        diagnostics?.Add($"rawAnchors={candidates.Count} suppressed={suppressed.Count} feasibleSeeds={feasible.Count}");
+
+        var topRowSeeds = SelectTopRowSeeds(feasible);
+        diagnostics?.Add($"topRowSeeds={topRowSeeds.Count}");
+        var seedPool = topRowSeeds.Count > 0 ? topRowSeeds : feasible;
+        return seedPool
+            .OrderBy(seed => seed.Rect.X)
+            .ThenByDescending(seed => seed.Score)
             .Take(MaxAnchorCandidates);
     }
 
@@ -228,6 +244,34 @@ public sealed class RoiSectionDetectionService
         item.Top >= container.Top - tolerance &&
         item.Right <= container.Right + tolerance &&
         item.Bottom <= container.Bottom + tolerance;
+
+    private static bool CanSeedFitPatternWithMinimumGaps(Rect roi, PatternSpec pattern, Rect seed)
+    {
+        var slots = BuildPatternSlots(seed, pattern, smallGapX: 1, smallGapY: 1, largeGap: 1);
+        var bounds = BoundingRect(slots.ToList());
+        return ContainsWithTolerance(roi, bounds, 2);
+    }
+
+    private static List<SlotAnchor> SelectTopRowSeeds(IReadOnlyList<SlotAnchor> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return [];
+        }
+
+        var minY = candidates.Min(candidate => candidate.Rect.Y);
+        var medianSize = candidates
+            .Select(candidate => candidate.Rect.Height)
+            .OrderBy(value => value)
+            .ElementAt(candidates.Count / 2);
+        var rowTolerance = Math.Max(3, medianSize * 0.35);
+        return candidates
+            .Where(candidate => candidate.Rect.Y <= minY + rowTolerance)
+            .OrderBy(candidate => candidate.Rect.X)
+            .ThenByDescending(candidate => candidate.Score)
+            .Take(MaxAnchorCandidates)
+            .ToList();
+    }
 
     private static string FormatRect(Rect rect) =>
         $"x={rect.X:0.###},y={rect.Y:0.###},w={rect.Width:0.###},h={rect.Height:0.###}";
