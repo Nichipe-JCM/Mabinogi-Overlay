@@ -1065,9 +1065,7 @@ public partial class MainWindow : Window
         var result = _roiSectionDetection.Detect(
             _capturedImage,
             roi,
-            patternKind,
-            ReadSlotInnerWidth(),
-            ReadSlotInnerHeight());
+            patternKind);
 
         if (result is null)
         {
@@ -1086,7 +1084,8 @@ public partial class MainWindow : Window
             $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}");
         SetStatus(
             $"Detected {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
-            $"{result.Slots.Count} slots, gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
+            $"{result.Slots.Count} slots, slot {result.Slots[0].Width:0}x{result.Slots[0].Height:0}px, " +
+            $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
     }
 
     private void BeginCandidateBoxSelection(Point position)

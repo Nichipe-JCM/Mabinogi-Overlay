@@ -14,9 +14,7 @@ public sealed class RoiSectionDetectionService
     public SectionDetectionResult? Detect(
         BitmapSource source,
         Rect roi,
-        QuickslotSectionPatternKind patternKind,
-        int expectedSlotWidth,
-        int expectedSlotHeight)
+        QuickslotSectionPatternKind patternKind)
     {
         var bitmap = EnsureBgra32(source);
         var imageRect = new Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight);
@@ -31,8 +29,7 @@ public sealed class RoiSectionDetectionService
         var anchors = FindTopLeftSlotCandidates(
                 edge,
                 roi,
-                Math.Clamp(expectedSlotWidth, 1, 300),
-                Math.Clamp(expectedSlotHeight, 1, 300))
+                pattern)
             .ToList();
         if (anchors.Count == 0)
         {
@@ -68,37 +65,40 @@ public sealed class RoiSectionDetectionService
     private static IEnumerable<SlotAnchor> FindTopLeftSlotCandidates(
         EdgeImage edge,
         Rect roi,
-        int expectedSlotWidth,
-        int expectedSlotHeight)
+        PatternSpec pattern)
     {
         var candidates = new List<SlotAnchor>();
-        var minWidth = Math.Max(12, expectedSlotWidth - 8);
-        var maxWidth = Math.Min(300, expectedSlotWidth + 10);
-        var minHeight = Math.Max(12, expectedSlotHeight - 8);
-        var maxHeight = Math.Min(300, expectedSlotHeight + 10);
+        var totalSlotColumns = pattern.GroupColumns * pattern.GroupColumnsCount;
+        var totalSlotRows = pattern.GroupRows * pattern.GroupRowsCount;
+        var minSize = 12;
+        var maxSize = Math.Min(
+            300,
+            (int)Math.Floor(Math.Min(roi.Width / totalSlotColumns, roi.Height / totalSlotRows)));
+        if (maxSize < minSize)
+        {
+            return [];
+        }
+
         var left = (int)Math.Floor(roi.Left);
         var top = (int)Math.Floor(roi.Top);
         var right = (int)Math.Ceiling(roi.Right);
         var bottom = (int)Math.Ceiling(roi.Bottom);
 
-        for (var slotWidth = minWidth; slotWidth <= maxWidth; slotWidth++)
+        for (var slotSize = minSize; slotSize <= maxSize; slotSize++)
         {
-            for (var slotHeight = minHeight; slotHeight <= maxHeight; slotHeight++)
+            for (var y = top; y <= bottom - slotSize; y += 2)
             {
-                for (var y = top; y <= bottom - slotHeight; y += 2)
+                for (var x = left; x <= right - slotSize; x += 2)
                 {
-                    for (var x = left; x <= right - slotWidth; x += 2)
+                    var rect = new Rect(x, y, slotSize, slotSize);
+                    var edgeScore = edge.ScoreSlotBorder(rect);
+                    if (edgeScore < 10)
                     {
-                        var rect = new Rect(x, y, slotWidth, slotHeight);
-                        var edgeScore = edge.ScoreSlotBorder(rect);
-                        if (edgeScore < 10)
-                        {
-                            continue;
-                        }
-
-                        var upperLeftBias = ((x - roi.Left) * 0.04) + ((y - roi.Top) * 0.07);
-                        candidates.Add(new SlotAnchor(rect, edgeScore - upperLeftBias));
+                        continue;
                     }
+
+                    var upperLeftBias = ((x - roi.Left) * 0.04) + ((y - roi.Top) * 0.07);
+                    candidates.Add(new SlotAnchor(rect, edgeScore - upperLeftBias));
                 }
 
                 if (candidates.Count > 5000)

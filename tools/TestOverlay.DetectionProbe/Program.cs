@@ -6,7 +6,7 @@ using TestOverlay.App.Services;
 
 if (args.Length < 6)
 {
-    Console.Error.WriteLine("Usage: TestOverlay.DetectionProbe <image-path> <top|vertical> <x> <y> <width> <height> [slot-width] [slot-height]");
+    Console.Error.WriteLine("Usage: TestOverlay.DetectionProbe <image-path> <top|vertical> <x> <y> <width> <height>");
     return 2;
 }
 
@@ -18,8 +18,6 @@ var x = double.Parse(args[2]);
 var y = double.Parse(args[3]);
 var width = double.Parse(args[4]);
 var height = double.Parse(args[5]);
-var slotWidth = args.Length > 6 && int.TryParse(args[6], out var parsedSlotWidth) ? parsedSlotWidth : 29;
-var slotHeight = args.Length > 7 && int.TryParse(args[7], out var parsedSlotHeight) ? parsedSlotHeight : slotWidth;
 
 if (!File.Exists(imagePath))
 {
@@ -35,12 +33,11 @@ image.EndInit();
 image.Freeze();
 
 var detector = new RoiSectionDetectionService();
-var result = detector.Detect(image, new Rect(x, y, width, height), patternKind, slotWidth, slotHeight);
+var result = detector.Detect(image, new Rect(x, y, width, height), patternKind);
 
 Console.WriteLine($"image={image.PixelWidth}x{image.PixelHeight}");
 Console.WriteLine($"roi={x:0},{y:0},{width:0}x{height:0}");
 Console.WriteLine($"pattern={patternKind}");
-Console.WriteLine($"slotSeed={slotWidth}x{slotHeight}");
 if (result is null)
 {
     Console.WriteLine("count=0");
@@ -52,6 +49,7 @@ Console.WriteLine($"gapX={result.SmallGapX:0}");
 Console.WriteLine($"gapY={result.SmallGapY:0}");
 Console.WriteLine($"largeGap={result.LargeGap:0}");
 Console.WriteLine($"score={result.Score:0.00}");
+Console.WriteLine($"detectedSlotSize={result.Slots[0].Width:0}x{result.Slots[0].Height:0}");
 Console.WriteLine("id,x,y,width,height,score");
 for (var i = 0; i < result.Slots.Count; i++)
 {
