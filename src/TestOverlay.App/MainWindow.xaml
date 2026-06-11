@@ -158,15 +158,15 @@
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="0">
                                 <TextBlock x:Name="SmallGapXText"/>
-                                <Slider x:Name="SmallGapXSlider" Minimum="1" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapXSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="2">
                                 <TextBlock x:Name="SmallGapYText"/>
-                                <Slider x:Name="SmallGapYSlider" Minimum="1" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapYSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock x:Name="LargeGapText"/>
-                                <Slider x:Name="LargeGapSlider" Minimum="1" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="LargeGapSlider" Minimum="2" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                         </Grid>
                         </Expander>

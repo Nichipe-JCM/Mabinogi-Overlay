@@ -13,6 +13,7 @@ public sealed class RoiSectionDetectionService
     private const double RequiredWeakSideCoverage = 0.70;
     private const int MaxAnchorCandidates = 48;
     private const int MaxRawAnchorCandidates = 1600;
+    private const int MinGap = 2;
     private const int MaxSmallGap = 30;
     private const int MaxLargeGap = 60;
 
@@ -160,12 +161,12 @@ public sealed class RoiSectionDetectionService
         QuickslotSectionPatternKind patternKind,
         SlotAnchor anchor)
     {
-        var maxLargeGap = patternKind == QuickslotSectionPatternKind.TopGrouped ? MaxLargeGap : 1;
-        for (var smallGapX = 1; smallGapX <= MaxSmallGap; smallGapX++)
+        var maxLargeGap = patternKind == QuickslotSectionPatternKind.TopGrouped ? MaxLargeGap : MinGap;
+        for (var smallGapX = MinGap; smallGapX <= MaxSmallGap; smallGapX++)
         {
-            for (var smallGapY = 1; smallGapY <= MaxSmallGap; smallGapY++)
+            for (var smallGapY = MinGap; smallGapY <= MaxSmallGap; smallGapY++)
             {
-                for (var largeGap = 1; largeGap <= maxLargeGap; largeGap++)
+                for (var largeGap = MinGap; largeGap <= maxLargeGap; largeGap++)
                 {
                     var slots = BuildPatternSlots(anchor.Rect, pattern, smallGapX, smallGapY, largeGap).ToList();
                     if (slots.Any(slot => !ContainsWithTolerance(roi, slot, 2)))
@@ -173,7 +174,7 @@ public sealed class RoiSectionDetectionService
                         continue;
                     }
 
-                    var score = ScorePattern(edge, roi, slots);
+                    var score = ScorePattern(edge, roi, slots, smallGapX, smallGapY, largeGap, patternKind);
                     yield return new PatternFit(slots, smallGapX, smallGapY, largeGap, score);
                 }
             }
@@ -215,7 +216,14 @@ public sealed class RoiSectionDetectionService
         }
     }
 
-    private static double ScorePattern(EdgeImage edge, Rect roi, IReadOnlyList<Rect> slots)
+    private static double ScorePattern(
+        EdgeImage edge,
+        Rect roi,
+        IReadOnlyList<Rect> slots,
+        double smallGapX,
+        double smallGapY,
+        double largeGap,
+        QuickslotSectionPatternKind patternKind)
     {
         var scores = slots.Select(edge.ScoreSlotBorder).ToList();
         var average = scores.Average();
@@ -227,7 +235,12 @@ public sealed class RoiSectionDetectionService
         var slotArea = slots.Sum(slot => slot.Width * slot.Height);
         var fillRatio = Math.Min(1, slotArea / Math.Max(1, bounds.Width * bounds.Height));
         var topLeftPenalty = ((bounds.Left - roi.Left) * 0.02) + ((bounds.Top - roi.Top) * 0.03);
-        return average - deviation * 0.25 + coverage * 8 + fillRatio * 12 - topLeftPenalty;
+        var densePackingPenalty = Math.Max(0, fillRatio - 0.82) * 55;
+        var minimumGapPenalty =
+            Math.Max(0, 4 - smallGapX) * 2.5 +
+            Math.Max(0, 4 - smallGapY) * 2.5 +
+            (patternKind == QuickslotSectionPatternKind.TopGrouped ? Math.Max(0, 8 - largeGap) * 0.9 : 0);
+        return average - deviation * 0.25 + coverage * 8 - densePackingPenalty - minimumGapPenalty - topLeftPenalty;
     }
 
     private static Rect BoundingRect(IReadOnlyList<Rect> slots)
@@ -247,7 +260,7 @@ public sealed class RoiSectionDetectionService
 
     private static bool CanSeedFitPatternWithMinimumGaps(Rect roi, PatternSpec pattern, Rect seed)
     {
-        var slots = BuildPatternSlots(seed, pattern, smallGapX: 1, smallGapY: 1, largeGap: 1);
+        var slots = BuildPatternSlots(seed, pattern, smallGapX: MinGap, smallGapY: MinGap, largeGap: MinGap);
         var bounds = BoundingRect(slots.ToList());
         return ContainsWithTolerance(roi, bounds, 2);
     }

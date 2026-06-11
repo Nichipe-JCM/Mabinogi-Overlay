@@ -34,8 +34,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private readonly SectionSettings[] _sectionSettings =
     [
-        new(1, 5, 16),
-        new(1, 5, 1)
+        new(2, 5, 16),
+        new(2, 5, 2)
     ];
     private readonly Stack<CandidateEditSnapshot> _undoStack = new();
     private readonly Stack<CandidateEditSnapshot> _redoStack = new();
@@ -2112,11 +2112,11 @@ public partial class MainWindow : Window
         return Math.Clamp(scale, 0.1, 10);
     }
 
-    private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 1, 30);
+    private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 2, 30);
 
-    private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 1, 30);
+    private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 2, 30);
 
-    private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 1, 60);
+    private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 2, 60);
 
     private static int CoerceRefreshFps(int fps) =>
         RefreshFpsOptions.OrderBy(option => Math.Abs(option - fps)).First();
@@ -2188,9 +2188,9 @@ public partial class MainWindow : Window
             }
 
             _sectionSettings[saved.PatternIndex] = new SectionSettings(
-                Math.Clamp(saved.SmallGapX, 1, 30),
-                Math.Clamp(saved.SmallGapY, 1, 30),
-                Math.Clamp(saved.LargeGap, 1, 60));
+                Math.Clamp(saved.SmallGapX, 2, 30),
+                Math.Clamp(saved.SmallGapY, 2, 30),
+                Math.Clamp(saved.LargeGap, 2, 60));
         }
 
         _currentSectionIndex = Math.Clamp(profile.SelectedSectionPattern, 0, _sectionSettings.Length - 1);
