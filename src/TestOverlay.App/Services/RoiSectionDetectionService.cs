@@ -8,7 +8,7 @@ namespace TestOverlay.App.Services;
 public sealed class RoiSectionDetectionService
 {
     private const int MinDetectedSlotSize = 22;
-    private const int BlackBorderTolerance = 40;
+    private const int DarkBorderTolerance = 140;
     private const double RequiredStrongSideCoverage = 0.90;
     private const double RequiredWeakSideCoverage = 0.70;
     private const int MaxAnchorCandidates = 10;
@@ -30,7 +30,7 @@ public sealed class RoiSectionDetectionService
 
         var edge = EdgeImage.From(bitmap);
         var pattern = PatternSpec.From(patternKind);
-        var anchors = FindTopLeftSlotCandidates(
+        var anchors = FindBottomRightAnchoredSlotCandidates(
                 edge,
                 roi,
                 pattern)
@@ -66,7 +66,7 @@ public sealed class RoiSectionDetectionService
             best.Score);
     }
 
-    private static IEnumerable<SlotAnchor> FindTopLeftSlotCandidates(
+    private static IEnumerable<SlotAnchor> FindBottomRightAnchoredSlotCandidates(
         EdgeImage edge,
         Rect roi,
         PatternSpec pattern)
@@ -90,19 +90,21 @@ public sealed class RoiSectionDetectionService
 
         for (var slotSize = minSize; slotSize <= maxSize; slotSize++)
         {
-            for (var y = top; y <= bottom - slotSize; y += 2)
+            for (var bottomRightY = top + slotSize - 1; bottomRightY < bottom; bottomRightY += 2)
             {
-                for (var x = left; x <= right - slotSize; x += 2)
+                for (var bottomRightX = left + slotSize - 1; bottomRightX < right; bottomRightX += 2)
                 {
+                    var x = bottomRightX - slotSize + 1;
+                    var y = bottomRightY - slotSize + 1;
                     var rect = new Rect(x, y, slotSize, slotSize);
-                    var edgeScore = edge.ScoreSlotBorder(rect);
-                    if (edgeScore < 10)
+                    var anchorScore = edge.ScoreBottomRightAnchor(rect);
+                    if (anchorScore < 10)
                     {
                         continue;
                     }
 
                     var upperLeftBias = ((x - roi.Left) * 0.04) + ((y - roi.Top) * 0.07);
-                    candidates.Add(new SlotAnchor(rect, edgeScore - upperLeftBias));
+                    candidates.Add(new SlotAnchor(rect, anchorScore - upperLeftBias));
                 }
 
                 if (candidates.Count > 5000)
@@ -344,7 +346,39 @@ public sealed class RoiSectionDetectionService
         }
 
         private static bool IsNearBlack(byte blue, byte green, byte red) =>
-            blue + green + red < BlackBorderTolerance;
+            blue + green + red < DarkBorderTolerance;
+
+        public double ScoreBottomRightAnchor(Rect rect)
+        {
+            var x = (int)Math.Round(rect.X);
+            var y = (int)Math.Round(rect.Y);
+            var width = (int)Math.Round(rect.Width);
+            var height = (int)Math.Round(rect.Height);
+            if (width < 6 || height < 6)
+            {
+                return 0;
+            }
+
+            var bottomCoverage = Coverage(x, y + height - 1, width, 1);
+            var rightCoverage = Coverage(x + width - 1, y, 1, height);
+            if (bottomCoverage < RequiredStrongSideCoverage ||
+                rightCoverage < RequiredStrongSideCoverage)
+            {
+                return 0;
+            }
+
+            var cornerCoverage = Coverage(
+                x + Math.Max(0, width - 3),
+                y + Math.Max(0, height - 3),
+                Math.Min(3, width),
+                Math.Min(3, height));
+            var bottomAverage = Average(x, y + height - 1, width, 1);
+            var rightAverage = Average(x + width - 1, y, 1, height);
+            return (bottomCoverage * 45) +
+                   (rightCoverage * 45) +
+                   (cornerCoverage * 20) +
+                   ((bottomAverage + rightAverage) * 0.04);
+        }
 
         public double ScoreSlotBorder(Rect rect)
         {
