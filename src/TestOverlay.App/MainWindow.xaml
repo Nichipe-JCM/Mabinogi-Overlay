@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Mabinogi Cooldown Overlay"
         Height="920"
-        Width="1420"
+        Width="1660"
         MinHeight="760"
-        MinWidth="1120"
+        MinWidth="1360"
         Background="#F3F5F7"
         PreviewKeyDown="Window_PreviewKeyDown"
         KeyDown="Window_KeyDown">
@@ -47,7 +47,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="520"/>
+                <ColumnDefinition Width="720"/>
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="8">
@@ -184,14 +184,14 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
 
-                        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,12,0,0">
-                            <Button x:Name="SelectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,6" Content="All" Click="SelectAllCandidatesButton_Click"/>
-                            <Button x:Name="DeselectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,6" Content="None" Click="DeselectAllCandidatesButton_Click"/>
-                            <Button x:Name="AddManualCandidateButton" Width="82" Height="32" Margin="4,0,0,6" Content="Add" Click="AddManualCandidateButton_Click"/>
-                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,6" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
-                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,6" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
-                            <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,6" Content="Clear" Click="ClearCandidatesButton_Click"/>
-                        </WrapPanel>
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button x:Name="SelectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,0" Content="All" Click="SelectAllCandidatesButton_Click"/>
+                            <Button x:Name="DeselectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,0" Content="None" Click="DeselectAllCandidatesButton_Click"/>
+                            <Button x:Name="AddManualCandidateButton" Width="82" Height="32" Margin="4,0,0,0" Content="Add" Click="AddManualCandidateButton_Click"/>
+                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,0" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
+                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,0" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
+                            <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,0" Content="Clear" Click="ClearCandidatesButton_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -213,15 +213,16 @@
                             </StackPanel>
                         </Border>
 
-                        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,0,0,0">
-                            <ComboBox x:Name="ProfileCombo" Width="130" Height="34" Margin="4,0,8,6" ToolTip="Saved profiles under the portable Profiles folder"/>
-                            <Button x:Name="OpenLayoutEditorButton" Width="132" Height="34" Margin="4,0,0,6" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
-                            <Button x:Name="ClearLayoutButton" Width="76" Height="34" Margin="4,0,0,6" Content="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Save" Click="SaveProfileButton_Click"/>
-                            <Button x:Name="LoadProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Load" Click="LoadProfileButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="70" Height="34" Margin="4,0,0,6" Content="Start" Click="StartOverlayButton_Click"/>
-                            <Button x:Name="StopOverlayLayoutButton" Width="70" Height="34" Margin="4,0,0,6" Content="Stop" Click="StopOverlayButton_Click"/>
-                        </WrapPanel>
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ComboBox x:Name="ProfileCombo" Width="130" Height="34" Margin="4,0,8,0" ToolTip="Saved profiles under the configured save folder"/>
+                            <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
+                            <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
+                            <Button x:Name="SaveProfileButton" Width="60" Height="34" Margin="4,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
+                            <Button x:Name="LoadProfileButton" Width="60" Height="34" Margin="4,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
+                            <Button x:Name="StartOverlayButton" Width="62" Height="34" Margin="4,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="StopOverlayLayoutButton" Width="62" Height="34" Margin="4,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
+                            <Button x:Name="SettingsButton" Width="76" Height="34" Margin="4,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>

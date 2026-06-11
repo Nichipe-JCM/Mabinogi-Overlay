@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -23,9 +24,13 @@ public partial class LayoutEditorWindow : Window
     private Rectangle? _selectionRect;
     private OverlayPlacementPreviewWindow? _placementPreviewWindow;
     private bool _isDraggingOverlayPreview;
+    private bool _isResizingEditorCanvas;
     private bool _isSelectingSlots;
     private bool _isPopulatingControls;
     private Point _dragOffset;
+    private Size _resizeStartCanvasSize;
+    private double _resizeDragDeltaX;
+    private double _resizeDragDeltaY;
     private Point _slotDragStartPosition;
     private Point _selectionStartPosition;
     private LayoutSnapshot? _dragSnapshotBefore;
@@ -119,7 +124,7 @@ public partial class LayoutEditorWindow : Window
 
     public double SlotScale { get; private set; }
 
-    public double GridSnapSize { get; private set; } = 8;
+    public double GridSnapSize { get; private set; } = 10;
 
     private void PopulateControls()
     {
@@ -371,6 +376,44 @@ public partial class LayoutEditorWindow : Window
     {
         EditorCanvas.Width = CanvasWidth;
         EditorCanvas.Height = CanvasHeight;
+        EditorSurface.Width = CanvasWidth;
+        EditorSurface.Height = CanvasHeight;
+        EditorResizeBorder.Width = CanvasWidth;
+        EditorResizeBorder.Height = CanvasHeight;
+    }
+
+    private void EditorResizeThumb_DragStarted(object sender, DragStartedEventArgs e)
+    {
+        ApplySettingsFromControls();
+        _isResizingEditorCanvas = true;
+        _resizeStartCanvasSize = new Size(CanvasWidth, CanvasHeight);
+        _resizeDragDeltaX = 0;
+        _resizeDragDeltaY = 0;
+    }
+
+    private void EditorResizeThumb_DragDelta(object sender, DragDeltaEventArgs e)
+    {
+        if (!_isResizingEditorCanvas)
+        {
+            return;
+        }
+
+        _resizeDragDeltaX += e.HorizontalChange;
+        _resizeDragDeltaY += e.VerticalChange;
+        CanvasWidth = Math.Max(120, Math.Round(_resizeStartCanvasSize.Width + _resizeDragDeltaX));
+        CanvasHeight = Math.Max(80, Math.Round(_resizeStartCanvasSize.Height + _resizeDragDeltaY));
+        CanvasWidthBox.Text = CanvasWidth.ToString("0");
+        CanvasHeightBox.Text = CanvasHeight.ToString("0");
+        ApplyCanvasSize();
+        ClampSlotsToCanvas();
+        RenderSlots();
+        UpdateOverlayPreview();
+    }
+
+    private void EditorResizeThumb_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        _isResizingEditorCanvas = false;
+        EditorCanvas.Focus();
     }
 
     private void MoveSelectedSlotsByPointer(Point position)
@@ -468,7 +511,7 @@ public partial class LayoutEditorWindow : Window
     {
         foreach (var (image, slot) in _images)
         {
-            image.Opacity = Math.Clamp(slot.Opacity, 0.05, 1) * (_selectedSlots.Contains(slot) ? 1.0 : 0.72);
+            image.Opacity = Math.Clamp(slot.Opacity, 0.05, 1);
             image.Effect = _selectedSlots.Contains(slot)
                 ? new System.Windows.Media.Effects.DropShadowEffect
                 {

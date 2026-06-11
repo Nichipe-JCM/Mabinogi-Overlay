@@ -12,17 +12,17 @@ public sealed class OverlayProfile
 
     public double ScreenTop { get; set; } = 120;
 
-    public double Opacity { get; set; } = 0.8;
+    public double Opacity { get; set; } = 1;
 
     public string StopHotkey { get; set; } = "Ctrl+Shift+F8";
 
-    public int RefreshIntervalMs { get; set; } = 500;
+    public int RefreshIntervalMs { get; set; } = 33;
 
-    public int RefreshFps { get; set; } = 60;
+    public int RefreshFps { get; set; } = 30;
 
     public double LayoutSlotScale { get; set; } = 1.5;
 
-    public double GridSnapSize { get; set; } = 8;
+    public double GridSnapSize { get; set; } = 10;
 
     public int SlotInnerSize { get; set; } = 29;
 

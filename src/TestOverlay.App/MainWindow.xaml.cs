@@ -25,7 +25,9 @@ public partial class MainWindow : Window
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
-    private readonly ProfileStore _profileStore = new();
+    private readonly AppSettingsStore _settingsStore = new();
+    private readonly ProfileStore _profileStore;
+    private AppSettings _appSettings;
     private readonly AppLog _log = new();
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
@@ -66,14 +68,16 @@ public partial class MainWindow : Window
     private double _layoutCanvasHeight = 160;
     private double _overlayLeft = 120;
     private double _overlayTop = 120;
-    private double _overlayOpacity = 0.8;
+    private double _overlayOpacity = 1;
     private string _stopHotkey = "Ctrl+Shift+F8";
-    private int _refreshFps = 60;
+    private int _refreshFps = 30;
     private double _layoutSlotScale = 1.5;
-    private double _layoutGridSnapSize = 8;
+    private double _layoutGridSnapSize = 10;
 
     public MainWindow()
     {
+        _appSettings = _settingsStore.Load();
+        _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SectionCombo.ItemsSource = _sections;
@@ -660,6 +664,36 @@ public partial class MainWindow : Window
         SetStatus("Overlay layout cleared.");
     }
 
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SettingsWindow(_profileStore.ProfileDirectory, _settingsStore.DefaultProfileDirectory)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            SetStatus("Settings canceled.");
+            return;
+        }
+
+        try
+        {
+            var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
+            System.IO.Directory.CreateDirectory(directory);
+            _appSettings.ProfileDirectory = directory;
+            _settingsStore.Save(_appSettings);
+            _profileStore.SetProfileDirectory(directory);
+            RefreshProfileList();
+            _log.Info($"Settings saved: profileDirectory={directory}");
+            SetStatus($"Profile save folder updated: {directory}");
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Failed to save settings.", exception);
+            SetStatus($"Settings save failed: {exception.Message}");
+        }
+    }
+
     private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
     {
         SaveCurrentSectionSettings();
@@ -749,7 +783,7 @@ public partial class MainWindow : Window
             ? profile.RefreshFps
             : FpsFromInterval(profile.RefreshIntervalMs));
         _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
-        _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 8, 1, 64);
+        _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
         SlotWidthBox.Text = ReadSlotDimensionText(profileWidth, ReadSlotInnerWidth());
