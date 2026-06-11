@@ -15,6 +15,8 @@ namespace TestOverlay.App;
 public partial class MainWindow : Window
 {
     private const int CandidateBorderPixels = 1;
+    private const int CandidateVisualPaddingPixels = 2;
+    private const int DebugDetectRuns = 100;
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
     private readonly WindowDiscoveryService _windowDiscovery = new();
@@ -50,6 +52,8 @@ public partial class MainWindow : Window
     private bool _isSelectingCandidates;
     private bool _isAwaitingDetectionRoi;
     private bool _isSelectingDetectionRoi;
+    private bool _isAwaitingDebugDetectionRoi;
+    private bool _isSelectingDebugDetectionRoi;
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection;
     private bool _isLiveRefreshInProgress;
@@ -223,6 +227,18 @@ public partial class MainWindow : Window
 
         SetDetectionMode(active: true);
         SetStatus("Drag a quickslot section area on the capture preview, then choose the section type.");
+    }
+
+    private void DebugDetectButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_capturedImage is null)
+        {
+            SetStatus("No captured image is available.");
+            return;
+        }
+
+        SetDebugDetectionMode(active: true);
+        SetStatus("Debug detect: drag one top grouped 4x2 x3 ROI. It will run 100 simulations and save a log.");
     }
 
     private void AddToOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -844,6 +860,13 @@ public partial class MainWindow : Window
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var position = e.GetPosition(CaptureCanvas);
+        if (_isAwaitingDebugDetectionRoi)
+        {
+            BeginDebugDetectionRoiSelection(position);
+            e.Handled = true;
+            return;
+        }
+
         if (_isAwaitingDetectionRoi)
         {
             BeginDetectionRoiSelection(position);
@@ -866,6 +889,12 @@ public partial class MainWindow : Window
         }
 
         var position = e.GetPosition(CaptureCanvas);
+        if (_isSelectingDebugDetectionRoi)
+        {
+            UpdateDetectionRoiSelection(position);
+            return;
+        }
+
         if (_isSelectingDetectionRoi)
         {
             UpdateDetectionRoiSelection(position);
@@ -892,6 +921,12 @@ public partial class MainWindow : Window
 
     private void CaptureCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_isSelectingDebugDetectionRoi)
+        {
+            EndDebugDetectionRoiSelection();
+            return;
+        }
+
         if (_isSelectingDetectionRoi)
         {
             EndDetectionRoiSelection();
@@ -1001,6 +1036,24 @@ public partial class MainWindow : Window
         CaptureCanvas.CaptureMouse();
     }
 
+    private void BeginDebugDetectionRoiSelection(Point position)
+    {
+        _isSelectingDebugDetectionRoi = true;
+        _selectionStartPosition = position;
+        _selectionRect = new Rectangle
+        {
+            Stroke = Brushes.Magenta,
+            StrokeThickness = 2,
+            StrokeDashArray = new DoubleCollection { 4, 2 },
+            Fill = new SolidColorBrush(Color.FromArgb(26, 255, 0, 255)),
+            IsHitTestVisible = false
+        };
+        CaptureCanvas.Children.Add(_selectionRect);
+        Canvas.SetLeft(_selectionRect, position.X);
+        Canvas.SetTop(_selectionRect, position.Y);
+        CaptureCanvas.CaptureMouse();
+    }
+
     private void UpdateDetectionRoiSelection(Point position) => UpdateSelectionRectangle(position);
 
     private void EndDetectionRoiSelection()
@@ -1037,8 +1090,40 @@ public partial class MainWindow : Window
         DetectSectionInRoi(roi, patternKind.Value);
     }
 
+    private void EndDebugDetectionRoiSelection()
+    {
+        var roi = Rect.Empty;
+        if (_selectionRect is not null)
+        {
+            roi = new Rect(
+                Canvas.GetLeft(_selectionRect),
+                Canvas.GetTop(_selectionRect),
+                _selectionRect.Width,
+                _selectionRect.Height);
+            CaptureCanvas.Children.Remove(_selectionRect);
+            _selectionRect = null;
+        }
+
+        CaptureCanvas.ReleaseMouseCapture();
+        _isSelectingDebugDetectionRoi = false;
+        SetDebugDetectionMode(active: false);
+
+        if (roi.Width < 24 || roi.Height < 24)
+        {
+            SetStatus("Debug detection area is too small.");
+            return;
+        }
+
+        RunDebugTopGroupedDetection(roi);
+    }
+
     private void SetDetectionMode(bool active)
     {
+        if (active)
+        {
+            SetDebugDetectionMode(active: false);
+        }
+
         _isAwaitingDetectionRoi = active;
         if (DetectModeText is not null)
         {
@@ -1049,6 +1134,21 @@ public partial class MainWindow : Window
         {
             DetectButton.Content = active ? "Drag ROI..." : "Auto detect section";
             DetectButton.Background = active ? Brushes.Gold : SystemColors.ControlBrush;
+        }
+    }
+
+    private void SetDebugDetectionMode(bool active)
+    {
+        if (active)
+        {
+            SetDetectionMode(active: false);
+        }
+
+        _isAwaitingDebugDetectionRoi = active;
+        if (DebugDetectButton is not null)
+        {
+            DebugDetectButton.Content = active ? "Drag debug ROI..." : "Debug detect";
+            DebugDetectButton.Background = active ? Brushes.Magenta : SystemColors.ControlBrush;
         }
     }
 
@@ -1102,6 +1202,94 @@ public partial class MainWindow : Window
             $"Detected {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
             $"{result.Slots.Count} slots, slot {result.Slots[0].Width:0}x{result.Slots[0].Height:0}px, " +
             $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
+    }
+
+    private void RunDebugTopGroupedDetection(Rect roi)
+    {
+        if (_capturedImage is null)
+        {
+            SetStatus("No captured image is available.");
+            return;
+        }
+
+        const int expectedX = 7;
+        const int expectedY = 18;
+        const int expectedSize = 29;
+        const int expectedSmallGapX = 3;
+        const int expectedSmallGapY = 8;
+        const int expectedLargeGap = 15;
+
+        var lines = new List<string>
+        {
+            $"Debug top grouped ROI detect started {DateTimeOffset.Now:O}",
+            $"roi absolute x={roi.X:0.###}, y={roi.Y:0.###}, w={roi.Width:0.###}, h={roi.Height:0.###}",
+            $"expected relative x={expectedX}, y={expectedY}, {expectedSize}x{expectedSize}, gapX={expectedSmallGapX}, gapY={expectedSmallGapY}, large={expectedLargeGap}",
+            $"runs={DebugDetectRuns}"
+        };
+
+        var exactMatches = 0;
+        var detections = 0;
+        for (var run = 1; run <= DebugDetectRuns; run++)
+        {
+            var diagnostics = new List<string>();
+            var result = _roiSectionDetection.Detect(
+                _capturedImage,
+                roi,
+                QuickslotSectionPatternKind.TopGrouped,
+                diagnostics);
+
+            if (result is null)
+            {
+                lines.Add($"RUN {run:000}: FAIL no result");
+                lines.AddRange(diagnostics.Select(line => $"  {line}"));
+                continue;
+            }
+
+            detections++;
+            var first = result.Slots[0];
+            var relativeX = (int)Math.Round(first.X - roi.X);
+            var relativeY = (int)Math.Round(first.Y - roi.Y);
+            var width = (int)Math.Round(first.Width);
+            var height = (int)Math.Round(first.Height);
+            var gapX = (int)Math.Round(result.SmallGapX);
+            var gapY = (int)Math.Round(result.SmallGapY);
+            var largeGap = (int)Math.Round(result.LargeGap);
+            var isExact =
+                relativeX == expectedX &&
+                relativeY == expectedY &&
+                width == expectedSize &&
+                height == expectedSize &&
+                gapX == expectedSmallGapX &&
+                gapY == expectedSmallGapY &&
+                largeGap == expectedLargeGap;
+
+            if (isExact)
+            {
+                exactMatches++;
+                continue;
+            }
+
+            lines.Add(
+                $"RUN {run:000}: WRONG rel x={relativeX}, y={relativeY}, {width}x{height}, gapX={gapX}, gapY={gapY}, large={largeGap}, score={result.Score:0.000}");
+            lines.Add(
+                $"  abs x={first.X:0.###}, y={first.Y:0.###}, w={first.Width:0.###}, h={first.Height:0.###}");
+            lines.AddRange(diagnostics.Select(line => $"  {line}"));
+        }
+
+        lines.Insert(4, $"summary exact={exactMatches}/{DebugDetectRuns}, detected={detections}/{DebugDetectRuns}, failed={DebugDetectRuns - detections}");
+        var logPath = SaveDebugDetectLog(lines);
+        _log.Info($"Debug detect log saved: {logPath}");
+        SetStatus($"Debug detect finished: exact {exactMatches}/{DebugDetectRuns}, detected {detections}/{DebugDetectRuns}. Log: {logPath}");
+    }
+
+    private string SaveDebugDetectLog(IReadOnlyCollection<string> lines)
+    {
+        var path = System.IO.Path.Combine(
+            _log.LogDirectory,
+            $"detect-debug-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
+        System.IO.Directory.CreateDirectory(_log.LogDirectory);
+        System.IO.File.WriteAllLines(path, lines);
+        return path;
     }
 
     private void BeginCandidateBoxSelection(Point position)
@@ -1360,7 +1548,7 @@ public partial class MainWindow : Window
     private static Rect GetCandidateVisualRect(SlotCandidate candidate)
     {
         var rect = candidate.SourceRect;
-        rect.Inflate(CandidateBorderPixels, CandidateBorderPixels);
+        rect.Inflate(CandidateVisualPaddingPixels, CandidateVisualPaddingPixels);
         return rect;
     }
 

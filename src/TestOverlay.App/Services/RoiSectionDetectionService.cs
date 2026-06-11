@@ -18,13 +18,15 @@ public sealed class RoiSectionDetectionService
     public SectionDetectionResult? Detect(
         BitmapSource source,
         Rect roi,
-        QuickslotSectionPatternKind patternKind)
+        QuickslotSectionPatternKind patternKind,
+        IList<string>? diagnostics = null)
     {
         var bitmap = EnsureBgra32(source);
         var imageRect = new Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight);
         roi.Intersect(imageRect);
         if (roi.IsEmpty || roi.Width < 24 || roi.Height < 24)
         {
+            diagnostics?.Add($"invalid roi after clipping: {FormatRect(roi)}");
             return null;
         }
 
@@ -33,18 +35,27 @@ public sealed class RoiSectionDetectionService
         var anchors = FindBottomRightAnchoredSlotCandidates(
                 edge,
                 roi,
-                pattern)
+                pattern,
+                diagnostics)
             .ToList();
+        diagnostics?.Add($"anchors={anchors.Count}");
+        foreach (var anchor in anchors.Take(10))
+        {
+            diagnostics?.Add($"anchor {FormatRect(anchor.Rect)} score={anchor.Score:0.000}");
+        }
+
         if (anchors.Count == 0)
         {
             return null;
         }
 
         PatternFit? best = null;
+        var fitCount = 0;
         foreach (var anchor in anchors)
         {
             foreach (var fit in EnumerateFits(edge, roi, pattern, patternKind, anchor))
             {
+                fitCount++;
                 if (best is null || fit.Score > best.Score)
                 {
                     best = fit;
@@ -52,11 +63,14 @@ public sealed class RoiSectionDetectionService
             }
         }
 
+        diagnostics?.Add($"fits={fitCount}");
         if (best is null)
         {
             return null;
         }
 
+        diagnostics?.Add(
+            $"best first={FormatRect(best.Slots[0])} gapX={best.SmallGapX:0} gapY={best.SmallGapY:0} large={best.LargeGap:0} score={best.Score:0.000}");
         return new SectionDetectionResult(
             patternKind,
             best.Slots,
@@ -69,7 +83,8 @@ public sealed class RoiSectionDetectionService
     private static IEnumerable<SlotAnchor> FindBottomRightAnchoredSlotCandidates(
         EdgeImage edge,
         Rect roi,
-        PatternSpec pattern)
+        PatternSpec pattern,
+        IList<string>? diagnostics)
     {
         var candidates = new List<SlotAnchor>();
         var totalSlotColumns = pattern.GroupColumns * pattern.GroupColumnsCount;
@@ -78,6 +93,7 @@ public sealed class RoiSectionDetectionService
             300,
             (int)Math.Floor(Math.Min(roi.Width / totalSlotColumns, roi.Height / totalSlotRows)));
         var minSize = Math.Max(MinDetectedSlotSize, (int)Math.Floor(maxSize * 0.62));
+        diagnostics?.Add($"anchor search roi={FormatRect(roi)} maxSize={maxSize} minSize={minSize}");
         if (maxSize < minSize)
         {
             return [];
@@ -212,6 +228,9 @@ public sealed class RoiSectionDetectionService
         item.Top >= container.Top - tolerance &&
         item.Right <= container.Right + tolerance &&
         item.Bottom <= container.Bottom + tolerance;
+
+    private static string FormatRect(Rect rect) =>
+        $"x={rect.X:0.###},y={rect.Y:0.###},w={rect.Width:0.###},h={rect.Height:0.###}";
 
     private static IEnumerable<SlotAnchor> NonMaximumSuppress(IEnumerable<SlotAnchor> candidates, double overlapLimit)
     {
