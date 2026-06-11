@@ -15,7 +15,7 @@ namespace TestOverlay.App;
 public partial class MainWindow : Window
 {
     private const int CandidateBorderPixels = 1;
-    private const int CandidateVisualPaddingPixels = 2;
+    private const int CandidateVisualPaddingPixels = 1;
     private const int DebugDetectRuns = 100;
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
