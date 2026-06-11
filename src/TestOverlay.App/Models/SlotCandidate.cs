@@ -7,6 +7,7 @@ namespace TestOverlay.App.Models;
 public sealed class SlotCandidate : INotifyPropertyChanged
 {
     private bool _isSelected;
+    private bool _isInOverlay;
     private string _sectionMembership = string.Empty;
 
     public SlotCandidate(int id, Rect sourceRect, double score)
@@ -38,6 +39,22 @@ public sealed class SlotCandidate : INotifyPropertyChanged
         }
     }
 
+    public bool IsInOverlay
+    {
+        get => _isInOverlay;
+        set
+        {
+            if (_isInOverlay == value)
+            {
+                return;
+            }
+
+            _isInOverlay = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Label));
+        }
+    }
+
     public string SectionMembership
     {
         get => _sectionMembership;
@@ -55,9 +72,9 @@ public sealed class SlotCandidate : INotifyPropertyChanged
     }
 
     public string Label =>
-        string.IsNullOrWhiteSpace(SectionMembership)
-            ? $"#{Id:000}  x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}"
-            : $"#{Id:000}  {SectionMembership}  x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}";
+        $"{(IsInOverlay ? "[overlay] " : string.Empty)}#{Id:000}  " +
+        $"{(string.IsNullOrWhiteSpace(SectionMembership) ? string.Empty : $"{SectionMembership}  ")}" +
+        $"x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}";
 
     public void MoveTo(double x, double y)
     {

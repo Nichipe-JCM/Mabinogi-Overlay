@@ -33,7 +33,7 @@ public partial class MainWindow : Window
     private readonly SectionSettings[] _sectionSettings =
     [
         new(1, 5, 16),
-        new(1, 5, 0)
+        new(1, 5, 1)
     ];
     private readonly Stack<CandidateEditSnapshot> _undoStack = new();
     private readonly Stack<CandidateEditSnapshot> _redoStack = new();
@@ -221,13 +221,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        _isAwaitingDetectionRoi = true;
+        SetDetectionMode(active: true);
         SetStatus("Drag a quickslot section area on the capture preview, then choose the section type.");
-    }
-
-    private void AddSelectedButton_Click(object sender, RoutedEventArgs e)
-    {
-        PlaceSelectedCandidates(clearExisting: true);
     }
 
     private void AddToOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -296,6 +291,7 @@ public partial class MainWindow : Window
             _layoutCanvasHeight = requiredHeight;
         }
 
+        UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         _log.Info($"Placed overlay slots: added={selected.Count}, total={_overlaySlots.Count}, clearExisting={clearExisting}, canvas={_layoutCanvasWidth}x{_layoutCanvasHeight}");
         SetStatus(clearExisting
@@ -448,6 +444,7 @@ public partial class MainWindow : Window
         _selectedSection = null;
         SectionCombo.SelectedItem = null;
         RefreshSectionLabels();
+        UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
         SetStatus($"Deleted section and {candidates.Count} candidate(s).");
@@ -565,6 +562,7 @@ public partial class MainWindow : Window
         _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
         RemoveSectionsContaining(selected);
 
+        UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
         SetStatus($"Deleted {selected.Count} selected candidates.");
@@ -589,6 +587,7 @@ public partial class MainWindow : Window
         _candidates.Clear();
         ClearCandidateRects();
         ClearSections();
+        UpdateCandidateOverlayFlags();
         PushUndoIfChanged(before);
         SetStatus("Candidate list cleared.");
     }
@@ -625,6 +624,7 @@ public partial class MainWindow : Window
         _refreshFps = editor.RefreshFps;
         _layoutSlotScale = editor.SlotScale;
         _layoutGridSnapSize = editor.GridSnapSize;
+        UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         SetStatus("Layout editor closed. Overlay settings updated.");
     }
@@ -755,6 +755,7 @@ public partial class MainWindow : Window
             _overlaySlots.Add(slot);
         }
 
+        UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, slots={profile.Slots.Count}");
         SetStatus($"Profile loaded: {_profileStore.GetProfilePath(profileName)} ({profile.Slots.Count} slots).");
@@ -1018,7 +1019,7 @@ public partial class MainWindow : Window
 
         CaptureCanvas.ReleaseMouseCapture();
         _isSelectingDetectionRoi = false;
-        _isAwaitingDetectionRoi = false;
+        SetDetectionMode(active: false);
 
         if (roi.Width < 24 || roi.Height < 24)
         {
@@ -1034,6 +1035,21 @@ public partial class MainWindow : Window
         }
 
         DetectSectionInRoi(roi, patternKind.Value);
+    }
+
+    private void SetDetectionMode(bool active)
+    {
+        _isAwaitingDetectionRoi = active;
+        if (DetectModeText is not null)
+        {
+            DetectModeText.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (DetectButton is not null)
+        {
+            DetectButton.Content = active ? "Drag ROI..." : "Auto detect section";
+            DetectButton.Background = active ? Brushes.Gold : SystemColors.ControlBrush;
+        }
     }
 
     private QuickslotSectionPatternKind? ChooseDetectionPatternKind()
@@ -1466,6 +1482,15 @@ public partial class MainWindow : Window
     {
         _overlaySlots.Clear();
         UpdateLayoutSummary();
+        UpdateCandidateOverlayFlags();
+    }
+
+    private void UpdateCandidateOverlayFlags()
+    {
+        foreach (var candidate in _candidates)
+        {
+            candidate.IsInOverlay = _overlaySlots.Any(slot => ReferenceEquals(slot.Source, candidate));
+        }
     }
 
     private void SelectSection(QuickslotSection section)
@@ -1897,11 +1922,11 @@ public partial class MainWindow : Window
         return Math.Clamp(scale, 0.1, 10);
     }
 
-    private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 0, 30);
+    private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 1, 30);
 
-    private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 0, 30);
+    private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 1, 30);
 
-    private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 0, 60);
+    private double ReadLargeGap() => Math.Clamp(LargeGapSlider.Value, 1, 60);
 
     private static int CoerceRefreshFps(int fps) =>
         RefreshFpsOptions.OrderBy(option => Math.Abs(option - fps)).First();
@@ -1973,9 +1998,9 @@ public partial class MainWindow : Window
             }
 
             _sectionSettings[saved.PatternIndex] = new SectionSettings(
-                Math.Clamp(saved.SmallGapX, 0, 30),
-                Math.Clamp(saved.SmallGapY, 0, 30),
-                Math.Clamp(saved.LargeGap, 0, 60));
+                Math.Clamp(saved.SmallGapX, 1, 30),
+                Math.Clamp(saved.SmallGapY, 1, 30),
+                Math.Clamp(saved.LargeGap, 1, 60));
         }
 
         _currentSectionIndex = Math.Clamp(profile.SelectedSectionPattern, 0, _sectionSettings.Length - 1);

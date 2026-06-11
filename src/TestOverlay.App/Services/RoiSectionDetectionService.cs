@@ -7,12 +7,13 @@ namespace TestOverlay.App.Services;
 
 public sealed class RoiSectionDetectionService
 {
-    private const double EdgeHitThreshold = 20;
+    private const int MinDetectedSlotSize = 22;
+    private const int BlackBorderTolerance = 40;
     private const double RequiredStrongSideCoverage = 0.90;
     private const double RequiredWeakSideCoverage = 0.70;
     private const int MaxAnchorCandidates = 10;
     private const int MaxSmallGap = 30;
-    private const int MaxLargeGap = 80;
+    private const int MaxLargeGap = 60;
 
     public SectionDetectionResult? Detect(
         BitmapSource source,
@@ -76,7 +77,7 @@ public sealed class RoiSectionDetectionService
         var maxSize = Math.Min(
             300,
             (int)Math.Floor(Math.Min(roi.Width / totalSlotColumns, roi.Height / totalSlotRows)));
-        var minSize = Math.Max(12, (int)Math.Floor(maxSize * 0.62));
+        var minSize = Math.Max(MinDetectedSlotSize, (int)Math.Floor(maxSize * 0.62));
         if (maxSize < minSize)
         {
             return [];
@@ -125,12 +126,12 @@ public sealed class RoiSectionDetectionService
         QuickslotSectionPatternKind patternKind,
         SlotAnchor anchor)
     {
-        var maxLargeGap = patternKind == QuickslotSectionPatternKind.TopGrouped ? MaxLargeGap : 0;
-        for (var smallGapX = 0; smallGapX <= MaxSmallGap; smallGapX++)
+        var maxLargeGap = patternKind == QuickslotSectionPatternKind.TopGrouped ? MaxLargeGap : 1;
+        for (var smallGapX = 1; smallGapX <= MaxSmallGap; smallGapX++)
         {
-            for (var smallGapY = 0; smallGapY <= MaxSmallGap; smallGapY++)
+            for (var smallGapY = 1; smallGapY <= MaxSmallGap; smallGapY++)
             {
-                for (var largeGap = 0; largeGap <= maxLargeGap; largeGap++)
+                for (var largeGap = 1; largeGap <= maxLargeGap; largeGap++)
                 {
                     var slots = BuildPatternSlots(anchor.Rect, pattern, smallGapX, smallGapY, largeGap).ToList();
                     if (slots.Any(slot => !ContainsWithTolerance(roi, slot, 2)))
@@ -318,23 +319,32 @@ public sealed class RoiSectionDetectionService
             }
 
             var integral = new double[(width + 1) * (height + 1)];
-            var hitIntegral = new double[(width + 1) * (height + 1)];
+            var blackIntegral = new double[(width + 1) * (height + 1)];
             for (var y = 1; y <= height; y++)
             {
                 var rowSum = 0.0;
-                var hitRowSum = 0.0;
+                var blackRowSum = 0.0;
                 for (var x = 1; x <= width; x++)
                 {
+                    var pixelOffset = (y - 1) * stride + (x - 1) * 4;
                     var edgeValue = edge[(y - 1) * width + (x - 1)];
                     rowSum += edgeValue;
-                    hitRowSum += edgeValue >= EdgeHitThreshold ? 1 : 0;
+                    blackRowSum += IsNearBlack(
+                        pixels[pixelOffset],
+                        pixels[pixelOffset + 1],
+                        pixels[pixelOffset + 2])
+                        ? 1
+                        : 0;
                     integral[y * (width + 1) + x] = integral[(y - 1) * (width + 1) + x] + rowSum;
-                    hitIntegral[y * (width + 1) + x] = hitIntegral[(y - 1) * (width + 1) + x] + hitRowSum;
+                    blackIntegral[y * (width + 1) + x] = blackIntegral[(y - 1) * (width + 1) + x] + blackRowSum;
                 }
             }
 
-            return new EdgeImage(width, height, integral, hitIntegral);
+            return new EdgeImage(width, height, integral, blackIntegral);
         }
+
+        private static bool IsNearBlack(byte blue, byte green, byte red) =>
+            blue + green + red < BlackBorderTolerance;
 
         public double ScoreSlotBorder(Rect rect)
         {

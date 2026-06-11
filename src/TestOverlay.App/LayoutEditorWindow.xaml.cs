@@ -16,6 +16,7 @@ public partial class LayoutEditorWindow : Window
     private readonly Dictionary<OverlaySlot, Size> _sourceSizes = new();
     private readonly Stack<LayoutSnapshot> _undoStack = new();
     private readonly Stack<LayoutSnapshot> _redoStack = new();
+    private readonly List<WindowStateSnapshot> _placementPreviewWindowStates = new();
     private static readonly int[] FpsOptions = [30, 60, 120, 144];
     private readonly Rectangle _overlayPreviewRect = new();
     private Image? _draggingImage;
@@ -323,12 +324,14 @@ public partial class LayoutEditorWindow : Window
             CanvasHeight,
             OverlayOpacity,
             _slots.ToList(),
-            ApplyPlacementFromPreview)
+            ApplyPlacementFromPreview);
+        _placementPreviewWindow.Closed += (_, _) =>
         {
-            Owner = this
+            RestoreWindowsAfterPlacementPreview();
+            _placementPreviewWindow = null;
         };
-        _placementPreviewWindow.Closed += (_, _) => _placementPreviewWindow = null;
         _placementPreviewWindow.Show();
+        MinimizeWindowsForPlacementPreview();
     }
 
     private void ApplyPlacementFromPreview(double left, double top, double width, double height)
@@ -539,6 +542,7 @@ public partial class LayoutEditorWindow : Window
         foreach (var slot in _selectedSlots.ToList())
         {
             slot.Source.IsSelected = false;
+            slot.Source.IsInOverlay = false;
             _slots.Remove(slot);
             _sourceSizes.Remove(slot);
         }
@@ -799,7 +803,7 @@ public partial class LayoutEditorWindow : Window
     {
         return new LayoutSnapshot(
             _slots
-                .Select(slot => new SlotSnapshot(slot, slot.OverlayRect, slot.Source.IsSelected, slot.Opacity, slot.Scale))
+                .Select(slot => new SlotSnapshot(slot, slot.OverlayRect, slot.Source.IsSelected, slot.Source.IsInOverlay, slot.Opacity, slot.Scale))
                 .ToList(),
             _selectedSlots.Where(slot => _slots.Contains(slot)).ToList());
     }
@@ -844,12 +848,20 @@ public partial class LayoutEditorWindow : Window
 
     private void RestoreLayoutSnapshot(LayoutSnapshot snapshot)
     {
+        var knownSources = _sourceSizes.Keys
+            .Select(slot => slot.Source)
+            .Concat(_slots.Select(slot => slot.Source))
+            .Concat(snapshot.Slots.Select(slotState => slotState.Slot.Source))
+            .Distinct()
+            .ToList();
+
         _slots.Clear();
         _selectedSlots.Clear();
         foreach (var slotState in snapshot.Slots)
         {
             slotState.Slot.OverlayRect = slotState.OverlayRect;
             slotState.Slot.Source.IsSelected = slotState.SourceSelected;
+            slotState.Slot.Source.IsInOverlay = slotState.SourceInOverlay;
             slotState.Slot.Opacity = slotState.Opacity;
             slotState.Slot.Scale = slotState.Scale;
             _slots.Add(slotState.Slot);
@@ -868,9 +880,22 @@ public partial class LayoutEditorWindow : Window
             }
         }
 
+        SynchronizeSourceOverlayFlags(knownSources);
         RenderSlots();
         UpdateOverlayPreview();
         EditorCanvas.Focus();
+    }
+
+    private void SynchronizeSourceOverlayFlags(IEnumerable<SlotCandidate> knownSources)
+    {
+        var sources = knownSources
+            .Concat(_slots.Select(slot => slot.Source))
+            .Distinct()
+            .ToList();
+        foreach (var source in sources)
+        {
+            source.IsInOverlay = _slots.Any(slot => ReferenceEquals(slot.Source, source));
+        }
     }
 
     private static bool SnapshotsEqual(LayoutSnapshot left, LayoutSnapshot right)
@@ -887,6 +912,7 @@ public partial class LayoutEditorWindow : Window
             if (!ReferenceEquals(leftSlot.Slot, rightSlot.Slot)
                 || leftSlot.OverlayRect != rightSlot.OverlayRect
                 || leftSlot.SourceSelected != rightSlot.SourceSelected
+                || leftSlot.SourceInOverlay != rightSlot.SourceInOverlay
                 || !DoubleEquals(leftSlot.Opacity, rightSlot.Opacity)
                 || !DoubleEquals(leftSlot.Scale, rightSlot.Scale))
             {
@@ -910,7 +936,31 @@ public partial class LayoutEditorWindow : Window
         ApplySettingsFromControls();
         ClampSlotsToCanvas();
         _placementPreviewWindow?.Close();
+        RestoreWindowsAfterPlacementPreview();
         base.OnClosing(e);
+    }
+
+    private void MinimizeWindowsForPlacementPreview()
+    {
+        _placementPreviewWindowStates.Clear();
+        foreach (var window in new[] { Owner, this }.Where(window => window is not null).Cast<Window>().Distinct())
+        {
+            _placementPreviewWindowStates.Add(new WindowStateSnapshot(window, window.WindowState));
+            window.WindowState = WindowState.Minimized;
+        }
+    }
+
+    private void RestoreWindowsAfterPlacementPreview()
+    {
+        foreach (var snapshot in _placementPreviewWindowStates)
+        {
+            if (snapshot.Window.IsLoaded)
+            {
+                snapshot.Window.WindowState = snapshot.State;
+            }
+        }
+
+        _placementPreviewWindowStates.Clear();
     }
 
     private static double ReadPositiveDouble(string text, double fallback) =>
@@ -930,7 +980,9 @@ public partial class LayoutEditorWindow : Window
 
     private sealed record PreviewGeometry(double Left, double Top, double Width, double Height, double Scale);
 
-    private sealed record SlotSnapshot(OverlaySlot Slot, Rect OverlayRect, bool SourceSelected, double Opacity, double Scale);
+    private sealed record WindowStateSnapshot(Window Window, WindowState State);
+
+    private sealed record SlotSnapshot(OverlaySlot Slot, Rect OverlayRect, bool SourceSelected, bool SourceInOverlay, double Opacity, double Scale);
 
     private sealed record LayoutSnapshot(List<SlotSnapshot> Slots, List<OverlaySlot> SelectedSlots);
 }

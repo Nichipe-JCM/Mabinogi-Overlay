@@ -7,10 +7,19 @@ public sealed record GameWindowInfo(
     int ClientWidth,
     int ClientHeight)
 {
+    private const string MabinogiKoreanTitle = "\uB9C8\uBE44\uB178\uAE30";
+    private const string PreferredMabinogiClientTitle = "\uB9C8\uBE44\uB178\uAE30 (Client)";
+
     public bool LooksLikeMabinogi =>
         Title.Contains("Mabinogi", StringComparison.OrdinalIgnoreCase) ||
-        Title.Contains("마비노기", StringComparison.OrdinalIgnoreCase) ||
-        ProcessName.Contains("mabinogi", StringComparison.OrdinalIgnoreCase);
+        Title.Contains(MabinogiKoreanTitle, StringComparison.OrdinalIgnoreCase) ||
+        ProcessName.Contains("mabinogi", StringComparison.OrdinalIgnoreCase) ||
+        IsPreferredMabinogiClient;
+
+    public bool IsPreferredMabinogiClient =>
+        Title.Contains(PreferredMabinogiClientTitle, StringComparison.OrdinalIgnoreCase) &&
+        (ProcessName.Equals("Client", StringComparison.OrdinalIgnoreCase) ||
+         ProcessName.Equals("Client.exe", StringComparison.OrdinalIgnoreCase));
 
     public string DisplayName =>
         $"{Title} ({ProcessName}) - {ClientWidth}x{ClientHeight}";

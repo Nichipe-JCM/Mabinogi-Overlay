@@ -36,7 +36,7 @@
                 <Button Grid.Column="1" x:Name="RefreshWindowsButton" Width="92" Height="34" Margin="8,20,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
                 <Button Grid.Column="2" x:Name="VerifyWgcButton" Width="112" Height="34" Margin="8,20,0,0" Content="Verify WGC" Click="VerifyWgcButton_Click"/>
                 <Button Grid.Column="3" x:Name="CaptureButton" Width="94" Height="34" Margin="8,20,0,0" Content="Capture" Click="CaptureButton_Click"/>
-                <Button Grid.Column="4" x:Name="DetectButton" Width="104" Height="34" Margin="8,20,0,0" Content="Detect" Click="DetectButton_Click"/>
+                <Button Grid.Column="4" x:Name="DetectButton" Width="148" Height="34" Margin="8,20,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
                 <Button Grid.Column="5" x:Name="StopOverlayButton" Width="104" Height="34" Margin="8,20,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
             </Grid>
         </Border>
@@ -56,6 +56,13 @@
                     </Grid.RowDefinitions>
                     <DockPanel Grid.Row="0" Margin="14" LastChildFill="False">
                         <TextBlock Text="Capture Preview" FontSize="16" FontWeight="SemiBold" Foreground="#20242B"/>
+                        <TextBlock x:Name="DetectModeText"
+                                   Margin="12,0,0,0"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Foreground="#B45309"
+                                   Visibility="Collapsed"
+                                   Text="AUTO DETECT SECTION: drag a section area"/>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Width="28" Height="24" Margin="0,0,6,0" Content="-" Click="ZoomOutButton_Click"/>
                             <TextBlock Text="Zoom" VerticalAlignment="Center" Foreground="#596273"/>
@@ -105,7 +112,8 @@
 
                         <TextBlock Text="2. Slot Candidates" FontSize="16" FontWeight="SemiBold" Foreground="#20242B"/>
 
-                        <Grid Grid.Row="1" Margin="0,12,0,12">
+                        <Expander Grid.Row="1" Header="Create manual section" IsExpanded="False" Margin="0,12,0,12">
+                        <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="10"/>
@@ -148,17 +156,18 @@
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="0">
                                 <TextBlock x:Name="SmallGapXText"/>
-                                <Slider x:Name="SmallGapXSlider" Minimum="0" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapXSlider" Minimum="1" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="2">
                                 <TextBlock x:Name="SmallGapYText"/>
-                                <Slider x:Name="SmallGapYSlider" Minimum="0" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapYSlider" Minimum="1" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock x:Name="LargeGapText"/>
-                                <Slider x:Name="LargeGapSlider" Minimum="0" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="LargeGapSlider" Minimum="1" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                         </Grid>
+                        </Expander>
 
                         <ListBox Grid.Row="2"
                                  x:Name="CandidateList"
@@ -178,7 +187,6 @@
                             <Button x:Name="DeselectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,6" Content="None" Click="DeselectAllCandidatesButton_Click"/>
                             <Button x:Name="AddManualCandidateButton" Width="82" Height="32" Margin="4,0,0,6" Content="Add" Click="AddManualCandidateButton_Click"/>
                             <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,6" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
-                            <Button x:Name="AddSelectedButton" Width="104" Height="32" Margin="4,0,0,6" Content="Place" Click="AddSelectedButton_Click"/>
                             <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,6" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
                             <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,6" Content="Clear" Click="ClearCandidatesButton_Click"/>
                         </WrapPanel>

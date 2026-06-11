@@ -44,7 +44,8 @@ public sealed class WindowDiscoveryService
         }, 0);
 
         return windows
-            .OrderByDescending(window => window.LooksLikeMabinogi)
+            .OrderByDescending(window => window.IsPreferredMabinogiClient)
+            .ThenByDescending(window => window.LooksLikeMabinogi)
             .ThenBy(window => window.Title)
             .ToList();
     }
