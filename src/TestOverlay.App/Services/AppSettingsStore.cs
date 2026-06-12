@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using TestOverlay.App.Models;
 
 namespace TestOverlay.App.Services;
@@ -7,6 +8,11 @@ namespace TestOverlay.App.Services;
 public sealed class AppSettingsStore
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+
+    static AppSettingsStore()
+    {
+        Options.Converters.Add(new JsonStringEnumConverter());
+    }
 
     public string SettingsPath { get; } = Path.Combine(AppContext.BaseDirectory, "settings.json");
 

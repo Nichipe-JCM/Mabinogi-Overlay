@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
+    private readonly CpuCompositedOverlayRenderer _cpuCompositedRenderer = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly ProfileStore _profileStore;
     private AppSettings _appSettings;
@@ -66,6 +68,14 @@ public partial class MainWindow : Window
     private bool _isUpdatingSectionControls;
     private bool _isUpdatingSectionSelection;
     private bool _isReleasingCaptureIntentionally;
+    private readonly Stopwatch _cpuRenderClock = new();
+    private OverlayRenderMode _activeRenderMode = OverlayRenderMode.CpuWpf;
+    private long _cpuStatsLastLogTicks;
+    private long _cpuStatsTicks;
+    private long _cpuStatsMaxTicks;
+    private int _cpuStatsFrames;
+    private int _cpuStatsSkippedBusy;
+    private int _cpuStatsErrors;
     private int _currentSectionIndex;
     private int _nextSectionId = 1;
     private double _layoutCanvasWidth = 360;
@@ -676,13 +686,14 @@ public partial class MainWindow : Window
             _profileStore.ProfileDirectory,
             _settingsStore.DefaultProfileDirectory,
             _profileNames,
-            ReadSelectedProfileName())
+            ReadSelectedProfileName(),
+            _appSettings.OverlayRenderMode)
         {
             Owner = this
         };
         if (dialog.ShowDialog() != true)
         {
-            SetStatus("Profile settings canceled.");
+            SetStatus("Settings canceled.");
             return;
         }
 
@@ -691,15 +702,16 @@ public partial class MainWindow : Window
             var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
             System.IO.Directory.CreateDirectory(directory);
             _appSettings.ProfileDirectory = directory;
+            _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
             RefreshProfileList(dialog.SelectedProfileName);
-            _log.Info($"Settings saved: profileDirectory={directory}");
+            _log.Info($"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}");
         }
         catch (Exception exception)
         {
             _log.Error("Failed to save settings.", exception);
-            SetStatus($"Profile settings save failed: {exception.Message}");
+            SetStatus($"Settings save failed: {exception.Message}");
             return;
         }
 
@@ -712,7 +724,7 @@ public partial class MainWindow : Window
                 LoadSelectedProfile();
                 break;
             default:
-                SetStatus($"Profile settings saved: {_profileStore.ProfileDirectory}");
+                SetStatus($"Settings saved: {_profileStore.ProfileDirectory}, renderer={RenderModeLabel(_appSettings.OverlayRenderMode)}");
                 break;
         }
     }
@@ -972,8 +984,10 @@ public partial class MainWindow : Window
             }
 
             _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
-            var rendererMode = "CPU/WPF";
-            if (_wgcSelection is not null)
+            _activeRenderMode = _appSettings.OverlayRenderMode;
+            ResetCpuRenderStats();
+            var rendererMode = RenderModeLabel(_activeRenderMode);
+            if (_activeRenderMode == OverlayRenderMode.GpuDxgi && _wgcSelection is not null)
             {
                 try
                 {
@@ -987,15 +1001,27 @@ public partial class MainWindow : Window
                         _log);
                     _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
                     _gpuLiveOverlayService.Start();
-                    rendererMode = "GPU/DXGI";
+                    rendererMode = RenderModeLabel(OverlayRenderMode.GpuDxgi);
                 }
                 catch (Exception gpuEx)
                 {
                     _gpuLiveOverlayService?.Dispose();
                     _gpuLiveOverlayService = null;
                     _log.Error("GPU live overlay renderer initialization failed. Falling back to CPU renderer.", gpuEx);
+                    _activeRenderMode = OverlayRenderMode.CpuWpf;
+                    rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
                     _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
                 }
+            }
+            else if (_activeRenderMode == OverlayRenderMode.GpuDxgi)
+            {
+                _activeRenderMode = OverlayRenderMode.CpuWpf;
+                rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
+                _log.Info("GPU/DXGI renderer requested without WGC selection. Falling back to CPU/WPF renderer.");
+            }
+            else if (_wgcSelection is not null)
+            {
+                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
             }
 
             _liveOverlayTimer.Start();
@@ -2296,6 +2322,7 @@ public partial class MainWindow : Window
     private void StopOverlay(bool setStatus = true)
     {
         _liveOverlayTimer.Stop();
+        LogCpuRenderStats(final: true);
         _gpuLiveOverlayService?.Dispose();
         _gpuLiveOverlayService = null;
         _wgcCaptureService.StopLiveCapture();
@@ -2310,6 +2337,51 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ResetCpuRenderStats()
+    {
+        _cpuRenderClock.Reset();
+        _cpuStatsLastLogTicks = Stopwatch.GetTimestamp();
+        _cpuStatsTicks = 0;
+        _cpuStatsMaxTicks = 0;
+        _cpuStatsFrames = 0;
+        _cpuStatsSkippedBusy = 0;
+        _cpuStatsErrors = 0;
+    }
+
+    private void RecordCpuRenderFrame(OverlayRenderMode mode, long elapsedTicks)
+    {
+        if (mode == OverlayRenderMode.GpuDxgi)
+        {
+            return;
+        }
+
+        _cpuStatsFrames++;
+        _cpuStatsTicks += elapsedTicks;
+        _cpuStatsMaxTicks = Math.Max(_cpuStatsMaxTicks, elapsedTicks);
+
+        var now = Stopwatch.GetTimestamp();
+        if ((now - _cpuStatsLastLogTicks) / (double)Stopwatch.Frequency >= 5)
+        {
+            LogCpuRenderStats(final: false);
+            _cpuStatsLastLogTicks = now;
+        }
+    }
+
+    private void LogCpuRenderStats(bool final)
+    {
+        if (_activeRenderMode == OverlayRenderMode.GpuDxgi || _cpuStatsFrames == 0)
+        {
+            return;
+        }
+
+        var averageMs = _cpuStatsTicks * 1000.0 / Stopwatch.Frequency / _cpuStatsFrames;
+        var maxMs = _cpuStatsMaxTicks * 1000.0 / Stopwatch.Frequency;
+        _log.Info(
+            $"CPU renderer stats{(final ? " final" : string.Empty)}: mode={RenderModeLabel(_activeRenderMode)}, " +
+            $"frames={_cpuStatsFrames}, avgMs={averageMs:0.00}, maxMs={maxMs:0.00}, " +
+            $"skippedBusy={_cpuStatsSkippedBusy}, errors={_cpuStatsErrors}, slots={_overlaySlots.Count}");
+    }
+
     private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
     {
         if ((_wgcSelection is null && _selectedWindow is null) ||
@@ -2317,12 +2389,18 @@ public partial class MainWindow : Window
             _overlaySlots.Count == 0 ||
             _isLiveRefreshInProgress)
         {
+            if (_isLiveRefreshInProgress)
+            {
+                _cpuStatsSkippedBusy++;
+            }
+
             return;
         }
 
         try
         {
             _isLiveRefreshInProgress = true;
+            _cpuRenderClock.Restart();
             if (_gpuLiveOverlayService is not null)
             {
                 if (_gpuLiveOverlayService.LastException is not null)
@@ -2353,15 +2431,29 @@ public partial class MainWindow : Window
                 liveCapture = _captureService.CaptureClientArea(_selectedWindow!);
             }
 
-            foreach (var slot in _overlaySlots)
+            if (_activeRenderMode == OverlayRenderMode.CpuComposited)
             {
-                slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
+                var compositedFrame = _cpuCompositedRenderer.Render(
+                    liveCapture,
+                    _overlaySlots,
+                    (int)Math.Ceiling(_layoutCanvasWidth),
+                    (int)Math.Ceiling(_layoutCanvasHeight));
+                _overlayWindow.RenderCompositedFrame(compositedFrame);
             }
+            else
+            {
+                foreach (var slot in _overlaySlots)
+                {
+                    slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
+                }
 
-            _overlayWindow.RenderSlots(_overlaySlots);
+                _overlayWindow.RenderSlots(_overlaySlots);
+            }
+            RecordCpuRenderFrame(_activeRenderMode, _cpuRenderClock.ElapsedTicks);
         }
         catch (Exception ex)
         {
+            _cpuStatsErrors++;
             _log.Error("Live overlay refresh failed.", ex);
             StopOverlay(setStatus: false);
             SetStatus($"Live overlay refresh failed: {ex.Message}");
@@ -2448,6 +2540,14 @@ public partial class MainWindow : Window
 
     private static int RefreshIntervalFromFps(int fps) =>
         (int)Math.Max(1, Math.Round(1000.0 / CoerceRefreshFps(fps)));
+
+    private static string RenderModeLabel(OverlayRenderMode mode) =>
+        mode switch
+        {
+            OverlayRenderMode.GpuDxgi => "GPU/DXGI",
+            OverlayRenderMode.CpuComposited => "CPU/Composited",
+            _ => "CPU/WPF"
+        };
 
     private static int FpsFromInterval(int intervalMs) =>
         intervalMs <= 0 ? 60 : (int)Math.Round(1000.0 / intervalMs);

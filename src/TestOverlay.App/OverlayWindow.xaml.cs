@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using TestOverlay.App.Models;
 using TestOverlay.App.Native;
@@ -10,6 +11,12 @@ namespace TestOverlay.App;
 
 public partial class OverlayWindow : Window
 {
+    private readonly Image _compositedImage = new()
+    {
+        Stretch = Stretch.Fill,
+        Focusable = false,
+        IsHitTestVisible = false
+    };
     private HwndSource? _source;
 
     public bool IsClickThroughConfigured { get; private set; }
@@ -93,6 +100,21 @@ public partial class OverlayWindow : Window
             Canvas.SetTop(image, slot.OverlayRect.Y);
             OverlayCanvas.Children.Add(image);
         }
+    }
+
+    public void RenderCompositedFrame(BitmapSource frame)
+    {
+        if (OverlayCanvas.Children.Count != 1 || !ReferenceEquals(OverlayCanvas.Children[0], _compositedImage))
+        {
+            OverlayCanvas.Children.Clear();
+            OverlayCanvas.Children.Add(_compositedImage);
+        }
+
+        _compositedImage.Width = Width;
+        _compositedImage.Height = Height;
+        _compositedImage.Source = frame;
+        Canvas.SetLeft(_compositedImage, 0);
+        Canvas.SetTop(_compositedImage, 0);
     }
 
     private void ApplyClickThroughStyles()

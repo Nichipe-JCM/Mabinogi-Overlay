@@ -229,7 +229,7 @@
                             <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
                             <Button x:Name="StartOverlayButton" Width="62" Height="34" Margin="4,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
                             <Button x:Name="StopOverlayLayoutButton" Width="62" Height="34" Margin="4,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
-                            <Button x:Name="SettingsButton" Width="112" Height="34" Margin="4,0,0,0" Content="Profile Settings" Click="SettingsButton_Click"/>
+                            <Button x:Name="SettingsButton" Width="112" Height="34" Margin="4,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
                         </StackPanel>
                     </Grid>
                 </Border>
