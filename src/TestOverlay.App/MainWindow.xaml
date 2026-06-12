@@ -45,9 +45,9 @@
 
         <Grid Grid.Row="1" Margin="0,14,0,14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="720"/>
+                <ColumnDefinition Width="2*" MinWidth="480"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="720" MinWidth="560"/>
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="8">
@@ -95,6 +95,17 @@
                     </ScrollViewer>
                 </Grid>
             </Border>
+
+            <GridSplitter Grid.Column="1"
+                          Width="8"
+                          Margin="3,0"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          ShowsPreview="True"
+                          Background="#CBD5E1"
+                          Cursor="SizeWE"/>
 
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
