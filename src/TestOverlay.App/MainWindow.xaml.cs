@@ -1232,9 +1232,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _candidates.Clear();
-        ClearCandidateRects();
-        ClearSections();
         AddDetectedSection(result);
         PushUndoIfChanged(before);
 
@@ -1242,7 +1239,7 @@ public partial class MainWindow : Window
             $"ROI section detection completed: pattern={patternKind}, roi={roi.X:0},{roi.Y:0},{roi.Width:0}x{roi.Height:0}, " +
             $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}");
         SetStatus(
-            $"Detected {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
+            $"Added {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
             $"{result.Slots.Count} slots, slot {result.Slots[0].Width:0}x{result.Slots[0].Height:0}px, " +
             $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
     }
@@ -1531,9 +1528,14 @@ public partial class MainWindow : Window
         ClearCandidateSelection();
         foreach (var rect in result.Slots)
         {
-            var candidate = new SlotCandidate(NextCandidateId(), rect, result.Score);
+            var candidate = FindMatchingCandidate(rect);
+            if (candidate is null)
+            {
+                candidate = new SlotCandidate(NextCandidateId(), rect, result.Score);
+                AddCandidate(candidate);
+            }
+
             candidate.IsSelected = true;
-            AddCandidate(candidate);
             sectionCandidates.Add(candidate);
         }
 

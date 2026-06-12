@@ -269,7 +269,10 @@ public sealed class RoiSectionDetectionService
         double largeGap) =>
         patternKind == QuickslotSectionPatternKind.Vertical
             ? DoubleEquals(smallGapX, smallGapY)
-            : smallGapX < smallGapY && smallGapY < largeGap;
+            : smallGapX < smallGapY &&
+              smallGapY < largeGap &&
+              smallGapY < smallGapX * 5 &&
+              largeGap < smallGapX * 8;
 
     private static bool DoubleEquals(double left, double right) =>
         Math.Abs(left - right) < 0.0001;
@@ -537,7 +540,18 @@ public sealed class RoiSectionDetectionService
 
             return patternKind == QuickslotSectionPatternKind.Vertical
                 ? ScoreStrictSlotBorder(x, y, width, height)
-                : ScoreLabeledSlotBorder(x, y, width, height);
+                : ScoreTopGroupedSlotBorder(x, y, width, height);
+        }
+
+        private double ScoreTopGroupedSlotBorder(int x, int y, int width, int height)
+        {
+            var strictScore = ScoreStrictSlotBorder(x, y, width, height);
+            if (strictScore > 0)
+            {
+                return strictScore + 12;
+            }
+
+            return ScoreLabeledSlotBorder(x, y, width, height);
         }
 
         private double ScoreLabeledSlotBorder(int x, int y, int width, int height)
