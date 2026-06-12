@@ -13,9 +13,9 @@ public sealed class RoiSectionDetectionService
     private const double RequiredVerticalSideCoverage = 0.85;
     private const double TopGroupedLabelCornerMaskRatio = 0.25;
     private const double MinAnchorScore = 10;
-    private const double MinTopGroupedPatternScore = 10;
-    private const int MaxAnchorCandidates = 48;
+    private const double MinPatternScore = 10;
     private const int MaxTopGroupedAnchorCandidates = 256;
+    private const int MaxVerticalAnchorCandidates = 256;
     private const int MaxRawAnchorCandidates = 1600;
     private const int AnchorScanStep = 1;
     private const int MinGap = 2;
@@ -77,10 +77,9 @@ public sealed class RoiSectionDetectionService
             return null;
         }
 
-        if (patternKind == QuickslotSectionPatternKind.TopGrouped &&
-            best.Score < MinTopGroupedPatternScore)
+        if (best.Score < MinPatternScore)
         {
-            diagnostics?.Add($"best rejected: score={best.Score:0.000} below minTopGroupedScore={MinTopGroupedPatternScore:0.000}");
+            diagnostics?.Add($"best rejected: score={best.Score:0.000} below minPatternScore={MinPatternScore:0.000}");
             return null;
         }
 
@@ -148,45 +147,28 @@ public sealed class RoiSectionDetectionService
             }
         }
 
-        if (patternKind == QuickslotSectionPatternKind.TopGrouped)
-        {
-            var feasibleRaw = candidates
-                .OrderByDescending(candidate => candidate.Score)
-                .Where(candidate => CanSeedFitPatternWithMinimumGaps(roi, pattern, patternKind, candidate.Rect))
-                .ToList();
-            var topGroupedSeeds = SelectTopGroupedSeedPool(feasibleRaw);
-            diagnostics?.Add(
-                $"rawAnchors={candidates.Count} feasibleRawSeeds={feasibleRaw.Count} topGroupedSeedPool={topGroupedSeeds.Count}");
-            return topGroupedSeeds;
-        }
-
-        var suppressed = NonMaximumSuppress(
-                candidates
-                    .OrderByDescending(candidate => candidate.Score)
-                    .Take(MaxRawAnchorCandidates),
-                0.35)
-            .ToList();
-        var feasible = suppressed
+        var feasibleRaw = candidates
+            .OrderByDescending(candidate => candidate.Score)
             .Where(candidate => CanSeedFitPatternWithMinimumGaps(roi, pattern, patternKind, candidate.Rect))
             .ToList();
-        diagnostics?.Add($"rawAnchors={candidates.Count} suppressed={suppressed.Count} feasibleSeeds={feasible.Count}");
-
-        var topRowSeeds = SelectTopRowSeeds(feasible);
-        diagnostics?.Add($"topRowSeeds={topRowSeeds.Count}");
-        var seedPool = topRowSeeds.Count > 0 ? topRowSeeds : feasible;
-        return seedPool
-            .OrderBy(seed => seed.Rect.X)
-            .ThenByDescending(seed => seed.Score)
-            .Take(MaxAnchorCandidates);
+        var seedPool = SelectPatternSeedPool(feasibleRaw, patternKind);
+        diagnostics?.Add(
+            $"rawAnchors={candidates.Count} feasibleRawSeeds={feasibleRaw.Count} seedPool={seedPool.Count}");
+        return seedPool;
     }
 
-    private static IReadOnlyList<SlotAnchor> SelectTopGroupedSeedPool(IReadOnlyList<SlotAnchor> feasibleRaw)
+    private static IReadOnlyList<SlotAnchor> SelectPatternSeedPool(
+        IReadOnlyList<SlotAnchor> feasibleRaw,
+        QuickslotSectionPatternKind patternKind)
     {
         if (feasibleRaw.Count == 0)
         {
             return [];
         }
 
+        var maxCandidates = patternKind == QuickslotSectionPatternKind.Vertical
+            ? MaxVerticalAnchorCandidates
+            : MaxTopGroupedAnchorCandidates;
         return feasibleRaw
             .Where(candidate => candidate.Score >= MinAnchorScore)
             .GroupBy(candidate => (
@@ -199,7 +181,7 @@ public sealed class RoiSectionDetectionService
             .ThenByDescending(candidate => candidate.Rect.Width)
             .ThenBy(candidate => candidate.Rect.Y)
             .ThenBy(candidate => candidate.Rect.X)
-            .Take(MaxTopGroupedAnchorCandidates)
+            .Take(maxCandidates)
             .ToList();
     }
 
@@ -336,57 +318,8 @@ public sealed class RoiSectionDetectionService
         return Contains(roi, bounds);
     }
 
-    private static List<SlotAnchor> SelectTopRowSeeds(IReadOnlyList<SlotAnchor> candidates)
-    {
-        if (candidates.Count == 0)
-        {
-            return [];
-        }
-
-        var minY = candidates.Min(candidate => candidate.Rect.Y);
-        var medianSize = candidates
-            .Select(candidate => candidate.Rect.Height)
-            .OrderBy(value => value)
-            .ElementAt(candidates.Count / 2);
-        var rowTolerance = Math.Max(3, medianSize * 0.35);
-        return candidates
-            .Where(candidate => candidate.Rect.Y <= minY + rowTolerance)
-            .OrderBy(candidate => candidate.Rect.X)
-            .ThenByDescending(candidate => candidate.Score)
-            .Take(MaxAnchorCandidates)
-            .ToList();
-    }
-
     private static string FormatRect(Rect rect) =>
         $"x={rect.X:0.###},y={rect.Y:0.###},w={rect.Width:0.###},h={rect.Height:0.###}";
-
-    private static IEnumerable<SlotAnchor> NonMaximumSuppress(IEnumerable<SlotAnchor> candidates, double overlapLimit)
-    {
-        var selected = new List<SlotAnchor>();
-        foreach (var candidate in candidates)
-        {
-            if (selected.Any(existing => IntersectionOverUnion(existing.Rect, candidate.Rect) > overlapLimit))
-            {
-                continue;
-            }
-
-            selected.Add(candidate);
-            yield return candidate;
-        }
-    }
-
-    private static double IntersectionOverUnion(Rect a, Rect b)
-    {
-        var intersection = Rect.Intersect(a, b);
-        if (intersection.IsEmpty)
-        {
-            return 0;
-        }
-
-        var intersectionArea = intersection.Width * intersection.Height;
-        var unionArea = a.Width * a.Height + b.Width * b.Height - intersectionArea;
-        return unionArea <= 0 ? 0 : intersectionArea / unionArea;
-    }
 
     private static BitmapSource EnsureBgra32(BitmapSource source)
     {
