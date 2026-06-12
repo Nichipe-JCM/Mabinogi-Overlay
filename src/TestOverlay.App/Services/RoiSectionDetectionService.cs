@@ -12,7 +12,10 @@ public sealed class RoiSectionDetectionService
     private const double RequiredStrongSideCoverage = 0.90;
     private const double RequiredVerticalSideCoverage = 0.85;
     private const double TopGroupedLabelCornerMaskRatio = 0.25;
+    private const double MinAnchorScore = 10;
+    private const double MinTopGroupedPatternScore = 10;
     private const int MaxAnchorCandidates = 48;
+    private const int MaxTopGroupedAnchorCandidates = 256;
     private const int MaxRawAnchorCandidates = 1600;
     private const int AnchorScanStep = 1;
     private const int MinGap = 2;
@@ -71,6 +74,13 @@ public sealed class RoiSectionDetectionService
         diagnostics?.Add($"fits={fitCount}");
         if (best is null)
         {
+            return null;
+        }
+
+        if (patternKind == QuickslotSectionPatternKind.TopGrouped &&
+            best.Score < MinTopGroupedPatternScore)
+        {
+            diagnostics?.Add($"best rejected: score={best.Score:0.000} below minTopGroupedScore={MinTopGroupedPatternScore:0.000}");
             return null;
         }
 
@@ -138,6 +148,18 @@ public sealed class RoiSectionDetectionService
             }
         }
 
+        if (patternKind == QuickslotSectionPatternKind.TopGrouped)
+        {
+            var feasibleRaw = candidates
+                .OrderByDescending(candidate => candidate.Score)
+                .Where(candidate => CanSeedFitPatternWithMinimumGaps(roi, pattern, patternKind, candidate.Rect))
+                .ToList();
+            var topGroupedSeeds = SelectTopGroupedSeedPool(feasibleRaw);
+            diagnostics?.Add(
+                $"rawAnchors={candidates.Count} feasibleRawSeeds={feasibleRaw.Count} topGroupedSeedPool={topGroupedSeeds.Count}");
+            return topGroupedSeeds;
+        }
+
         var suppressed = NonMaximumSuppress(
                 candidates
                     .OrderByDescending(candidate => candidate.Score)
@@ -156,6 +178,29 @@ public sealed class RoiSectionDetectionService
             .OrderBy(seed => seed.Rect.X)
             .ThenByDescending(seed => seed.Score)
             .Take(MaxAnchorCandidates);
+    }
+
+    private static IReadOnlyList<SlotAnchor> SelectTopGroupedSeedPool(IReadOnlyList<SlotAnchor> feasibleRaw)
+    {
+        if (feasibleRaw.Count == 0)
+        {
+            return [];
+        }
+
+        return feasibleRaw
+            .Where(candidate => candidate.Score >= MinAnchorScore)
+            .GroupBy(candidate => (
+                X: (int)Math.Round(candidate.Rect.X),
+                Y: (int)Math.Round(candidate.Rect.Y),
+                W: (int)Math.Round(candidate.Rect.Width),
+                H: (int)Math.Round(candidate.Rect.Height)))
+            .Select(group => group.OrderByDescending(candidate => candidate.Score).First())
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenByDescending(candidate => candidate.Rect.Width)
+            .ThenBy(candidate => candidate.Rect.Y)
+            .ThenBy(candidate => candidate.Rect.X)
+            .Take(MaxTopGroupedAnchorCandidates)
+            .ToList();
     }
 
     private static IEnumerable<PatternFit> EnumerateFits(
