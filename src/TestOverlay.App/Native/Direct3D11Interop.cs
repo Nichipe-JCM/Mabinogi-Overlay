@@ -63,6 +63,21 @@ internal static partial class Direct3D11Interop
         }
     }
 
+    public static IDirect3DDevice CreateDeviceFromDxgiDevice(nint dxgiDevice)
+    {
+        var result = CreateDirect3D11DeviceFromDXGIDevice(dxgiDevice, out var inspectable);
+        ThrowIfFailed(result, "CreateDirect3D11DeviceFromDXGIDevice failed.");
+
+        try
+        {
+            return MarshalInterface<IDirect3DDevice>.FromAbi(inspectable);
+        }
+        finally
+        {
+            Marshal.Release(inspectable);
+        }
+    }
+
     [LibraryImport("d3d11.dll")]
     private static partial int D3D11CreateDevice(
         nint pAdapter,

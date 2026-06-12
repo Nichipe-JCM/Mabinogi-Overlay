@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private GameWindowInfo? _selectedWindow;
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
+    private GpuLiveOverlayService? _gpuLiveOverlayService;
     private SlotCandidate? _draggingCandidate;
     private Point _candidateDragStartPosition;
     private Dictionary<SlotCandidate, Point> _candidateDragOrigins = new();
@@ -936,12 +937,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
-            if (_wgcSelection is not null)
-            {
-                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
-            }
-
             _overlayWindow = new OverlayWindow(_layoutCanvasWidth, _layoutCanvasHeight, _overlayOpacity, _overlaySlots)
             {
                 Left = _overlayLeft,
@@ -976,19 +971,45 @@ public partial class MainWindow : Window
                 return;
             }
 
+            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
+            var rendererMode = "CPU/WPF";
+            if (_wgcSelection is not null)
+            {
+                try
+                {
+                    _gpuLiveOverlayService = new GpuLiveOverlayService(
+                        new WindowInteropHelper(_overlayWindow).Handle,
+                        (int)Math.Ceiling(_layoutCanvasWidth),
+                        (int)Math.Ceiling(_layoutCanvasHeight),
+                        _wgcSelection.Item,
+                        _overlaySlots,
+                        _refreshFps);
+                    _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
+                    _gpuLiveOverlayService.Start();
+                    rendererMode = "GPU/DXGI";
+                }
+                catch (Exception gpuEx)
+                {
+                    _gpuLiveOverlayService?.Dispose();
+                    _gpuLiveOverlayService = null;
+                    _log.Error("GPU live overlay renderer initialization failed. Falling back to CPU renderer.", gpuEx);
+                    _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
+                }
+            }
+
             _liveOverlayTimer.Start();
             var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
             _log.Info(
                 $"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, " +
                 $"left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, " +
-                $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, " +
+                $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, renderer={rendererMode}, " +
                 $"refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, " +
                 $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
                 $"clickThrough={_overlayWindow.IsClickThroughConfigured}, " +
                 $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
                 $"topmost={_overlayWindow.IsTopmostConfigured}, " +
                 $"inputHook={_overlayWindow.IsInputHookConfigured}");
-            SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {_stopHotkey}");
+            SetStatus($"Overlay started ({clickThroughStatus}, {rendererMode}). Stop hotkey: {_stopHotkey}");
         }
         catch (Exception ex)
         {
@@ -2273,6 +2294,8 @@ public partial class MainWindow : Window
     private void StopOverlay(bool setStatus = true)
     {
         _liveOverlayTimer.Stop();
+        _gpuLiveOverlayService?.Dispose();
+        _gpuLiveOverlayService = null;
         _wgcCaptureService.StopLiveCapture();
         _overlayWindow?.Close();
         _overlayWindow = null;
@@ -2298,6 +2321,16 @@ public partial class MainWindow : Window
         try
         {
             _isLiveRefreshInProgress = true;
+            if (_gpuLiveOverlayService is not null)
+            {
+                if (_gpuLiveOverlayService.LastException is not null)
+                {
+                    throw new InvalidOperationException("GPU live overlay renderer failed.", _gpuLiveOverlayService.LastException);
+                }
+
+                return;
+            }
+
             BitmapSource liveCapture;
             if (_wgcSelection is not null)
             {
