@@ -10,8 +10,8 @@ public sealed class RoiSectionDetectionService
     private const int MinDetectedSlotSize = 22;
     private const int DarkBorderTolerance = 140;
     private const double RequiredStrongSideCoverage = 0.90;
-    private const double RequiredWeakSideCoverage = 0.70;
     private const double RequiredVerticalSideCoverage = 0.85;
+    private const double TopGroupedLabelCornerMaskRatio = 0.25;
     private const int MaxAnchorCandidates = 48;
     private const int MaxRawAnchorCandidates = 1600;
     private const int AnchorScanStep = 1;
@@ -556,14 +556,17 @@ public sealed class RoiSectionDetectionService
 
         private double ScoreLabeledSlotBorder(int x, int y, int width, int height)
         {
-            var topCoverage = Coverage(x, y, width, 1);
+            var labelMask = (int)Math.Round(
+                Math.Min(width, height) * TopGroupedLabelCornerMaskRatio,
+                MidpointRounding.AwayFromZero);
+            var topCoverage = Coverage(x + labelMask, y, width - labelMask, 1);
             var bottomCoverage = Coverage(x, y + height - 1, width, 1);
-            var leftCoverage = Coverage(x, y, 1, height);
+            var leftCoverage = Coverage(x, y + labelMask, 1, height - labelMask);
             var rightCoverage = Coverage(x + width - 1, y, 1, height);
             if (rightCoverage < RequiredStrongSideCoverage ||
                 bottomCoverage < RequiredStrongSideCoverage ||
-                leftCoverage < RequiredWeakSideCoverage ||
-                topCoverage < RequiredWeakSideCoverage)
+                leftCoverage < RequiredVerticalSideCoverage ||
+                topCoverage < RequiredVerticalSideCoverage)
             {
                 return 0;
             }
@@ -574,9 +577,9 @@ public sealed class RoiSectionDetectionService
                 (leftCoverage * 0.20) +
                 (topCoverage * 0.20);
             var sideAverage =
-                (Average(x, y, width, 1) +
+                (Average(x + labelMask, y, width - labelMask, 1) +
                  Average(x, y + height - 1, width, 1) +
-                 Average(x, y, 1, height) +
+                 Average(x, y + labelMask, 1, height - labelMask) +
                  Average(x + width - 1, y, 1, height)) / 4;
             var innerWidth = Math.Max(1, width - 2);
             var innerHeight = Math.Max(1, height - 2);
