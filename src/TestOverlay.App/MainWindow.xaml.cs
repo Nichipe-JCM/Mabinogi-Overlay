@@ -754,6 +754,18 @@ public partial class MainWindow : Window
 
     private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_overlayWindow is not null)
+        {
+            MessageBox.Show(
+                this,
+                "Stop the overlay before opening Manage Layout.",
+                "Overlay is running",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            SetStatus("Stop the overlay before opening Manage Layout.");
+            return;
+        }
+
         if (_overlaySlots.Count == 0)
         {
             SetStatus("No overlay slots are placed.");
