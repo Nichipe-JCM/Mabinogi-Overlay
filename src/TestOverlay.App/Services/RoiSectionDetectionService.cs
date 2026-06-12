@@ -429,9 +429,7 @@ public sealed class RoiSectionDetectionService
             blue + green + red < DarkBorderTolerance;
 
         public double ScoreAnchor(Rect rect, QuickslotSectionPatternKind patternKind) =>
-            patternKind == QuickslotSectionPatternKind.Vertical
-                ? ScoreFullFrameAnchor(rect)
-                : ScoreBottomRightAnchor(rect);
+            ScoreBottomRightAnchor(rect);
 
         private double ScoreBottomRightAnchor(Rect rect)
         {
@@ -463,46 +461,6 @@ public sealed class RoiSectionDetectionService
                    (rightCoverage * 45) +
                    (cornerCoverage * 20) +
                    ((bottomAverage + rightAverage) * 0.04);
-        }
-
-        private double ScoreFullFrameAnchor(Rect rect)
-        {
-            var x = (int)Math.Round(rect.X);
-            var y = (int)Math.Round(rect.Y);
-            var width = (int)Math.Round(rect.Width);
-            var height = (int)Math.Round(rect.Height);
-            if (width < 6 || height < 6)
-            {
-                return 0;
-            }
-
-            var topCoverage = Coverage(x, y, width, 1);
-            var bottomCoverage = Coverage(x, y + height - 1, width, 1);
-            var leftCoverage = Coverage(x, y, 1, height);
-            var rightCoverage = Coverage(x + width - 1, y, 1, height);
-            if (topCoverage < RequiredVerticalSideCoverage ||
-                bottomCoverage < RequiredVerticalSideCoverage ||
-                leftCoverage < RequiredVerticalSideCoverage ||
-                rightCoverage < RequiredVerticalSideCoverage)
-            {
-                return 0;
-            }
-
-            var cornerSize = Math.Min(2, Math.Min(width, height));
-            var cornerCoverage =
-                (Coverage(x, y, cornerSize, cornerSize) +
-                 Coverage(x + width - cornerSize, y, cornerSize, cornerSize) +
-                 Coverage(x, y + height - cornerSize, cornerSize, cornerSize) +
-                 Coverage(x + width - cornerSize, y + height - cornerSize, cornerSize, cornerSize)) / 4;
-            var sideCoverage = (topCoverage + bottomCoverage + leftCoverage + rightCoverage) / 4;
-            var sideAverage =
-                (Average(x, y, width, 1) +
-                 Average(x, y + height - 1, width, 1) +
-                 Average(x, y, 1, height) +
-                 Average(x + width - 1, y, 1, height)) / 4;
-            return (sideCoverage * 90) +
-                   (cornerCoverage * 25) +
-                   (sideAverage * 0.04);
         }
 
         public double ScoreSlotBorder(Rect rect, QuickslotSectionPatternKind patternKind)
