@@ -30,12 +30,20 @@
 
                 <StackPanel>
                     <TextBlock Text="1. Window Capture" FontWeight="SemiBold" Foreground="#20242B"/>
-                    <ComboBox x:Name="WindowCombo" Margin="0,8,12,0" Height="34" DisplayMemberPath="DisplayName"/>
+                    <Grid Margin="0,8,12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CaptureBackendCombo" Grid.Column="0" Height="34" DisplayMemberPath="Label" SelectionChanged="CaptureBackendCombo_SelectionChanged"/>
+                        <ComboBox x:Name="WindowCombo" Grid.Column="2" Height="34" DisplayMemberPath="DisplayName" SelectionChanged="WindowCombo_SelectionChanged"/>
+                    </Grid>
                     <TextBlock x:Name="WindowStatusText" Margin="0,6,0,0" Foreground="#596273"/>
                 </StackPanel>
 
                 <Button Grid.Column="1" x:Name="RefreshWindowsButton" Width="92" Height="34" Margin="8,20,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
-                <Button Grid.Column="2" x:Name="VerifyWgcButton" Width="112" Height="34" Margin="8,20,0,0" Content="Verify WGC" Click="VerifyWgcButton_Click"/>
+                <Button Grid.Column="2" x:Name="VerifyWgcButton" Width="112" Height="34" Margin="8,20,0,0" Content="Verify" Click="VerifyWgcButton_Click"/>
                 <Button Grid.Column="3" x:Name="CaptureButton" Width="94" Height="34" Margin="8,20,0,0" Content="Capture" Click="CaptureButton_Click"/>
                 <Button Grid.Column="4" x:Name="DetectButton" Width="148" Height="34" Margin="8,20,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
                 <Button Grid.Column="5" x:Name="DebugDetectButton" Width="116" Height="34" Margin="8,20,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>

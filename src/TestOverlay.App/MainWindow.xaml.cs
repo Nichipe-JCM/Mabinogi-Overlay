@@ -22,6 +22,7 @@ public partial class MainWindow : Window
 
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
+    private readonly DxgiDesktopDuplicationCaptureService _dxgiCaptureService = new();
     private readonly WgcCaptureService _wgcCaptureService = new();
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
@@ -48,6 +49,8 @@ public partial class MainWindow : Window
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
+    private GameWindowInfo? _verifiedGdiWindow;
+    private GameWindowInfo? _verifiedDxgiWindow;
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
     private GpuLiveOverlayService? _gpuLiveOverlayService;
@@ -130,6 +133,7 @@ public partial class MainWindow : Window
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
         CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         ApplySectionSettingsToControls(_currentSectionIndex);
+        InitializeCaptureBackendOptions();
         UpdateSizeLabels();
         CaptureZoomText.Text = "100%";
         UpdateSectionGapLabels();
@@ -141,6 +145,49 @@ public partial class MainWindow : Window
         RefreshWindows();
         RefreshProfileList();
         _log.Info("Application loaded.");
+    }
+
+    private void InitializeCaptureBackendOptions()
+    {
+        var options = new List<CaptureBackendOption>
+        {
+            new(CaptureBackend.Wgc, "WGC window"),
+            new(CaptureBackend.DxgiDesktopDuplication, "DXGI monitor"),
+            new(CaptureBackend.GdiBitBlt, "GDI BitBlt")
+        };
+        CaptureBackendCombo.ItemsSource = options;
+        CaptureBackendCombo.SelectedItem = options.FirstOrDefault(option => option.Backend == _appSettings.CaptureBackend) ?? options[0];
+    }
+
+    private CaptureBackend CurrentCaptureBackend =>
+        CaptureBackendCombo?.SelectedItem is CaptureBackendOption option
+            ? option.Backend
+            : _appSettings.CaptureBackend;
+
+    private string CurrentCaptureBackendLabel =>
+        CaptureBackendCombo?.SelectedItem is CaptureBackendOption option
+            ? option.Label
+            : CaptureBackendLabel(_appSettings.CaptureBackend);
+
+    private void CaptureBackendCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CaptureBackendCombo.SelectedItem is not CaptureBackendOption option)
+        {
+            return;
+        }
+
+        _appSettings.CaptureBackend = option.Backend;
+        _settingsStore.Save(_appSettings);
+        WindowStatusText.Text = BuildWindowStatusText();
+        SetStatus($"Capture method selected: {option.Label}. Verify before capture.");
+    }
+
+    private void WindowCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (WindowStatusText is not null)
+        {
+            WindowStatusText.Text = BuildWindowStatusText();
+        }
     }
 
     private void CaptureZoomSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -175,49 +222,73 @@ public partial class MainWindow : Window
 
     private async void VerifyWgcButton_Click(object sender, RoutedEventArgs e)
     {
+        var backend = CurrentCaptureBackend;
         try
         {
-            var result = await _wgcWindowSelection.PickWindowAsync(this);
-            if (result is null)
+            switch (backend)
             {
-                SetStatus("WGC window selection was canceled or WGC is not supported.");
-                _log.Info("WGC window selection returned null.");
-                return;
-            }
+                case CaptureBackend.Wgc:
+                    var result = await _wgcWindowSelection.PickWindowAsync(this);
+                    if (result is null)
+                    {
+                        SetStatus("WGC window selection was canceled or WGC is not supported.");
+                        _log.Info("WGC window selection returned null.");
+                        return;
+                    }
 
-            _wgcSelection = result;
-            _log.Info($"WGC selection: {result.DisplayName}, {result.Width}x{result.Height}, looksLikeMabinogi={result.LooksLikeMabinogi}");
-            SetStatus(result.LooksLikeMabinogi
-                ? $"WGC verified Mabinogi window: {result.DisplayName} ({result.Width}x{result.Height})"
-                : $"WGC selected window is not recognized as Mabinogi: {result.DisplayName} ({result.Width}x{result.Height})");
+                    _wgcSelection = result;
+                    _log.Info($"WGC selection: {result.DisplayName}, {result.Width}x{result.Height}, looksLikeMabinogi={result.LooksLikeMabinogi}");
+                    SetStatus(result.LooksLikeMabinogi
+                        ? $"WGC verified Mabinogi window: {result.DisplayName} ({result.Width}x{result.Height})"
+                        : $"WGC selected window is not recognized as Mabinogi: {result.DisplayName} ({result.Width}x{result.Height})");
+                    break;
+                case CaptureBackend.DxgiDesktopDuplication:
+                    var dxgiWindow = RequireSelectedWindow();
+                    var dxgiResult = _dxgiCaptureService.Verify(dxgiWindow);
+                    _verifiedDxgiWindow = dxgiWindow;
+                    _selectedWindow = dxgiWindow;
+                    _log.Info(
+                        $"DXGI verification: window={dxgiWindow.DisplayName}, output={dxgiResult.OutputName}, " +
+                        $"client={dxgiResult.ClientWidth}x{dxgiResult.ClientHeight}@{dxgiResult.ClientScreenX},{dxgiResult.ClientScreenY}, " +
+                        $"outputRect={dxgiResult.OutputWidth}x{dxgiResult.OutputHeight}@{dxgiResult.OutputLeft},{dxgiResult.OutputTop}, " +
+                        $"looksLikeMabinogi={dxgiWindow.LooksLikeMabinogi}");
+                    SetStatus(dxgiWindow.LooksLikeMabinogi
+                        ? $"DXGI verified Mabinogi window on {dxgiResult.OutputName}: {dxgiResult.ClientWidth}x{dxgiResult.ClientHeight}"
+                        : $"DXGI verified selected window, but it is not recognized as Mabinogi: {dxgiWindow.DisplayName}");
+                    break;
+                case CaptureBackend.GdiBitBlt:
+                    var gdiWindow = RequireSelectedWindow();
+                    _ = _captureService.CaptureClientArea(gdiWindow);
+                    _verifiedGdiWindow = gdiWindow;
+                    _selectedWindow = gdiWindow;
+                    _log.Info($"GDI verification: window={gdiWindow.DisplayName}, looksLikeMabinogi={gdiWindow.LooksLikeMabinogi}");
+                    SetStatus(gdiWindow.LooksLikeMabinogi
+                        ? $"GDI verified Mabinogi window: {gdiWindow.DisplayName}"
+                        : $"GDI verified selected window, but it is not recognized as Mabinogi: {gdiWindow.DisplayName}");
+                    break;
+            }
         }
         catch (Exception ex)
         {
-            _log.Error("WGC verification failed.", ex);
-            SetStatus($"WGC verification failed: {ex.Message}");
+            _log.Error($"{CaptureBackendLabel(backend)} verification failed.", ex);
+            SetStatus($"{CaptureBackendLabel(backend)} verification failed: {ex.Message}");
         }
     }
 
     private async void CaptureButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_wgcSelection is null)
-        {
-            SetStatus("Verify the Mabinogi window with WGC before capture.");
-            return;
-        }
-
-        if (!_wgcSelection.LooksLikeMabinogi)
-        {
-            SetStatus("WGC verification selected a non-Mabinogi window. Verify WGC again or refresh the window list.");
-            return;
-        }
-
+        var backend = CurrentCaptureBackend;
         try
         {
             CaptureButton.IsEnabled = false;
-            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3));
-            _selectedWindow = WindowCombo.SelectedItem as GameWindowInfo;
-            _log.Info($"WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, item={_wgcSelection.DisplayName}");
+            _capturedImage = backend switch
+            {
+                CaptureBackend.Wgc => await CaptureWgcOnceAsync(),
+                CaptureBackend.DxgiDesktopDuplication => CaptureDxgiOnce(),
+                CaptureBackend.GdiBitBlt => CaptureGdiOnce(),
+                _ => throw new InvalidOperationException("Unsupported capture backend.")
+            };
+            _log.Info($"{CaptureBackendLabel(backend)} capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}");
             CaptureImage.Source = _capturedImage;
             CaptureCanvas.Width = _capturedImage.PixelWidth;
             CaptureCanvas.Height = _capturedImage.PixelHeight;
@@ -225,18 +296,62 @@ public partial class MainWindow : Window
             _candidates.Clear();
             ClearCandidateRects();
             ClearSections();
-            SetStatus("Captured the verified Mabinogi window with WGC. Run slot detection next.");
+            SetStatus($"Captured with {CaptureBackendLabel(backend)}. Run slot detection next.");
         }
         catch (Exception ex)
         {
-            _log.Error("Capture failed.", ex);
-            SetStatus($"Capture failed: {ex.Message}");
+            _log.Error($"{CaptureBackendLabel(backend)} capture failed.", ex);
+            SetStatus($"{CaptureBackendLabel(backend)} capture failed: {ex.Message}");
         }
         finally
         {
             CaptureButton.IsEnabled = true;
         }
     }
+
+    private async Task<BitmapSource> CaptureWgcOnceAsync()
+    {
+        if (_wgcSelection is null)
+        {
+            throw new InvalidOperationException("Verify a WGC window before capture.");
+        }
+
+        if (!_wgcSelection.LooksLikeMabinogi)
+        {
+            throw new InvalidOperationException("WGC verification selected a non-Mabinogi window. Verify WGC again.");
+        }
+
+        _selectedWindow = WindowCombo.SelectedItem as GameWindowInfo;
+        return await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3));
+    }
+
+    private BitmapSource CaptureDxgiOnce()
+    {
+        var window = _verifiedDxgiWindow ?? throw new InvalidOperationException("Verify a DXGI window before capture.");
+        if (!window.LooksLikeMabinogi)
+        {
+            throw new InvalidOperationException("DXGI verification selected a non-Mabinogi window. Verify DXGI again.");
+        }
+
+        _selectedWindow = window;
+        return _dxgiCaptureService.CaptureClientArea(window);
+    }
+
+    private BitmapSource CaptureGdiOnce()
+    {
+        var window = _verifiedGdiWindow ?? throw new InvalidOperationException("Verify a GDI window before capture.");
+        if (!window.LooksLikeMabinogi)
+        {
+            throw new InvalidOperationException("GDI verification selected a non-Mabinogi window. Verify GDI again.");
+        }
+
+        _selectedWindow = window;
+        return _captureService.CaptureClientArea(window);
+    }
+
+    private GameWindowInfo RequireSelectedWindow() =>
+        WindowCombo.SelectedItem as GameWindowInfo
+        ?? throw new InvalidOperationException("Select a window before verification.");
 
     private void DetectButton_Click(object sender, RoutedEventArgs e)
     {
@@ -985,9 +1100,17 @@ public partial class MainWindow : Window
 
             _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
             _activeRenderMode = _appSettings.OverlayRenderMode;
+            var captureBackend = CurrentCaptureBackend;
+            if (captureBackend != CaptureBackend.Wgc && _selectedWindow is null)
+            {
+                StopOverlay(setStatus: false);
+                SetStatus($"Verify and capture a window with {CaptureBackendLabel(captureBackend)} before starting the overlay.");
+                return;
+            }
+
             ResetCpuRenderStats();
             var rendererMode = RenderModeLabel(_activeRenderMode);
-            if (_activeRenderMode == OverlayRenderMode.GpuDxgi && _wgcSelection is not null)
+            if (_activeRenderMode == OverlayRenderMode.GpuDxgi && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
             {
                 try
                 {
@@ -1017,9 +1140,9 @@ public partial class MainWindow : Window
             {
                 _activeRenderMode = OverlayRenderMode.CpuWpf;
                 rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
-                _log.Info("GPU/DXGI renderer requested without WGC selection. Falling back to CPU/WPF renderer.");
+                _log.Info($"GPU/DXGI renderer requested with captureBackend={captureBackend}. Falling back to CPU/WPF renderer.");
             }
-            else if (_wgcSelection is not null)
+            else if (captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
             {
                 _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
             }
@@ -1029,7 +1152,8 @@ public partial class MainWindow : Window
             _log.Info(
                 $"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, " +
                 $"left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, " +
-                $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, renderer={rendererMode}, " +
+                $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, " +
+                $"captureBackend={CaptureBackendLabel(captureBackend)}, renderer={rendererMode}, " +
                 $"refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, " +
                 $"logPath={_log.LogPath}, " +
                 $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
@@ -1037,7 +1161,7 @@ public partial class MainWindow : Window
                 $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
                 $"topmost={_overlayWindow.IsTopmostConfigured}, " +
                 $"inputHook={_overlayWindow.IsInputHookConfigured}");
-            SetStatus($"Overlay started ({clickThroughStatus}, {rendererMode}). Stop hotkey: {_stopHotkey}");
+            SetStatus($"Overlay started ({clickThroughStatus}, {CaptureBackendLabel(captureBackend)}, {rendererMode}). Stop hotkey: {_stopHotkey}");
         }
         catch (Exception ex)
         {
@@ -1151,8 +1275,19 @@ public partial class MainWindow : Window
         var windows = _windowDiscovery.GetVisibleWindows();
         WindowCombo.ItemsSource = windows;
         WindowCombo.SelectedItem = windows.FirstOrDefault(window => window.LooksLikeMabinogi) ?? windows.FirstOrDefault();
-        var captureStatus = _wgcSupport.IsSupported() ? "WGC supported" : "WGC unavailable";
-        WindowStatusText.Text = WindowCombo.SelectedItem is GameWindowInfo selected
+        WindowStatusText.Text = BuildWindowStatusText();
+    }
+
+    private string BuildWindowStatusText()
+    {
+        var captureStatus = CurrentCaptureBackend switch
+        {
+            CaptureBackend.Wgc => _wgcSupport.IsSupported() ? "WGC supported" : "WGC unavailable",
+            CaptureBackend.DxgiDesktopDuplication => "DXGI uses selected window monitor",
+            CaptureBackend.GdiBitBlt => "GDI captures selected client area",
+            _ => "Capture backend unknown"
+        };
+        return WindowCombo.SelectedItem is GameWindowInfo selected
             ? selected.LooksLikeMabinogi
                 ? $"Mabinogi window recognized. ({captureStatus})"
                 : $"Selected window is not recognized as Mabinogi. ({captureStatus})"
@@ -2384,7 +2519,7 @@ public partial class MainWindow : Window
 
     private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
     {
-        if ((_wgcSelection is null && _selectedWindow is null) ||
+        if (!HasLiveCaptureSource() ||
             _overlayWindow is null ||
             _overlaySlots.Count == 0 ||
             _isLiveRefreshInProgress)
@@ -2412,7 +2547,8 @@ public partial class MainWindow : Window
             }
 
             BitmapSource liveCapture;
-            if (_wgcSelection is not null)
+            var captureBackend = CurrentCaptureBackend;
+            if (captureBackend == CaptureBackend.Wgc)
             {
                 if (_wgcCaptureService.LastLiveCaptureException is not null)
                 {
@@ -2425,6 +2561,10 @@ public partial class MainWindow : Window
                 }
 
                 liveCapture = latestFrame;
+            }
+            else if (captureBackend == CaptureBackend.DxgiDesktopDuplication)
+            {
+                liveCapture = _dxgiCaptureService.CaptureClientArea(_selectedWindow!);
             }
             else
             {
@@ -2463,6 +2603,11 @@ public partial class MainWindow : Window
             _isLiveRefreshInProgress = false;
         }
     }
+
+    private bool HasLiveCaptureSource() =>
+        CurrentCaptureBackend == CaptureBackend.Wgc
+            ? _wgcSelection is not null
+            : _selectedWindow is not null;
 
     private bool RegisterStopHotkey()
     {
@@ -2547,6 +2692,14 @@ public partial class MainWindow : Window
             OverlayRenderMode.GpuDxgi => "GPU/DXGI",
             OverlayRenderMode.CpuComposited => "CPU/Composited",
             _ => "CPU/WPF"
+        };
+
+    private static string CaptureBackendLabel(CaptureBackend backend) =>
+        backend switch
+        {
+            CaptureBackend.DxgiDesktopDuplication => "DXGI Desktop Duplication",
+            CaptureBackend.GdiBitBlt => "GDI BitBlt",
+            _ => "WGC"
         };
 
     private static int FpsFromInterval(int intervalMs) =>
@@ -2703,6 +2856,8 @@ public partial class MainWindow : Window
         {
         }
     }
+
+    private sealed record CaptureBackendOption(CaptureBackend Backend, string Label);
 
     private sealed record SectionSettings(double SmallGapX, double SmallGapY, double LargeGap);
 

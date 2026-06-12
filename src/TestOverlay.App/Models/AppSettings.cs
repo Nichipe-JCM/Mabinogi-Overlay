@@ -5,4 +5,6 @@ public sealed class AppSettings
     public string ProfileDirectory { get; set; } = string.Empty;
 
     public OverlayRenderMode OverlayRenderMode { get; set; } = OverlayRenderMode.CpuWpf;
+
+    public CaptureBackend CaptureBackend { get; set; } = CaptureBackend.Wgc;
 }
