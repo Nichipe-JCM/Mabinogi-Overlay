@@ -64,6 +64,7 @@ public partial class MainWindow : Window
     private bool _isLiveRefreshInProgress;
     private bool _isUpdatingSectionControls;
     private bool _isUpdatingSectionSelection;
+    private bool _isReleasingCaptureIntentionally;
     private int _currentSectionIndex;
     private int _nextSectionId = 1;
     private double _layoutCanvasWidth = 360;
@@ -115,6 +116,8 @@ public partial class MainWindow : Window
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closed += (_, _) => StopOverlay(setStatus: false);
+        Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
+        CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         ApplySectionSettingsToControls(_currentSectionIndex);
         UpdateSizeLabels();
         CaptureZoomText.Text = "100%";
@@ -1081,7 +1084,7 @@ public partial class MainWindow : Window
 
         if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var rect))
         {
-            rect.ReleaseMouseCapture();
+            ReleaseCaptureSafely(rect);
         }
 
         if (_candidateDragSnapshotBefore is not null)
@@ -1124,6 +1127,7 @@ public partial class MainWindow : Window
             SelectCandidateInList(candidate);
             args.Handled = true;
         };
+        rect.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         _candidateRects[candidate] = rect;
         CaptureCanvas.Children.Add(rect);
         var visualRect = GetCandidateVisualRect(candidate);
@@ -1158,6 +1162,81 @@ public partial class MainWindow : Window
             .Where(item => item.IsSelected)
             .ToDictionary(item => item, item => new Point(item.SourceRect.X, item.SourceRect.Y));
         rect.CaptureMouse();
+    }
+
+    private void CancelInterruptedCaptureInteraction()
+    {
+        if (_isReleasingCaptureIntentionally)
+        {
+            return;
+        }
+
+        var hadSelection = _selectionRect is not null ||
+                           _isSelectingDetectionRoi ||
+                           _isSelectingDebugDetectionRoi ||
+                           _isSelectingCandidates;
+        var hadDrag = _draggingCandidate is not null;
+        if (!hadSelection && !hadDrag)
+        {
+            return;
+        }
+
+        RemoveSelectionRectangle();
+        if (_isSelectingDetectionRoi)
+        {
+            _isSelectingDetectionRoi = false;
+            SetDetectionMode(active: false);
+        }
+
+        if (_isSelectingDebugDetectionRoi)
+        {
+            _isSelectingDebugDetectionRoi = false;
+            SetDebugDetectionMode(active: false);
+        }
+
+        _isSelectingCandidates = false;
+        if (_candidateDragSnapshotBefore is not null)
+        {
+            PushUndoIfChanged(_candidateDragSnapshotBefore);
+        }
+
+        if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var draggingRect))
+        {
+            ReleaseCaptureSafely(draggingRect);
+        }
+
+        _draggingCandidate = null;
+        _candidateDragOrigins.Clear();
+        _candidateDragSnapshotBefore = null;
+        ReleaseCaptureSafely(CaptureCanvas);
+        SetStatus("Interrupted preview drag was canceled.");
+    }
+
+    private void RemoveSelectionRectangle()
+    {
+        if (_selectionRect is null)
+        {
+            return;
+        }
+
+        CaptureCanvas.Children.Remove(_selectionRect);
+        _selectionRect = null;
+    }
+
+    private void ReleaseCaptureSafely(UIElement element)
+    {
+        try
+        {
+            _isReleasingCaptureIntentionally = true;
+            if (element.IsMouseCaptured)
+            {
+                element.ReleaseMouseCapture();
+            }
+        }
+        finally
+        {
+            _isReleasingCaptureIntentionally = false;
+        }
     }
 
     private void BeginDetectionRoiSelection(Point position)
@@ -1208,12 +1287,11 @@ public partial class MainWindow : Window
                 Canvas.GetTop(_selectionRect),
                 _selectionRect.Width,
                 _selectionRect.Height);
-            CaptureCanvas.Children.Remove(_selectionRect);
-            _selectionRect = null;
+            RemoveSelectionRectangle();
         }
 
-        CaptureCanvas.ReleaseMouseCapture();
         _isSelectingDetectionRoi = false;
+        ReleaseCaptureSafely(CaptureCanvas);
         SetDetectionMode(active: false);
 
         if (roi.Width < 24 || roi.Height < 24)
@@ -1242,12 +1320,11 @@ public partial class MainWindow : Window
                 Canvas.GetTop(_selectionRect),
                 _selectionRect.Width,
                 _selectionRect.Height);
-            CaptureCanvas.Children.Remove(_selectionRect);
-            _selectionRect = null;
+            RemoveSelectionRectangle();
         }
 
-        CaptureCanvas.ReleaseMouseCapture();
         _isSelectingDebugDetectionRoi = false;
+        ReleaseCaptureSafely(CaptureCanvas);
         SetDebugDetectionMode(active: false);
 
         if (roi.Width < 24 || roi.Height < 24)
@@ -1548,12 +1625,11 @@ public partial class MainWindow : Window
                 }
             }
 
-            CaptureCanvas.Children.Remove(_selectionRect);
-            _selectionRect = null;
+            RemoveSelectionRectangle();
         }
 
-        CaptureCanvas.ReleaseMouseCapture();
         _isSelectingCandidates = false;
+        ReleaseCaptureSafely(CaptureCanvas);
     }
 
     private void MoveSelectedCandidates(Point position)
