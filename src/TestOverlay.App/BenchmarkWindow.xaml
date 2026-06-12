@@ -49,7 +49,13 @@
 
                 <StackPanel Grid.Row="0" Grid.Column="2">
                     <TextBlock Text="Stress"/>
-                    <TextBlock Text="Iterations" Margin="0,6,0,0"/>
+                    <TextBlock Text="Duration seconds" Margin="0,6,0,0"/>
+                    <ComboBox x:Name="DurationCombo" Height="28" SelectedIndex="1">
+                        <ComboBoxItem Content="10"/>
+                        <ComboBoxItem Content="30"/>
+                        <ComboBoxItem Content="60"/>
+                    </ComboBox>
+                    <TextBlock Text="Iterations fallback" Margin="0,6,0,0"/>
                     <ComboBox x:Name="IterationsCombo" Height="28" SelectedIndex="1">
                         <ComboBoxItem Content="60"/>
                         <ComboBoxItem Content="180"/>
@@ -88,7 +94,7 @@
                 <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5"
                            Foreground="#64748B"
                            TextWrapping="Wrap"
-                           Text="Synthetic benchmark isolates renderer cost. GPU/DXGI offscreen measures Direct2D GPU draw/flush cost, while live WGC GPU stats still measure real capture + composition."/>
+                           Text="Synthetic benchmark isolates renderer cost. GPU/DXGI offscreen waits for GPU completion; live WGC GPU stats still measure real capture + composition."/>
             </Grid>
         </Border>
 

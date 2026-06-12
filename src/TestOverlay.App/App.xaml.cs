@@ -33,4 +33,31 @@ public partial class App : Application
             args.SetObserved();
         };
     }
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+        if (BenchmarkWindow.HasAutomationArgs(e.Args))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var benchmarkWindow = new BenchmarkWindow();
+            MainWindow = benchmarkWindow;
+            _ = Dispatcher.InvokeAsync(async () =>
+            {
+                try
+                {
+                    await benchmarkWindow.RunAutomationFromArgsAsync(e.Args);
+                }
+                finally
+                {
+                    Shutdown();
+                }
+            });
+            return;
+        }
+
+        var mainWindow = new MainWindow();
+        MainWindow = mainWindow;
+        mainWindow.Show();
+    }
 }

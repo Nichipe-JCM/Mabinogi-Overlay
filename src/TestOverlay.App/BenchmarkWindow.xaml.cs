@@ -27,6 +27,7 @@ public partial class BenchmarkWindow : Window
     private int _overlayWidth = 960;
     private int _overlayHeight = 540;
     private int _iterations = 180;
+    private TimeSpan _duration = TimeSpan.FromSeconds(30);
 
     public BenchmarkWindow()
     {
@@ -40,7 +41,15 @@ public partial class BenchmarkWindow : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
-    private async Task RunBenchmarkAsync()
+    public static bool HasAutomationArgs(IReadOnlyList<string> args) =>
+        args.Any(arg => string.Equals(arg, "--benchmark", StringComparison.OrdinalIgnoreCase));
+
+    public async Task RunAutomationFromArgsAsync(IReadOnlyList<string> args)
+    {
+        await RunBenchmarkAsync(ReadAutomationSettings(args));
+    }
+
+    private async Task RunBenchmarkAsync(BenchmarkSettings? forcedSettings = null)
     {
         if (_isRunning)
         {
@@ -54,15 +63,17 @@ public partial class BenchmarkWindow : Window
 
         try
         {
-            var settings = ReadSettings();
+            var settings = forcedSettings ?? ReadSettings();
             _iterations = settings.Iterations;
+            _duration = TimeSpan.FromSeconds(settings.DurationSeconds);
             _overlayWidth = settings.OverlayWidth;
             _overlayHeight = settings.OverlayHeight;
 
             Append("Benchmark settings loaded. Pressing Start runs selected cases and writes results to app.log.");
             _log.Info(
                 $"Benchmark started: syntheticSource={settings.SourceWidth}x{settings.SourceHeight}, " +
-                $"overlay={settings.OverlayWidth}x{settings.OverlayHeight}, iterations={settings.Iterations}, " +
+                $"overlay={settings.OverlayWidth}x{settings.OverlayHeight}, durationSeconds={settings.DurationSeconds}, " +
+                $"iterationsFallback={settings.Iterations}, " +
                 $"multipliers={string.Join('/', settings.Multipliers)}, modes={string.Join('/', settings.Modes.Select(RenderModeLabel))}");
 
             var source = CreateSyntheticFrame(settings.SourceWidth, settings.SourceHeight);
@@ -100,7 +111,8 @@ public partial class BenchmarkWindow : Window
 
                 var line =
                     $"mode={RenderModeLabel(benchmarkCase.Mode)}, multiplier={benchmarkCase.Multiplier}x, " +
-                    $"effectiveSlots={slots.Count}, frames={result.Frames}, avgMs={result.AverageMs:0.00}, " +
+                    $"effectiveSlots={slots.Count}, durationMs={result.DurationMs:0.00}, frames={result.Frames}, " +
+                    $"throughputFps={result.ThroughputFps:0.00}, avgMs={result.AverageMs:0.00}, " +
                     $"p95Ms={result.P95Ms:0.00}, maxMs={result.MaxMs:0.00}, " +
                     $"gen0={result.Gen0Collections}, gen1={result.Gen1Collections}, gen2={result.Gen2Collections}, " +
                     $"memoryDeltaMB={result.MemoryDeltaMb:0.00}";
@@ -184,23 +196,30 @@ public partial class BenchmarkWindow : Window
         var startGen1 = GC.CollectionCount(1);
         var startGen2 = GC.CollectionCount(2);
         var startMemory = GC.GetTotalMemory(false);
-        var samples = new double[_iterations];
-        var stopwatch = new Stopwatch();
+        var samples = new List<double>(Math.Max(1, _iterations));
+        var sampleStopwatch = new Stopwatch();
+        var totalStopwatch = Stopwatch.StartNew();
 
-        for (var i = 0; i < _iterations; i++)
+        do
         {
-            stopwatch.Restart();
+            sampleStopwatch.Restart();
             action();
-            stopwatch.Stop();
-            samples[i] = stopwatch.Elapsed.TotalMilliseconds;
+            sampleStopwatch.Stop();
+            samples.Add(sampleStopwatch.Elapsed.TotalMilliseconds);
         }
+        while (_duration > TimeSpan.Zero
+            ? totalStopwatch.Elapsed < _duration
+            : samples.Count < _iterations);
+        totalStopwatch.Stop();
 
         var endMemory = GC.GetTotalMemory(false);
-        Array.Sort(samples);
+        samples.Sort();
         return new BenchmarkResult(
-            _iterations,
+            samples.Count,
+            totalStopwatch.Elapsed.TotalMilliseconds,
+            samples.Count / Math.Max(0.001, totalStopwatch.Elapsed.TotalSeconds),
             samples.Average(),
-            samples[(int)Math.Clamp(Math.Ceiling(samples.Length * 0.95) - 1, 0, samples.Length - 1)],
+            samples[(int)Math.Clamp(Math.Ceiling(samples.Count * 0.95) - 1, 0, samples.Count - 1)],
             samples[^1],
             GC.CollectionCount(0) - startGen0,
             GC.CollectionCount(1) - startGen1,
@@ -301,6 +320,7 @@ public partial class BenchmarkWindow : Window
     {
         var (sourceWidth, sourceHeight) = ReadSizeCombo(SourceSizeCombo, 1920, 1080);
         var (overlayWidth, overlayHeight) = ReadSizeCombo(OverlaySizeCombo, 960, 540);
+        var durationSeconds = ReadComboInt(DurationCombo, 30);
         var iterations = ReadComboInt(IterationsCombo, 180);
         var multipliers = MultipliersBox.Text
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -330,7 +350,22 @@ public partial class BenchmarkWindow : Window
             modes.Add(OverlayRenderMode.GpuDxgi);
         }
 
-        return new BenchmarkSettings(sourceWidth, sourceHeight, overlayWidth, overlayHeight, iterations, multipliers, modes);
+        return new BenchmarkSettings(sourceWidth, sourceHeight, overlayWidth, overlayHeight, durationSeconds, iterations, multipliers, modes);
+    }
+
+    private static BenchmarkSettings ReadAutomationSettings(IReadOnlyList<string> args)
+    {
+        var durationSeconds = ReadArgInt(args, "--benchmark-duration", 30, 1, 3600);
+        var iterations = ReadArgInt(args, "--benchmark-iterations", 180, 1, 1_000_000);
+        var multipliers = ReadIntListArg(args, "--benchmark-multipliers", [1, 5, 10, 20], 1, 100);
+        var modes = new List<OverlayRenderMode>
+        {
+            OverlayRenderMode.CpuWpf,
+            OverlayRenderMode.CpuComposited,
+            OverlayRenderMode.GpuDxgi
+        };
+
+        return new BenchmarkSettings(1920, 1080, 960, 540, durationSeconds, iterations, multipliers, modes);
     }
 
     private static (int Width, int Height) ReadSizeCombo(ComboBox comboBox, int fallbackWidth, int fallbackHeight)
@@ -350,8 +385,46 @@ public partial class BenchmarkWindow : Window
         return int.TryParse(text, out var value) ? Math.Clamp(value, 1, 10000) : fallback;
     }
 
+    private static int ReadArgInt(IReadOnlyList<string> args, string name, int fallback, int min, int max)
+    {
+        for (var i = 0; i < args.Count - 1; i++)
+        {
+            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(args[i + 1], out var value))
+            {
+                return Math.Clamp(value, min, max);
+            }
+        }
+
+        return fallback;
+    }
+
+    private static IReadOnlyList<int> ReadIntListArg(IReadOnlyList<string> args, string name, IReadOnlyList<int> fallback, int min, int max)
+    {
+        for (var i = 0; i < args.Count - 1; i++)
+        {
+            if (!string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var values = args[i + 1]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(value => int.TryParse(value, out var parsed) ? Math.Clamp(parsed, min, max) : 0)
+                .Where(value => value > 0)
+                .Distinct()
+                .OrderBy(value => value)
+                .ToList();
+            return values.Count > 0 ? values : fallback;
+        }
+
+        return fallback;
+    }
+
     private sealed record BenchmarkResult(
         int Frames,
+        double DurationMs,
+        double ThroughputFps,
         double AverageMs,
         double P95Ms,
         double MaxMs,
@@ -365,6 +438,7 @@ public partial class BenchmarkWindow : Window
         int SourceHeight,
         int OverlayWidth,
         int OverlayHeight,
+        int DurationSeconds,
         int Iterations,
         IReadOnlyList<int> Multipliers,
         IReadOnlyList<OverlayRenderMode> Modes);
@@ -378,6 +452,7 @@ public partial class BenchmarkWindow : Window
         private readonly ID2D1DeviceContext _d2dContext;
         private readonly ID2D1Bitmap1 _sourceBitmap;
         private readonly ID2D1Bitmap1 _targetBitmap;
+        private readonly ID3D11Query _completionQuery;
 
         public GpuOffscreenBenchmark(int sourceWidth, int sourceHeight, int targetWidth, int targetHeight, byte[] sourcePixels)
         {
@@ -423,6 +498,7 @@ public partial class BenchmarkWindow : Window
                 0,
                 targetProperties);
             _d2dContext.Target = _targetBitmap;
+            _completionQuery = _d3dDevice.CreateQuery(new QueryDescription(QueryType.Event, QueryFlags.None));
         }
 
         public void Render(IReadOnlyList<OverlaySlot> slots)
@@ -442,10 +518,16 @@ public partial class BenchmarkWindow : Window
 
             _d2dContext.EndDraw();
             _d3dContext.Flush();
+            _d3dContext.End(_completionQuery);
+            while (_d3dContext.GetData(_completionQuery, nint.Zero, 0, AsyncGetDataFlags.None).Failure)
+            {
+                Thread.SpinWait(64);
+            }
         }
 
         public void Dispose()
         {
+            _completionQuery.Dispose();
             _targetBitmap.Dispose();
             _sourceBitmap.Dispose();
             _d2dContext.Dispose();
