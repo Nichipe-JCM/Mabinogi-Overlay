@@ -56,7 +56,7 @@ public partial class MainWindow : Window
     private bool _isSelectingDetectionRoi;
     private bool _isAwaitingDebugDetectionRoi;
     private bool _isSelectingDebugDetectionRoi;
-    private QuickslotSectionPatternKind _debugDetectionPatternKind = QuickslotSectionPatternKind.TopGrouped;
+    private DebugDetectionExpectation _debugDetectionExpectation = DebugDetectionExpectation.TopGrouped1();
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection;
     private bool _isLiveRefreshInProgress;
@@ -242,16 +242,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        var patternKind = ChooseDetectionPatternKind();
-        if (patternKind is null)
+        var expectation = ChooseDebugDetectionExpectation();
+        if (expectation is null)
         {
             SetStatus("Debug detect canceled.");
             return;
         }
 
-        _debugDetectionPatternKind = patternKind.Value;
+        _debugDetectionExpectation = expectation;
         SetDebugDetectionMode(active: true);
-        SetStatus($"Debug detect: drag one {GetPatternDebugLabel(_debugDetectionPatternKind)} ROI. It will run 100 simulations and save a log.");
+        SetStatus($"Debug detect: drag one {expectation.Label} ROI. It will run 100 simulations and save a log.");
     }
 
     private void AddToOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -1157,7 +1157,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        RunDebugDetection(roi, _debugDetectionPatternKind);
+        RunDebugDetection(roi, _debugDetectionExpectation);
     }
 
     private void SetDetectionMode(bool active)
@@ -1212,6 +1212,40 @@ public partial class MainWindow : Window
         };
     }
 
+    private DebugDetectionExpectation? ChooseDebugDetectionExpectation()
+    {
+        var sectionResult = MessageBox.Show(
+            this,
+            "Choose the debug detect target.\n\nYes: Top grouped 4x2 x3\nNo: Vertical 2x8\nCancel: cancel debug detection",
+            "Debug Detect Target",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+        if (sectionResult == MessageBoxResult.No)
+        {
+            return DebugDetectionExpectation.Vertical();
+        }
+
+        if (sectionResult != MessageBoxResult.Yes)
+        {
+            return null;
+        }
+
+        var topResult = MessageBox.Show(
+            this,
+            "Choose the top grouped debug target.\n\nYes: Top grouped 1 (x=7, y=18)\nNo: Top grouped 2 (x=627, y=18)\nCancel: cancel debug detection",
+            "Top Grouped Debug Target",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+        return topResult switch
+        {
+            MessageBoxResult.Yes => DebugDetectionExpectation.TopGrouped1(),
+            MessageBoxResult.No => DebugDetectionExpectation.TopGrouped2(),
+            _ => null
+        };
+    }
+
     private void DetectSectionInRoi(Rect roi, QuickslotSectionPatternKind patternKind)
     {
         if (_capturedImage is null)
@@ -1244,17 +1278,7 @@ public partial class MainWindow : Window
             $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
     }
 
-    private static string GetPatternDebugLabel(QuickslotSectionPatternKind patternKind) =>
-        patternKind == QuickslotSectionPatternKind.Vertical
-            ? "vertical 2x8"
-            : "top grouped 4x2 x3";
-
-    private static DebugDetectionExpectation GetDebugDetectionExpectation(QuickslotSectionPatternKind patternKind) =>
-        patternKind == QuickslotSectionPatternKind.Vertical
-            ? new DebugDetectionExpectation(91, 417, 29, 3, 3, null)
-            : new DebugDetectionExpectation(7, 18, 29, 3, 8, 15);
-
-    private void RunDebugDetection(Rect roi, QuickslotSectionPatternKind patternKind)
+    private void RunDebugDetection(Rect roi, DebugDetectionExpectation expected)
     {
         if (_capturedImage is null)
         {
@@ -1262,14 +1286,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        var expected = GetDebugDetectionExpectation(patternKind);
         var expectedGapText = expected.LargeGap is int expectedLargeGap
             ? $"gapX={expected.SmallGapX}, gapY={expected.SmallGapY}, large={expectedLargeGap}"
             : $"gapX={expected.SmallGapX}, gapY={expected.SmallGapY}";
 
         var lines = new List<string>
         {
-            $"Debug {GetPatternDebugLabel(patternKind)} ROI detect started {DateTimeOffset.Now:O}",
+            $"Debug {expected.Label} ROI detect started {DateTimeOffset.Now:O}",
             $"roi absolute x={roi.X:0.###}, y={roi.Y:0.###}, w={roi.Width:0.###}, h={roi.Height:0.###}",
             $"expected absolute x={expected.AbsoluteX}, y={expected.AbsoluteY}, {expected.Size}x{expected.Size}, {expectedGapText}",
             $"runs={DebugDetectRuns}"
@@ -1283,7 +1306,7 @@ public partial class MainWindow : Window
             var result = _roiSectionDetection.Detect(
                 _capturedImage,
                 roi,
-                patternKind,
+                expected.PatternKind,
                 diagnostics);
 
             if (result is null)
@@ -1333,12 +1356,24 @@ public partial class MainWindow : Window
     }
 
     private sealed record DebugDetectionExpectation(
+        string Label,
+        QuickslotSectionPatternKind PatternKind,
         int AbsoluteX,
         int AbsoluteY,
         int Size,
         int SmallGapX,
         int SmallGapY,
-        int? LargeGap);
+        int? LargeGap)
+    {
+        public static DebugDetectionExpectation TopGrouped1() =>
+            new("top grouped 1 4x2 x3", QuickslotSectionPatternKind.TopGrouped, 7, 18, 29, 3, 8, 15);
+
+        public static DebugDetectionExpectation TopGrouped2() =>
+            new("top grouped 2 4x2 x3", QuickslotSectionPatternKind.TopGrouped, 627, 18, 29, 3, 8, 15);
+
+        public static DebugDetectionExpectation Vertical() =>
+            new("vertical 2x8", QuickslotSectionPatternKind.Vertical, 91, 417, 29, 3, 3, null);
+    }
 
     private string SaveDebugDetectLog(IReadOnlyCollection<string> lines)
     {
