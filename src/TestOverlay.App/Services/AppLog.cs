@@ -8,7 +8,7 @@ public sealed class AppLog
 
     public string LogDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "TestOverlayProj",
+        "MabinogiOverlay",
         "Logs");
 
     public string LogPath => Path.Combine(LogDirectory, "app.log");

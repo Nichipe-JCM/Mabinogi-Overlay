@@ -1,7 +1,7 @@
 <Window x:Class="TestOverlay.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Mabinogi Cooldown Overlay"
+        Title="Mabinogi Overlay 0.0.1-beta"
         Height="920"
         Width="1660"
         MinHeight="760"
