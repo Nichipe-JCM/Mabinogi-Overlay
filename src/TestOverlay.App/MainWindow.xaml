@@ -26,6 +26,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
@@ -43,8 +44,8 @@
                 </StackPanel>
 
                 <Button Grid.Column="1" x:Name="RefreshWindowsButton" Width="92" Height="34" Margin="8,20,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
-                <Button Grid.Column="2" x:Name="VerifyWgcButton" Width="112" Height="34" Margin="8,20,0,0" Content="Verify" Click="VerifyWgcButton_Click"/>
-                <Button Grid.Column="3" x:Name="CaptureButton" Width="94" Height="34" Margin="8,20,0,0" Content="Capture" Click="CaptureButton_Click"/>
+                <Button Grid.Column="2" x:Name="AutoCaptureButton" Width="112" Height="34" Margin="8,20,0,0" Content="Auto capture" Click="AutoCaptureButton_Click"/>
+                <Button Grid.Column="3" x:Name="ManualCaptureButton" Width="124" Height="34" Margin="8,20,0,0" Content="Manual capture" Click="ManualCaptureButton_Click"/>
                 <Button Grid.Column="4" x:Name="DetectButton" Width="148" Height="34" Margin="8,20,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
                 <Button Grid.Column="5" x:Name="DebugDetectButton" Width="116" Height="34" Margin="8,20,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>
                 <Button Grid.Column="6" x:Name="StopOverlayButton" Width="104" Height="34" Margin="8,20,0,0" Content="Stop" Click="StopOverlayButton_Click"/>

@@ -7,3 +7,13 @@ obj/
 *.cache
 TestResults/
 artifacts/
+Backup/
+UpgradeLog*.htm
+*.log
+*.bak
+*.tmp
+*.orig
+*.userosscache
+*.sln.docstates
+save/
+publish/

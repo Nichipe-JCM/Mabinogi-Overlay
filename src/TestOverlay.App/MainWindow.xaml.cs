@@ -49,8 +49,6 @@ public partial class MainWindow : Window
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
-    private GameWindowInfo? _verifiedGdiWindow;
-    private GameWindowInfo? _verifiedDxgiWindow;
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
     private GpuLiveOverlayService? _gpuLiveOverlayService;
@@ -164,11 +162,6 @@ public partial class MainWindow : Window
             ? option.Backend
             : _appSettings.CaptureBackend;
 
-    private string CurrentCaptureBackendLabel =>
-        CaptureBackendCombo?.SelectedItem is CaptureBackendOption option
-            ? option.Label
-            : CaptureBackendLabel(_appSettings.CaptureBackend);
-
     private void CaptureBackendCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (CaptureBackendCombo.SelectedItem is not CaptureBackendOption option)
@@ -179,7 +172,7 @@ public partial class MainWindow : Window
         _appSettings.CaptureBackend = option.Backend;
         _settingsStore.Save(_appSettings);
         WindowStatusText.Text = BuildWindowStatusText();
-        SetStatus($"Capture method selected: {option.Label}. Verify before capture.");
+        SetStatus($"Capture method selected: {option.Label}.");
     }
 
     private void WindowCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -220,138 +213,128 @@ public partial class MainWindow : Window
 
     private void RefreshWindowsButton_Click(object sender, RoutedEventArgs e) => RefreshWindows();
 
-    private async void VerifyWgcButton_Click(object sender, RoutedEventArgs e)
+    private async void AutoCaptureButton_Click(object sender, RoutedEventArgs e)
     {
-        var backend = CurrentCaptureBackend;
         try
         {
-            switch (backend)
+            AutoCaptureButton.IsEnabled = false;
+            var window = FindAutoMabinogiWindow();
+            if (window is null)
             {
-                case CaptureBackend.Wgc:
-                    var result = await _wgcWindowSelection.PickWindowAsync(this);
-                    if (result is null)
-                    {
-                        SetStatus("WGC window selection was canceled or WGC is not supported.");
-                        _log.Info("WGC window selection returned null.");
-                        return;
-                    }
-
-                    _wgcSelection = result;
-                    _log.Info($"WGC selection: {result.DisplayName}, {result.Width}x{result.Height}, looksLikeMabinogi={result.LooksLikeMabinogi}");
-                    SetStatus(result.LooksLikeMabinogi
-                        ? $"WGC verified Mabinogi window: {result.DisplayName} ({result.Width}x{result.Height})"
-                        : $"WGC selected window is not recognized as Mabinogi: {result.DisplayName} ({result.Width}x{result.Height})");
-                    break;
-                case CaptureBackend.DxgiDesktopDuplication:
-                    var dxgiWindow = RequireSelectedWindow();
-                    var dxgiResult = _dxgiCaptureService.Verify(dxgiWindow);
-                    _verifiedDxgiWindow = dxgiWindow;
-                    _selectedWindow = dxgiWindow;
-                    _log.Info(
-                        $"DXGI verification: window={dxgiWindow.DisplayName}, output={dxgiResult.OutputName}, " +
-                        $"client={dxgiResult.ClientWidth}x{dxgiResult.ClientHeight}@{dxgiResult.ClientScreenX},{dxgiResult.ClientScreenY}, " +
-                        $"outputRect={dxgiResult.OutputWidth}x{dxgiResult.OutputHeight}@{dxgiResult.OutputLeft},{dxgiResult.OutputTop}, " +
-                        $"looksLikeMabinogi={dxgiWindow.LooksLikeMabinogi}");
-                    SetStatus(dxgiWindow.LooksLikeMabinogi
-                        ? $"DXGI verified Mabinogi window on {dxgiResult.OutputName}: {dxgiResult.ClientWidth}x{dxgiResult.ClientHeight}"
-                        : $"DXGI verified selected window, but it is not recognized as Mabinogi: {dxgiWindow.DisplayName}");
-                    break;
-                case CaptureBackend.GdiBitBlt:
-                    var gdiWindow = RequireSelectedWindow();
-                    _ = _captureService.CaptureClientArea(gdiWindow);
-                    _verifiedGdiWindow = gdiWindow;
-                    _selectedWindow = gdiWindow;
-                    _log.Info($"GDI verification: window={gdiWindow.DisplayName}, looksLikeMabinogi={gdiWindow.LooksLikeMabinogi}");
-                    SetStatus(gdiWindow.LooksLikeMabinogi
-                        ? $"GDI verified Mabinogi window: {gdiWindow.DisplayName}"
-                        : $"GDI verified selected window, but it is not recognized as Mabinogi: {gdiWindow.DisplayName}");
-                    break;
+                SetStatus("Auto capture failed: Mabinogi Client.exe window was not found.");
+                _log.Info("Auto WGC capture failed: Mabinogi Client.exe window was not found.");
+                return;
             }
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"{CaptureBackendLabel(backend)} verification failed.", ex);
-            SetStatus($"{CaptureBackendLabel(backend)} verification failed: {ex.Message}");
-        }
-    }
 
-    private async void CaptureButton_Click(object sender, RoutedEventArgs e)
-    {
-        var backend = CurrentCaptureBackend;
-        try
-        {
-            CaptureButton.IsEnabled = false;
-            _capturedImage = backend switch
+            var selection = _wgcWindowSelection.CreateForWindow(window);
+            if (selection is null)
             {
-                CaptureBackend.Wgc => await CaptureWgcOnceAsync(),
-                CaptureBackend.DxgiDesktopDuplication => CaptureDxgiOnce(),
-                CaptureBackend.GdiBitBlt => CaptureGdiOnce(),
-                _ => throw new InvalidOperationException("Unsupported capture backend.")
-            };
-            _log.Info($"{CaptureBackendLabel(backend)} capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}");
-            CaptureImage.Source = _capturedImage;
-            CaptureCanvas.Width = _capturedImage.PixelWidth;
-            CaptureCanvas.Height = _capturedImage.PixelHeight;
-            CaptureInfoText.Text = $"{_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}";
-            _candidates.Clear();
-            ClearCandidateRects();
-            ClearSections();
-            SetStatus($"Captured with {CaptureBackendLabel(backend)}. Run slot detection next.");
+                SetStatus("Auto capture failed: WGC is not supported.");
+                _log.Info("Auto WGC capture failed: WGC is not supported.");
+                return;
+            }
+
+            _wgcSelection = selection;
+            _selectedWindow = window;
+            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(selection.Item, TimeSpan.FromSeconds(3));
+            ApplyCapturedPreview(_capturedImage, $"Auto captured WGC Mabinogi window: {window.DisplayName}");
+            _log.Info($"Auto WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, window={window.DisplayName}");
         }
         catch (Exception ex)
         {
-            _log.Error($"{CaptureBackendLabel(backend)} capture failed.", ex);
-            SetStatus($"{CaptureBackendLabel(backend)} capture failed: {ex.Message}");
+            _log.Error("Auto WGC capture failed.", ex);
+            SetStatus($"Auto capture failed: {ex.Message}");
         }
         finally
         {
-            CaptureButton.IsEnabled = true;
+            AutoCaptureButton.IsEnabled = true;
         }
     }
 
-    private async Task<BitmapSource> CaptureWgcOnceAsync()
+    private async void ManualCaptureButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_wgcSelection is null)
+        try
         {
-            throw new InvalidOperationException("Verify a WGC window before capture.");
-        }
+            ManualCaptureButton.IsEnabled = false;
+            var result = await _wgcWindowSelection.PickWindowAsync(this);
+            if (result is null)
+            {
+                SetStatus("Manual capture canceled or WGC is not supported.");
+                _log.Info("Manual WGC capture picker returned null.");
+                return;
+            }
 
-        if (!_wgcSelection.LooksLikeMabinogi)
+            if (!result.LooksLikeMabinogi)
+            {
+                SetStatus($"Manual capture rejected: selected window is not recognized as Mabinogi ({result.DisplayName}).");
+                _log.Info($"Manual WGC capture rejected: {result.DisplayName}");
+                return;
+            }
+
+            _wgcSelection = result;
+            _selectedWindow = MatchPickedMabinogiWindow(result);
+            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(result.Item, TimeSpan.FromSeconds(3));
+            ApplyCapturedPreview(_capturedImage, $"Manual captured WGC Mabinogi window: {result.DisplayName}");
+            _log.Info($"Manual WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, item={result.DisplayName}");
+        }
+        catch (Exception ex)
         {
-            throw new InvalidOperationException("WGC verification selected a non-Mabinogi window. Verify WGC again.");
+            _log.Error("Manual WGC capture failed.", ex);
+            SetStatus($"Manual capture failed: {ex.Message}");
         }
-
-        _selectedWindow = WindowCombo.SelectedItem as GameWindowInfo;
-        return await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3));
+        finally
+        {
+            ManualCaptureButton.IsEnabled = true;
+        }
     }
 
-    private BitmapSource CaptureDxgiOnce()
+    private void ApplyCapturedPreview(BitmapSource image, string status)
     {
-        var window = _verifiedDxgiWindow ?? throw new InvalidOperationException("Verify a DXGI window before capture.");
-        if (!window.LooksLikeMabinogi)
-        {
-            throw new InvalidOperationException("DXGI verification selected a non-Mabinogi window. Verify DXGI again.");
-        }
-
-        _selectedWindow = window;
-        return _dxgiCaptureService.CaptureClientArea(window);
+        CaptureImage.Source = image;
+        CaptureCanvas.Width = image.PixelWidth;
+        CaptureCanvas.Height = image.PixelHeight;
+        CaptureInfoText.Text = $"{image.PixelWidth}x{image.PixelHeight}";
+        _candidates.Clear();
+        ClearCandidateRects();
+        ClearSections();
+        SetStatus($"{status}. Run slot detection next.");
     }
 
-    private BitmapSource CaptureGdiOnce()
+    private GameWindowInfo? FindAutoMabinogiWindow()
     {
-        var window = _verifiedGdiWindow ?? throw new InvalidOperationException("Verify a GDI window before capture.");
-        if (!window.LooksLikeMabinogi)
+        var windows = _windowDiscovery.GetVisibleWindows();
+        var window = windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
+                     ?? windows.FirstOrDefault(item => item.IsExactClientExecutable && item.LooksLikeMabinogi)
+                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
+        if (window is not null)
         {
-            throw new InvalidOperationException("GDI verification selected a non-Mabinogi window. Verify GDI again.");
+            WindowCombo.ItemsSource = windows;
+            WindowCombo.SelectedItem = window;
         }
 
-        _selectedWindow = window;
-        return _captureService.CaptureClientArea(window);
+        return window;
     }
 
-    private GameWindowInfo RequireSelectedWindow() =>
-        WindowCombo.SelectedItem as GameWindowInfo
-        ?? throw new InvalidOperationException("Select a window before verification.");
+    private GameWindowInfo? MatchPickedMabinogiWindow(WgcSelectionResult result)
+    {
+        var windows = _windowDiscovery.GetVisibleWindows();
+        WindowCombo.ItemsSource = windows;
+        var window = windows.FirstOrDefault(item => item.IsPreferredMabinogiClient && MatchesWgcDisplayName(item, result.DisplayName))
+                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi && MatchesWgcDisplayName(item, result.DisplayName))
+                     ?? windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
+                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
+        if (window is not null)
+        {
+            WindowCombo.SelectedItem = window;
+        }
+
+        return window;
+    }
+
+    private static bool MatchesWgcDisplayName(GameWindowInfo window, string displayName) =>
+        string.Equals(window.Title, displayName, StringComparison.OrdinalIgnoreCase)
+        || displayName.Contains(window.Title, StringComparison.OrdinalIgnoreCase)
+        || window.Title.Contains(displayName, StringComparison.OrdinalIgnoreCase);
 
     private void DetectButton_Click(object sender, RoutedEventArgs e)
     {
@@ -1116,7 +1099,7 @@ public partial class MainWindow : Window
             if (captureBackend != CaptureBackend.Wgc && _selectedWindow is null)
             {
                 StopOverlay(setStatus: false);
-                SetStatus($"Verify and capture a window with {CaptureBackendLabel(captureBackend)} before starting the overlay.");
+                SetStatus($"Run Auto capture or Manual capture before starting the overlay with {CaptureBackendLabel(captureBackend)}.");
                 return;
             }
 
