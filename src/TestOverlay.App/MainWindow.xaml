@@ -225,14 +225,11 @@
                         </Border>
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <ComboBox x:Name="ProfileCombo" Width="130" Height="34" Margin="4,0,8,0" ToolTip="Saved profiles under the configured save folder"/>
                             <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
                             <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="SaveProfileButton" Width="60" Height="34" Margin="4,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
-                            <Button x:Name="LoadProfileButton" Width="60" Height="34" Margin="4,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
                             <Button x:Name="StartOverlayButton" Width="62" Height="34" Margin="4,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
                             <Button x:Name="StopOverlayLayoutButton" Width="62" Height="34" Margin="4,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
-                            <Button x:Name="SettingsButton" Width="76" Height="34" Margin="4,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
+                            <Button x:Name="SettingsButton" Width="112" Height="34" Margin="4,0,0,0" Content="Profile Settings" Click="SettingsButton_Click"/>
                         </StackPanel>
                     </Grid>
                 </Border>

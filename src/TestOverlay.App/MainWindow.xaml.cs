@@ -41,6 +41,8 @@ public partial class MainWindow : Window
     ];
     private readonly Stack<CandidateEditSnapshot> _undoStack = new();
     private readonly Stack<CandidateEditSnapshot> _redoStack = new();
+    private IReadOnlyList<string> _profileNames = ["default"];
+    private string _selectedProfileName = "default";
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
@@ -666,13 +668,17 @@ public partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new SettingsWindow(_profileStore.ProfileDirectory, _settingsStore.DefaultProfileDirectory)
+        var dialog = new SettingsWindow(
+            _profileStore.ProfileDirectory,
+            _settingsStore.DefaultProfileDirectory,
+            _profileNames,
+            ReadSelectedProfileName())
         {
             Owner = this
         };
         if (dialog.ShowDialog() != true)
         {
-            SetStatus("Settings canceled.");
+            SetStatus("Profile settings canceled.");
             return;
         }
 
@@ -683,18 +689,33 @@ public partial class MainWindow : Window
             _appSettings.ProfileDirectory = directory;
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
-            RefreshProfileList();
+            RefreshProfileList(dialog.SelectedProfileName);
             _log.Info($"Settings saved: profileDirectory={directory}");
-            SetStatus($"Profile save folder updated: {directory}");
         }
         catch (Exception exception)
         {
             _log.Error("Failed to save settings.", exception);
-            SetStatus($"Settings save failed: {exception.Message}");
+            SetStatus($"Profile settings save failed: {exception.Message}");
+            return;
+        }
+
+        switch (dialog.RequestedProfileAction)
+        {
+            case SettingsProfileAction.Save:
+                SaveCurrentProfile();
+                break;
+            case SettingsProfileAction.Load:
+                LoadSelectedProfile();
+                break;
+            default:
+                SetStatus($"Profile settings saved: {_profileStore.ProfileDirectory}");
+                break;
         }
     }
 
-    private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
+    private void SaveProfileButton_Click(object sender, RoutedEventArgs e) => SaveCurrentProfile();
+
+    private void SaveCurrentProfile()
     {
         SaveCurrentSectionSettings();
         var dialog = new ProfileNameDialog(ReadSelectedProfileName())
@@ -735,8 +756,29 @@ public partial class MainWindow : Window
                     LargeGap = settings.LargeGap
                 })
                 .ToList(),
+            Candidates = _candidates.Select(candidate => new OverlayProfileCandidate
+            {
+                Id = candidate.Id,
+                SourceX = candidate.SourceRect.X,
+                SourceY = candidate.SourceRect.Y,
+                SourceWidth = candidate.SourceRect.Width,
+                SourceHeight = candidate.SourceRect.Height,
+                Score = candidate.Score,
+                IsSelected = candidate.IsSelected
+            }).ToList(),
+            Sections = _sections.Select(section => new OverlayProfileSection
+            {
+                Id = section.Id,
+                SeedCandidateId = section.Seed.Id,
+                PatternIndex = section.PatternIndex,
+                SmallGapX = section.Settings.SmallGapX,
+                SmallGapY = section.Settings.SmallGapY,
+                LargeGap = section.Settings.LargeGap,
+                CandidateIds = section.Candidates.Select(candidate => candidate.Id).ToList()
+            }).ToList(),
             Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
             {
+                SourceCandidateId = slot.Source.Id,
                 SourceX = slot.Source.SourceRect.X,
                 SourceY = slot.Source.SourceRect.Y,
                 SourceWidth = slot.Source.SourceRect.Width,
@@ -752,11 +794,13 @@ public partial class MainWindow : Window
 
         var path = _profileStore.Save(profile, profileName);
         RefreshProfileList(System.IO.Path.GetFileNameWithoutExtension(path));
-        _log.Info($"Profile saved: {path}, slots={profile.Slots.Count}");
+        _log.Info($"Profile saved: {path}, candidates={profile.Candidates.Count}, slots={profile.Slots.Count}");
         SetStatus($"Profile saved: {path}");
     }
 
-    private void LoadProfileButton_Click(object sender, RoutedEventArgs e)
+    private void LoadProfileButton_Click(object sender, RoutedEventArgs e) => LoadSelectedProfile();
+
+    private void LoadSelectedProfile()
     {
         if (_capturedImage is null)
         {
@@ -795,14 +839,65 @@ public partial class MainWindow : Window
         ClearCandidateRects();
         ClearSections();
 
-        var id = 1;
+        var loadedCandidates = new Dictionary<int, SlotCandidate>();
+        if (profile.Candidates.Count > 0)
+        {
+            foreach (var savedCandidate in profile.Candidates.OrderBy(candidate => candidate.Id))
+            {
+                var candidate = new SlotCandidate(
+                    savedCandidate.Id,
+                    new Rect(
+                        savedCandidate.SourceX,
+                        savedCandidate.SourceY,
+                        savedCandidate.SourceWidth,
+                        savedCandidate.SourceHeight),
+                    savedCandidate.Score)
+                {
+                    IsSelected = savedCandidate.IsSelected
+                };
+                AddCandidate(candidate);
+                loadedCandidates[candidate.Id] = candidate;
+            }
+        }
+
+        foreach (var savedSection in profile.Sections)
+        {
+            if (!loadedCandidates.TryGetValue(savedSection.SeedCandidateId, out var seed))
+            {
+                continue;
+            }
+
+            var sectionCandidates = savedSection.CandidateIds
+                .Select(id => loadedCandidates.TryGetValue(id, out var candidate) ? candidate : null)
+                .Where(candidate => candidate is not null)
+                .Cast<SlotCandidate>()
+                .ToList();
+            if (sectionCandidates.Count == 0)
+            {
+                continue;
+            }
+
+            _sections.Add(new QuickslotSection(
+                savedSection.Id,
+                seed,
+                savedSection.PatternIndex,
+                new SectionSettings(savedSection.SmallGapX, savedSection.SmallGapY, savedSection.LargeGap),
+                sectionCandidates));
+        }
+
+        var nextCandidateId = loadedCandidates.Count == 0 ? 1 : loadedCandidates.Keys.Max() + 1;
         foreach (var savedSlot in profile.Slots)
         {
-            var candidate = new SlotCandidate(
-                id++,
-                new Rect(savedSlot.SourceX, savedSlot.SourceY, savedSlot.SourceWidth, savedSlot.SourceHeight),
-                100);
-            AddCandidate(candidate);
+            var candidate = ResolveProfileSlotSource(savedSlot, loadedCandidates);
+            if (candidate is null)
+            {
+                candidate = new SlotCandidate(
+                    nextCandidateId++,
+                    new Rect(savedSlot.SourceX, savedSlot.SourceY, savedSlot.SourceWidth, savedSlot.SourceHeight),
+                    100);
+                AddCandidate(candidate);
+                loadedCandidates[candidate.Id] = candidate;
+            }
 
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
             var slot = new OverlaySlot(
@@ -814,10 +909,12 @@ public partial class MainWindow : Window
             _overlaySlots.Add(slot);
         }
 
+        _nextSectionId = _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1;
+        RefreshSectionLabels();
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
-        _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, slots={profile.Slots.Count}");
-        SetStatus($"Profile loaded: {_profileStore.GetProfilePath(profileName)} ({profile.Slots.Count} slots).");
+        _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
+        SetStatus($"Profile loaded: {_profileStore.GetProfilePath(profileName)} ({_candidates.Count} candidates, {profile.Slots.Count} slots).");
     }
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -1037,8 +1134,10 @@ public partial class MainWindow : Window
 
     private void BeginCandidateDrag(SlotCandidate candidate, Rectangle rect, MouseButtonEventArgs args)
     {
-        var isShiftPressed = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
-        if (isShiftPressed)
+        var isMultiSelectModifierPressed =
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ||
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        if (isMultiSelectModifierPressed)
         {
             candidate.IsSelected = !candidate.IsSelected;
             if (!candidate.IsSelected)
@@ -1389,7 +1488,10 @@ public partial class MainWindow : Window
     {
         _isSelectingCandidates = true;
         _selectionStartPosition = position;
-        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        var isMultiSelectModifierPressed =
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ||
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        if (!isMultiSelectModifierPressed)
         {
             ClearCandidateSelection();
         }
@@ -2208,6 +2310,22 @@ public partial class MainWindow : Window
         return Math.Clamp(scale, 0.1, 10);
     }
 
+    private static SlotCandidate? ResolveProfileSlotSource(
+        OverlayProfileSlot slot,
+        IReadOnlyDictionary<int, SlotCandidate> candidates)
+    {
+        if (slot.SourceCandidateId > 0 && candidates.TryGetValue(slot.SourceCandidateId, out var byId))
+        {
+            return byId;
+        }
+
+        return candidates.Values.FirstOrDefault(candidate =>
+            Math.Abs(candidate.SourceRect.X - slot.SourceX) < 0.001 &&
+            Math.Abs(candidate.SourceRect.Y - slot.SourceY) < 0.001 &&
+            Math.Abs(candidate.SourceRect.Width - slot.SourceWidth) < 0.001 &&
+            Math.Abs(candidate.SourceRect.Height - slot.SourceHeight) < 0.001);
+    }
+
     private double ReadSmallGapX() => Math.Clamp(SmallGapXSlider.Value, 2, 30);
 
     private double ReadSmallGapY() => Math.Clamp(SmallGapYSlider.Value, 2, 30);
@@ -2305,9 +2423,7 @@ public partial class MainWindow : Window
     }
 
     private string ReadSelectedProfileName() =>
-        ProfileCombo.SelectedItem is string selected && !string.IsNullOrWhiteSpace(selected)
-            ? selected
-            : "default";
+        string.IsNullOrWhiteSpace(_selectedProfileName) ? "default" : _selectedProfileName;
 
     private void RefreshProfileList(string? selectedProfileName = null)
     {
@@ -2326,9 +2442,10 @@ public partial class MainWindow : Window
             names = names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
-        ProfileCombo.ItemsSource = names;
-        ProfileCombo.SelectedItem = names.FirstOrDefault(name => string.Equals(name, selected, StringComparison.OrdinalIgnoreCase))
-                                    ?? names.FirstOrDefault();
+        _profileNames = names;
+        _selectedProfileName = names.FirstOrDefault(name => string.Equals(name, selected, StringComparison.OrdinalIgnoreCase))
+                               ?? names.FirstOrDefault()
+                               ?? "default";
     }
 
     private static string GetSectionPatternName(int index) =>

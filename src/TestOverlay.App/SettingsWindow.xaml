@@ -1,15 +1,17 @@
 <Window x:Class="TestOverlay.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Settings"
-        Width="640"
-        Height="220"
+        Title="Profile Settings"
+        Width="680"
+        Height="330"
         MinWidth="520"
-        MinHeight="200"
+        MinHeight="300"
         Background="#F3F5F7"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -17,7 +19,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0"
-                   Text="Profile save folder"
+                   Text="Profile"
                    FontSize="16"
                    FontWeight="SemiBold"
                    Foreground="#20242B"/>
@@ -28,18 +30,36 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+            <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="30"/>
+            <Button Grid.Column="1" Width="84" Height="30" Margin="8,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
+            <Button Grid.Column="2" Width="84" Height="30" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   Margin="0,16,0,0"
+                   Text="Profile save folder"
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   Foreground="#20242B"/>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
             <TextBox x:Name="ProfileDirectoryBox" Grid.Column="0" Height="30" VerticalContentAlignment="Center"/>
             <Button Grid.Column="1" Width="84" Height="30" Margin="8,0,0,0" Content="Browse" Click="BrowseButton_Click"/>
             <Button Grid.Column="2" Width="84" Height="30" Margin="8,0,0,0" Content="Default" Click="DefaultButton_Click"/>
         </Grid>
 
-        <TextBlock Grid.Row="2"
+        <TextBlock Grid.Row="4"
                    Margin="0,10,0,0"
                    Foreground="#596273"
                    TextWrapping="Wrap"
                    Text="Profiles are saved as JSON files in this folder. The portable default is the save folder next to the executable."/>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Width="84" Height="32" Content="OK" Click="OkButton_Click"/>
             <Button Width="84" Height="32" Margin="8,0,0,0" Content="Cancel" IsCancel="True"/>
         </StackPanel>

@@ -34,6 +34,10 @@ public sealed class OverlayProfile
 
     public List<OverlayProfileSectionSettings> SectionSettings { get; set; } = [];
 
+    public List<OverlayProfileCandidate> Candidates { get; set; } = [];
+
+    public List<OverlayProfileSection> Sections { get; set; } = [];
+
     public List<OverlayProfileSlot> Slots { get; set; } = [];
 }
 
@@ -52,6 +56,8 @@ public sealed class OverlayProfileSectionSettings
 
 public sealed class OverlayProfileSlot
 {
+    public int SourceCandidateId { get; set; }
+
     public double SourceX { get; set; }
 
     public double SourceY { get; set; }
@@ -71,4 +77,38 @@ public sealed class OverlayProfileSlot
     public double Opacity { get; set; } = 1;
 
     public double Scale { get; set; } = 1;
+}
+
+public sealed class OverlayProfileCandidate
+{
+    public int Id { get; set; }
+
+    public double SourceX { get; set; }
+
+    public double SourceY { get; set; }
+
+    public double SourceWidth { get; set; }
+
+    public double SourceHeight { get; set; }
+
+    public double Score { get; set; }
+
+    public bool IsSelected { get; set; }
+}
+
+public sealed class OverlayProfileSection
+{
+    public int Id { get; set; }
+
+    public int SeedCandidateId { get; set; }
+
+    public int PatternIndex { get; set; }
+
+    public double SmallGapX { get; set; }
+
+    public double SmallGapY { get; set; }
+
+    public double LargeGap { get; set; }
+
+    public List<int> CandidateIds { get; set; } = [];
 }
