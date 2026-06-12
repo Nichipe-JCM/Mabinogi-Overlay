@@ -983,7 +983,8 @@ public partial class MainWindow : Window
                         (int)Math.Ceiling(_layoutCanvasHeight),
                         _wgcSelection.Item,
                         _overlaySlots,
-                        _refreshFps);
+                        _refreshFps,
+                        _log);
                     _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
                     _gpuLiveOverlayService.Start();
                     rendererMode = "GPU/DXGI";
@@ -1004,6 +1005,7 @@ public partial class MainWindow : Window
                 $"left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, " +
                 $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, renderer={rendererMode}, " +
                 $"refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, " +
+                $"logPath={_log.LogPath}, " +
                 $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
                 $"clickThrough={_overlayWindow.IsClickThroughConfigured}, " +
                 $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +

@@ -21,9 +21,11 @@ public sealed class GpuLiveOverlayService : IDisposable
 {
     private readonly object _renderLock = new();
     private readonly IReadOnlyList<OverlaySlot> _slots;
+    private readonly AppLog _log;
     private readonly int _surfaceWidth;
     private readonly int _surfaceHeight;
     private readonly long _minFrameTicks;
+    private readonly long _statsIntervalTicks = Stopwatch.Frequency * 5;
     private readonly Stopwatch _frameClock = Stopwatch.StartNew();
 
     private ID3D11Device? _d3dDevice;
@@ -41,7 +43,14 @@ public sealed class GpuLiveOverlayService : IDisposable
     private Direct3D11CaptureFramePool? _framePool;
     private GraphicsCaptureSession? _session;
     private long _lastPresentedTicks;
+    private long _lastStatsTicks;
+    private long _lastExceptionLogTicks;
+    private int _framesPresented;
+    private int _framesDroppedByThrottle;
+    private int _framesDroppedByBusyRenderer;
+    private int _framesNull;
     private int _isRendering;
+    private bool _firstFrameLogged;
     private bool _isDisposed;
 
     public GpuLiveOverlayService(
@@ -50,17 +59,24 @@ public sealed class GpuLiveOverlayService : IDisposable
         int surfaceHeight,
         GraphicsCaptureItem captureItem,
         IReadOnlyList<OverlaySlot> slots,
-        int maxFps)
+        int maxFps,
+        AppLog log)
     {
         if (overlayHandle == nint.Zero)
         {
             throw new ArgumentException("Overlay handle is not initialized.", nameof(overlayHandle));
         }
 
+        _log = log;
         _surfaceWidth = Math.Max(1, surfaceWidth);
         _surfaceHeight = Math.Max(1, surfaceHeight);
         _slots = slots;
         _minFrameTicks = Stopwatch.Frequency / Math.Clamp(maxFps, 1, 240);
+
+        _log.Info(
+            $"GPU renderer initializing: overlayHandle=0x{overlayHandle.ToInt64():X}, " +
+            $"surface={_surfaceWidth}x{_surfaceHeight}, captureItem={captureItem.Size.Width}x{captureItem.Size.Height}, " +
+            $"slots={_slots.Count}, maxFps={maxFps}");
 
         InitializeDevices(overlayHandle);
         InitializeCapture(captureItem, maxFps);
@@ -73,6 +89,8 @@ public sealed class GpuLiveOverlayService : IDisposable
     public void Start()
     {
         ThrowIfDisposed();
+        _lastStatsTicks = _frameClock.ElapsedTicks;
+        _log.Info("GPU renderer StartCapture requested.");
         _session?.StartCapture();
     }
 
@@ -119,10 +137,15 @@ public sealed class GpuLiveOverlayService : IDisposable
         _dxgiDevice = null;
         _d3dContext = null;
         _d3dDevice = null;
+
+        _log.Info(
+            $"GPU renderer disposed: presented={_framesPresented}, " +
+            $"droppedThrottle={_framesDroppedByThrottle}, droppedBusy={_framesDroppedByBusyRenderer}, nullFrames={_framesNull}");
     }
 
     private void InitializeDevices(nint overlayHandle)
     {
+        _log.Info("GPU renderer device initialization started.");
         _d3dDevice = D3D11.D3D11CreateDevice(
             DriverType.Hardware,
             DeviceCreationFlags.BgraSupport,
@@ -175,10 +198,13 @@ public sealed class GpuLiveOverlayService : IDisposable
         _compositionDevice.Commit().CheckError();
 
         _winRtDevice = Direct3D11Interop.CreateDeviceFromDxgiDevice(_dxgiDevice.NativePointer);
+        _log.Info("GPU renderer device initialization completed: D3D11 + D2D + DXGI swap chain + DirectComposition ready.");
     }
 
     private void InitializeCapture(GraphicsCaptureItem captureItem, int maxFps)
     {
+        _log.Info(
+            $"GPU renderer WGC initialization started: captureItem={captureItem.Size.Width}x{captureItem.Size.Height}, maxFps={maxFps}");
         _framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
             _winRtDevice,
             DirectXPixelFormat.B8G8R8A8UIntNormalized,
@@ -189,6 +215,7 @@ public sealed class GpuLiveOverlayService : IDisposable
         TrySetSessionProperty(_session, "IsBorderRequired", false);
         TrySetSessionProperty(_session, "MinUpdateInterval", TimeSpan.FromMilliseconds(1000.0 / Math.Clamp(maxFps, 1, 240)));
         _framePool.FrameArrived += FramePool_FrameArrived;
+        _log.Info("GPU renderer WGC initialization completed: frame pool and session ready.");
     }
 
     private void FramePool_FrameArrived(Direct3D11CaptureFramePool sender, object args)
@@ -203,12 +230,16 @@ public sealed class GpuLiveOverlayService : IDisposable
         if (now - Interlocked.Read(ref _lastPresentedTicks) < _minFrameTicks)
         {
             using var droppedFrame = sender.TryGetNextFrame();
+            Interlocked.Increment(ref _framesDroppedByThrottle);
+            MaybeLogStats(now);
             return;
         }
 
         if (Interlocked.Exchange(ref _isRendering, 1) == 1)
         {
             using var droppedFrame = sender.TryGetNextFrame();
+            Interlocked.Increment(ref _framesDroppedByBusyRenderer);
+            MaybeLogStats(now);
             return;
         }
 
@@ -217,11 +248,23 @@ public sealed class GpuLiveOverlayService : IDisposable
             using var frame = sender.TryGetNextFrame();
             if (frame is null)
             {
+                Interlocked.Increment(ref _framesNull);
+                MaybeLogStats(now);
                 return;
             }
 
             RenderFrame(frame);
+            var presented = Interlocked.Increment(ref _framesPresented);
             Interlocked.Exchange(ref _lastPresentedTicks, _frameClock.ElapsedTicks);
+            if (!_firstFrameLogged)
+            {
+                _firstFrameLogged = true;
+                _log.Info(
+                    $"GPU renderer first frame presented: frame={frame.ContentSize.Width}x{frame.ContentSize.Height}, " +
+                    $"slots={_slots.Count}, presented={presented}");
+            }
+
+            MaybeLogStats(_frameClock.ElapsedTicks);
             LastException = null;
         }
         catch (ObjectDisposedException)
@@ -231,10 +274,50 @@ public sealed class GpuLiveOverlayService : IDisposable
         catch (Exception ex)
         {
             LastException = ex;
+            LogExceptionThrottled(ex);
         }
         finally
         {
             Interlocked.Exchange(ref _isRendering, 0);
+        }
+    }
+
+    private void MaybeLogStats(long nowTicks)
+    {
+        var previousTicks = Interlocked.Read(ref _lastStatsTicks);
+        if (nowTicks - previousTicks < _statsIntervalTicks)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _lastStatsTicks, nowTicks, previousTicks) != previousTicks)
+        {
+            return;
+        }
+
+        var elapsedSeconds = Math.Max(0.001, _frameClock.Elapsed.TotalSeconds);
+        var presented = Volatile.Read(ref _framesPresented);
+        var throttleDrops = Volatile.Read(ref _framesDroppedByThrottle);
+        var busyDrops = Volatile.Read(ref _framesDroppedByBusyRenderer);
+        var nullFrames = Volatile.Read(ref _framesNull);
+        _log.Info(
+            $"GPU renderer stats: elapsed={elapsedSeconds:0.0}s, presented={presented}, " +
+            $"avgFps={presented / elapsedSeconds:0.0}, droppedThrottle={throttleDrops}, " +
+            $"droppedBusy={busyDrops}, nullFrames={nullFrames}, slots={_slots.Count}");
+    }
+
+    private void LogExceptionThrottled(Exception exception)
+    {
+        var nowTicks = _frameClock.ElapsedTicks;
+        var previousTicks = Interlocked.Read(ref _lastExceptionLogTicks);
+        if (nowTicks - previousTicks < Stopwatch.Frequency)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _lastExceptionLogTicks, nowTicks, previousTicks) == previousTicks)
+        {
+            _log.Error("GPU renderer frame processing failed.", exception);
         }
     }
 
