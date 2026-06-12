@@ -79,6 +79,8 @@ public partial class OverlayPlacementPreviewWindow : Window
         NotifyPlacementChanged();
     }
 
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
     private void NotifyPlacementChanged() =>
         _placementChanged(Math.Round(Left), Math.Round(Top), Math.Round(Width), Math.Round(Height));
 }

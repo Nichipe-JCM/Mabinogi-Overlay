@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using TestOverlay.App.Models;
 using TestOverlay.App.Native;
@@ -38,26 +39,59 @@ public sealed class WindowDiscoveryService
             }
 
             Win32Methods.GetWindowThreadProcessId(hWnd, out var pid);
-            var processName = GetProcessName(pid);
-            windows.Add(new GameWindowInfo(hWnd, title, processName, rect.Width, rect.Height));
+            var processInfo = GetProcessInfo(pid);
+            windows.Add(new GameWindowInfo(
+                hWnd,
+                title,
+                processInfo.ProcessName,
+                processInfo.ExecutableName,
+                rect.Width,
+                rect.Height));
             return true;
         }, 0);
 
         return windows
-            .OrderByDescending(window => window.LooksLikeMabinogi)
+            .OrderByDescending(window => window.IsExactClientExecutable)
+            .ThenByDescending(window => window.IsPreferredMabinogiClient)
+            .ThenByDescending(window => window.LooksLikeMabinogi)
             .ThenBy(window => window.Title)
             .ToList();
     }
 
-    private static string GetProcessName(uint pid)
+    private static ProcessInfo GetProcessInfo(uint pid)
     {
         try
         {
-            return Process.GetProcessById((int)pid).ProcessName;
+            using var process = Process.GetProcessById((int)pid);
+            var processName = process.ProcessName;
+            var executableName = GetExecutableName(process, processName);
+            return new ProcessInfo(processName, executableName);
         }
         catch
         {
-            return "unknown";
+            return new ProcessInfo("unknown", "unknown");
         }
     }
+
+    private static string GetExecutableName(Process process, string processName)
+    {
+        try
+        {
+            var fileName = process.MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                return Path.GetFileName(fileName);
+            }
+        }
+        catch
+        {
+            // Some elevated or protected windows do not allow MainModule access.
+        }
+
+        return processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? processName
+            : $"{processName}.exe";
+    }
+
+    private sealed record ProcessInfo(string ProcessName, string ExecutableName);
 }

@@ -8,9 +8,19 @@ public sealed class ProfileStore
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
-    public string ProfileDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "Profiles");
+    public ProfileStore(string profileDirectory)
+    {
+        ProfileDirectory = profileDirectory;
+    }
+
+    public string ProfileDirectory { get; private set; }
 
     public string DefaultProfilePath => Path.Combine(ProfileDirectory, "default.json");
+
+    public void SetProfileDirectory(string profileDirectory)
+    {
+        ProfileDirectory = profileDirectory;
+    }
 
     public string GetProfilePath(string? profileName) =>
         Path.Combine(ProfileDirectory, $"{NormalizeProfileName(profileName)}.json");

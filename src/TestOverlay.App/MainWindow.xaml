@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Mabinogi Cooldown Overlay"
         Height="920"
-        Width="1420"
+        Width="1660"
         MinHeight="760"
-        MinWidth="1120"
+        MinWidth="1360"
         Background="#F3F5F7"
         PreviewKeyDown="Window_PreviewKeyDown"
         KeyDown="Window_KeyDown">
@@ -25,6 +25,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
@@ -36,16 +37,17 @@
                 <Button Grid.Column="1" x:Name="RefreshWindowsButton" Width="92" Height="34" Margin="8,20,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
                 <Button Grid.Column="2" x:Name="VerifyWgcButton" Width="112" Height="34" Margin="8,20,0,0" Content="Verify WGC" Click="VerifyWgcButton_Click"/>
                 <Button Grid.Column="3" x:Name="CaptureButton" Width="94" Height="34" Margin="8,20,0,0" Content="Capture" Click="CaptureButton_Click"/>
-                <Button Grid.Column="4" x:Name="DetectButton" Width="104" Height="34" Margin="8,20,0,0" Content="Detect" Click="DetectButton_Click"/>
-                <Button Grid.Column="5" x:Name="StopOverlayButton" Width="104" Height="34" Margin="8,20,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
+                <Button Grid.Column="4" x:Name="DetectButton" Width="148" Height="34" Margin="8,20,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
+                <Button Grid.Column="5" x:Name="DebugDetectButton" Width="116" Height="34" Margin="8,20,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>
+                <Button Grid.Column="6" x:Name="StopOverlayButton" Width="104" Height="34" Margin="8,20,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
             </Grid>
         </Border>
 
         <Grid Grid.Row="1" Margin="0,14,0,14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="520"/>
+                <ColumnDefinition Width="2*" MinWidth="480"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="720" MinWidth="560"/>
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="8">
@@ -56,6 +58,13 @@
                     </Grid.RowDefinitions>
                     <DockPanel Grid.Row="0" Margin="14" LastChildFill="False">
                         <TextBlock Text="Capture Preview" FontSize="16" FontWeight="SemiBold" Foreground="#20242B"/>
+                        <TextBlock x:Name="DetectModeText"
+                                   Margin="12,0,0,0"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Foreground="#B45309"
+                                   Visibility="Collapsed"
+                                   Text="AUTO DETECT SECTION: drag a section area"/>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Width="28" Height="24" Margin="0,0,6,0" Content="-" Click="ZoomOutButton_Click"/>
                             <TextBlock Text="Zoom" VerticalAlignment="Center" Foreground="#596273"/>
@@ -87,6 +96,17 @@
                 </Grid>
             </Border>
 
+            <GridSplitter Grid.Column="1"
+                          Width="8"
+                          Margin="3,0"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          ShowsPreview="True"
+                          Background="#CBD5E1"
+                          Cursor="SizeWE"/>
+
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="1.35*"/>
@@ -105,7 +125,8 @@
 
                         <TextBlock Text="2. Slot Candidates" FontSize="16" FontWeight="SemiBold" Foreground="#20242B"/>
 
-                        <Grid Grid.Row="1" Margin="0,12,0,12">
+                        <Expander Grid.Row="1" Header="Create manual section" IsExpanded="False" Margin="0,12,0,12">
+                        <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="10"/>
@@ -135,7 +156,7 @@
                                 <TextBlock Text="Section pattern"/>
                                 <ComboBox x:Name="SectionPatternCombo" SelectedIndex="0">
                                     <ComboBoxItem Content="Top grouped 4x2 x3"/>
-                                    <ComboBoxItem Content="Left vertical 2x8"/>
+                                    <ComboBoxItem Content="Vertical 2x8"/>
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="2">
@@ -148,17 +169,18 @@
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="0">
                                 <TextBlock x:Name="SmallGapXText"/>
-                                <Slider x:Name="SmallGapXSlider" Minimum="0" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapXSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="4" Grid.Column="2">
                                 <TextBlock x:Name="SmallGapYText"/>
-                                <Slider x:Name="SmallGapYSlider" Minimum="0" Maximum="30" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="SmallGapYSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                             <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
                                 <TextBlock x:Name="LargeGapText"/>
-                                <Slider x:Name="LargeGapSlider" Minimum="0" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                <Slider x:Name="LargeGapSlider" Minimum="2" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
                             </StackPanel>
                         </Grid>
+                        </Expander>
 
                         <ListBox Grid.Row="2"
                                  x:Name="CandidateList"
@@ -173,15 +195,14 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
 
-                        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,12,0,0">
-                            <Button x:Name="SelectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,6" Content="All" Click="SelectAllCandidatesButton_Click"/>
-                            <Button x:Name="DeselectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,6" Content="None" Click="DeselectAllCandidatesButton_Click"/>
-                            <Button x:Name="AddManualCandidateButton" Width="82" Height="32" Margin="4,0,0,6" Content="Add" Click="AddManualCandidateButton_Click"/>
-                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,6" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
-                            <Button x:Name="AddSelectedButton" Width="104" Height="32" Margin="4,0,0,6" Content="Place" Click="AddSelectedButton_Click"/>
-                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,6" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
-                            <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,6" Content="Clear" Click="ClearCandidatesButton_Click"/>
-                        </WrapPanel>
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button x:Name="SelectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,0" Content="All" Click="SelectAllCandidatesButton_Click"/>
+                            <Button x:Name="DeselectAllCandidatesButton" Width="70" Height="32" Margin="4,0,0,0" Content="None" Click="DeselectAllCandidatesButton_Click"/>
+                            <Button x:Name="AddManualCandidateButton" Width="82" Height="32" Margin="4,0,0,0" Content="Add" Click="AddManualCandidateButton_Click"/>
+                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,0" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
+                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,0" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
+                            <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,0" Content="Clear" Click="ClearCandidatesButton_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -203,15 +224,13 @@
                             </StackPanel>
                         </Border>
 
-                        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,0,0,0">
-                            <ComboBox x:Name="ProfileCombo" Width="130" Height="34" Margin="4,0,8,6" ToolTip="Saved profiles under the portable Profiles folder"/>
-                            <Button x:Name="OpenLayoutEditorButton" Width="132" Height="34" Margin="4,0,0,6" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
-                            <Button x:Name="ClearLayoutButton" Width="76" Height="34" Margin="4,0,0,6" Content="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="SaveProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Save" Click="SaveProfileButton_Click"/>
-                            <Button x:Name="LoadProfileButton" Width="64" Height="34" Margin="4,0,0,6" Content="Load" Click="LoadProfileButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="70" Height="34" Margin="4,0,0,6" Content="Start" Click="StartOverlayButton_Click"/>
-                            <Button x:Name="StopOverlayLayoutButton" Width="70" Height="34" Margin="4,0,0,6" Content="Stop" Click="StopOverlayButton_Click"/>
-                        </WrapPanel>
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
+                            <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
+                            <Button x:Name="StartOverlayButton" Width="62" Height="34" Margin="4,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="StopOverlayLayoutButton" Width="62" Height="34" Margin="4,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
+                            <Button x:Name="SettingsButton" Width="112" Height="34" Margin="4,0,0,0" Content="Profile Settings" Click="SettingsButton_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>
