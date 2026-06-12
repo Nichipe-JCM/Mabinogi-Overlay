@@ -89,6 +89,15 @@ public partial class SettingsWindow : Window
         Commit(SettingsProfileAction.Load);
     }
 
+    private void BenchmarkButton_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new BenchmarkWindow
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void Commit(SettingsProfileAction action)
     {
         var directory = ProfileDirectoryBox.Text.Trim();

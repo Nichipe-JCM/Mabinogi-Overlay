@@ -1,0 +1,48 @@
+<Window x:Class="TestOverlay.App.BenchmarkWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Benchmark"
+        Width="760"
+        Height="520"
+        MinWidth="620"
+        MinHeight="420"
+        Background="#F3F5F7"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Benchmark / Stress Test"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Foreground="#20242B"/>
+
+        <StackPanel Grid.Row="1" Margin="0,12,0,12">
+            <TextBlock x:Name="StatusText" Foreground="#334155"/>
+            <ProgressBar x:Name="BenchmarkProgress" Height="12" Margin="0,8,0,0" Minimum="0" Maximum="1"/>
+        </StackPanel>
+
+        <TextBox Grid.Row="2"
+                 x:Name="OutputBox"
+                 IsReadOnly="True"
+                 TextWrapping="NoWrap"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas"
+                 FontSize="12"
+                 Background="#111827"
+                 Foreground="#D1D5DB"
+                 BorderBrush="#D9DEE7"/>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="RunAgainButton" Width="96" Height="32" Content="Run again" Click="RunAgainButton_Click" IsEnabled="False"/>
+            <Button x:Name="CloseButton" Width="84" Height="32" Margin="8,0,0,0" Content="Close" Click="CloseButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

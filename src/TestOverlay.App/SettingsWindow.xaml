@@ -75,6 +75,7 @@
                    Text="Profiles are saved as JSON files in this folder. The portable default is the save folder next to the executable. Renderer mode is saved in settings.json."/>
 
         <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="112" Height="32" Content="Benchmark" Click="BenchmarkButton_Click"/>
             <Button Width="84" Height="32" Content="OK" Click="OkButton_Click"/>
             <Button Width="84" Height="32" Margin="8,0,0,0" Content="Cancel" IsCancel="True"/>
         </StackPanel>
