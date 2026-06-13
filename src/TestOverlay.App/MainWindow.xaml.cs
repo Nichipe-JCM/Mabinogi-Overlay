@@ -32,6 +32,8 @@ public partial class MainWindow : Window
     private readonly ProfileStore _profileStore;
     private AppSettings _appSettings;
     private readonly AppLog _log = new();
+    private readonly object _detectLogSync = new();
+    private readonly string _detectSessionLogPath;
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly ObservableCollection<QuickslotSection> _sections = new();
@@ -93,6 +95,9 @@ public partial class MainWindow : Window
     {
         _appSettings = _settingsStore.Load();
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
+        _detectSessionLogPath = System.IO.Path.Combine(
+            _log.LogDirectory,
+            $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SectionCombo.ItemsSource = _sections;
@@ -1775,12 +1780,25 @@ public partial class MainWindow : Window
         }
 
         lines.AddRange(diagnostics.Select(line => $"  {line}"));
-        var path = System.IO.Path.Combine(
-            _log.LogDirectory,
-            $"detect-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
-        System.IO.Directory.CreateDirectory(_log.LogDirectory);
-        System.IO.File.WriteAllLines(path, lines);
-        return path;
+        lines.Add(string.Empty);
+
+        lock (_detectLogSync)
+        {
+            System.IO.Directory.CreateDirectory(_log.LogDirectory);
+            var isNewLog = !System.IO.File.Exists(_detectSessionLogPath);
+            var output = new List<string>();
+            if (isNewLog)
+            {
+                output.Add($"Detect session log started {DateTimeOffset.Now:O}");
+                output.Add(string.Empty);
+            }
+
+            output.Add("----");
+            output.AddRange(lines);
+            System.IO.File.AppendAllLines(_detectSessionLogPath, output);
+        }
+
+        return _detectSessionLogPath;
     }
 
     private void BeginCandidateBoxSelection(Point position)
