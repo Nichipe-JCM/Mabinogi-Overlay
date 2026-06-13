@@ -25,6 +25,8 @@ public sealed class RoiSectionDetectionService
     private const int MinGap = 2;
     private const int MaxSmallGap = 30;
     private const int MaxLargeGap = 60;
+    private const double InsetContentSampleRatio = 0.10;
+    private const double MinInsetIconActivityDelta = 8;
 
     public SectionDetectionResult? Detect(
         BitmapSource source,
@@ -287,8 +289,15 @@ public sealed class RoiSectionDetectionService
         PatternFit fit,
         IList<string>? diagnostics)
     {
-        var insetVotes = fit.Slots.Count(slot => edge.PrefersInsetTopLeftBorder(slot, patternKind));
-        var requiredVotes = Math.Max(1, (int)Math.Ceiling(fit.Slots.Count * 0.60));
+        if (!IsCompressedGapFit(patternKind, fit))
+        {
+            diagnostics?.Add(
+                $"oversize check: gapX={fit.SmallGapX:0}, gapY={fit.SmallGapY:0}, large={fit.LargeGap:0}, action=keep-gap");
+            return fit;
+        }
+
+        var insetVotes = fit.Slots.Count(slot => edge.HasInsetIconContent(slot, patternKind));
+        var requiredVotes = Math.Max(1, (int)Math.Ceiling(fit.Slots.Count * 0.50));
         if (insetVotes < requiredVotes)
         {
             diagnostics?.Add($"oversize check: insetVotes={insetVotes}/{fit.Slots.Count}, required={requiredVotes}, action=keep");
@@ -322,6 +331,13 @@ public sealed class RoiSectionDetectionService
             normalizedLargeGap,
             normalizedScore);
     }
+
+    private static bool IsCompressedGapFit(
+        QuickslotSectionPatternKind patternKind,
+        PatternFit fit) =>
+        patternKind == QuickslotSectionPatternKind.Vertical
+            ? fit.SmallGapX <= MinGap && fit.SmallGapY <= MinGap
+            : fit.SmallGapX <= MinGap;
 
     private static Rect BoundingRect(IReadOnlyList<Rect> slots)
     {
@@ -408,6 +424,7 @@ public sealed class RoiSectionDetectionService
         private readonly double[] _bottomBorderHitIntegral;
         private readonly double[] _leftBorderHitIntegral;
         private readonly double[] _rightBorderHitIntegral;
+        private readonly double[] _contentActivityIntegral;
 
         private EdgeImage(
             int width,
@@ -417,7 +434,8 @@ public sealed class RoiSectionDetectionService
             double[] topBorderHitIntegral,
             double[] bottomBorderHitIntegral,
             double[] leftBorderHitIntegral,
-            double[] rightBorderHitIntegral)
+            double[] rightBorderHitIntegral,
+            double[] contentActivityIntegral)
         {
             Width = width;
             Height = height;
@@ -427,6 +445,7 @@ public sealed class RoiSectionDetectionService
             _bottomBorderHitIntegral = bottomBorderHitIntegral;
             _leftBorderHitIntegral = leftBorderHitIntegral;
             _rightBorderHitIntegral = rightBorderHitIntegral;
+            _contentActivityIntegral = contentActivityIntegral;
         }
 
         public int Width { get; }
@@ -471,6 +490,7 @@ public sealed class RoiSectionDetectionService
             var bottomBorderIntegral = new double[(width + 1) * (height + 1)];
             var leftBorderIntegral = new double[(width + 1) * (height + 1)];
             var rightBorderIntegral = new double[(width + 1) * (height + 1)];
+            var contentActivityIntegral = new double[(width + 1) * (height + 1)];
             for (var y = 1; y <= height; y++)
             {
                 var rowSum = 0.0;
@@ -479,29 +499,34 @@ public sealed class RoiSectionDetectionService
                 var bottomBorderRowSum = 0.0;
                 var leftBorderRowSum = 0.0;
                 var rightBorderRowSum = 0.0;
+                var contentActivityRowSum = 0.0;
                 for (var x = 1; x <= width; x++)
                 {
                     var pixelOffset = (y - 1) * stride + (x - 1) * 4;
+                    var blue = pixels[pixelOffset];
+                    var green = pixels[pixelOffset + 1];
+                    var red = pixels[pixelOffset + 2];
                     var sourceX = x - 1;
                     var sourceY = y - 1;
                     var sourceIndex = sourceY * width + sourceX;
                     var edgeValue = edge[(y - 1) * width + (x - 1)];
-                    var isDark = IsNearBlack(
-                        pixels[pixelOffset],
-                        pixels[pixelOffset + 1],
-                        pixels[pixelOffset + 2]);
+                    var isDark = IsNearBlack(blue, green, red);
+                    var chroma = Math.Max(red, Math.Max(green, blue)) - Math.Min(red, Math.Min(green, blue));
+                    var contentActivity = chroma + edgeValue * 0.35;
                     rowSum += edgeValue;
                     blackRowSum += isDark ? 1 : 0;
                     topBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, 0, 1, isDark) ? 1 : 0;
                     bottomBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, 0, -1, isDark) ? 1 : 0;
                     leftBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, 1, 0, isDark) ? 1 : 0;
                     rightBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, -1, 0, isDark) ? 1 : 0;
+                    contentActivityRowSum += contentActivity;
                     integral[y * (width + 1) + x] = integral[(y - 1) * (width + 1) + x] + rowSum;
                     blackIntegral[y * (width + 1) + x] = blackIntegral[(y - 1) * (width + 1) + x] + blackRowSum;
                     topBorderIntegral[y * (width + 1) + x] = topBorderIntegral[(y - 1) * (width + 1) + x] + topBorderRowSum;
                     bottomBorderIntegral[y * (width + 1) + x] = bottomBorderIntegral[(y - 1) * (width + 1) + x] + bottomBorderRowSum;
                     leftBorderIntegral[y * (width + 1) + x] = leftBorderIntegral[(y - 1) * (width + 1) + x] + leftBorderRowSum;
                     rightBorderIntegral[y * (width + 1) + x] = rightBorderIntegral[(y - 1) * (width + 1) + x] + rightBorderRowSum;
+                    contentActivityIntegral[y * (width + 1) + x] = contentActivityIntegral[(y - 1) * (width + 1) + x] + contentActivityRowSum;
                 }
             }
 
@@ -513,7 +538,8 @@ public sealed class RoiSectionDetectionService
                 topBorderIntegral,
                 bottomBorderIntegral,
                 leftBorderIntegral,
-                rightBorderIntegral);
+                rightBorderIntegral,
+                contentActivityIntegral);
         }
 
         private static bool IsNearBlack(byte blue, byte green, byte red) =>
@@ -609,7 +635,7 @@ public sealed class RoiSectionDetectionService
                 : ScoreTopGroupedSlotBorder(x, y, width, height);
         }
 
-        public bool PrefersInsetTopLeftBorder(Rect rect, QuickslotSectionPatternKind patternKind)
+        public bool HasInsetIconContent(Rect rect, QuickslotSectionPatternKind patternKind)
         {
             var x = (int)Math.Round(rect.X);
             var y = (int)Math.Round(rect.Y);
@@ -622,33 +648,43 @@ public sealed class RoiSectionDetectionService
                 return false;
             }
 
-            var labelMask = patternKind == QuickslotSectionPatternKind.TopGrouped
-                ? (int)Math.Round(
-                    Math.Min(width, height) * TopGroupedLabelCornerMaskRatio,
-                    MidpointRounding.AwayFromZero)
-                : 0;
             var innerLabelMask = patternKind == QuickslotSectionPatternKind.TopGrouped
                 ? (int)Math.Round(
                     Math.Min(innerWidth, innerHeight) * TopGroupedLabelCornerMaskRatio,
                     MidpointRounding.AwayFromZero)
                 : 0;
 
-            var currentTopWidth = width - labelMask;
-            var currentLeftHeight = height - labelMask;
-            var innerTopWidth = innerWidth - innerLabelMask;
-            var innerLeftHeight = innerHeight - innerLabelMask;
-            if (currentTopWidth <= 0 || currentLeftHeight <= 0 || innerTopWidth <= 0 || innerLeftHeight <= 0)
+            var insetX = x + 1;
+            var insetY = y + 1;
+            var contentX = insetX + 1;
+            var contentY = insetY + 1;
+            var contentWidth = Math.Max(1, innerWidth - 2);
+            var contentHeight = Math.Max(1, innerHeight - 2);
+            if (patternKind == QuickslotSectionPatternKind.TopGrouped)
+            {
+                contentX += innerLabelMask;
+                contentWidth -= innerLabelMask;
+            }
+
+            if (contentWidth <= 0 || contentHeight <= 0)
             {
                 return false;
             }
 
-            var currentTopContrast = TopBorderCoverage(x + labelMask, y, currentTopWidth, 1);
-            var currentLeftContrast = LeftBorderCoverage(x, y + labelMask, 1, currentLeftHeight);
-            var innerTopContrast = TopBorderCoverage(x + 1 + innerLabelMask, y + 1, innerTopWidth, 1);
-            var innerLeftContrast = LeftBorderCoverage(x + 1, y + 1 + innerLabelMask, 1, innerLeftHeight);
-            const double minimumInsetImprovement = 0.15;
-            return innerTopContrast >= currentTopContrast + minimumInsetImprovement &&
-                   innerLeftContrast >= currentLeftContrast + minimumInsetImprovement;
+            var stripHeight = Math.Clamp(
+                (int)Math.Round(Math.Min(innerWidth, innerHeight) * InsetContentSampleRatio, MidpointRounding.AwayFromZero),
+                1,
+                contentHeight);
+            var stripWidth = Math.Clamp(
+                (int)Math.Round(Math.Min(innerWidth, innerHeight) * InsetContentSampleRatio, MidpointRounding.AwayFromZero),
+                1,
+                contentWidth);
+            var topContentActivity = AverageContentActivity(contentX, contentY, contentWidth, stripHeight);
+            var leftContentActivity = AverageContentActivity(contentX, contentY, stripWidth, contentHeight);
+            var centerContentActivity = AverageContentActivity(contentX, contentY, contentWidth, contentHeight);
+            var borderReferenceActivity = AverageContentActivity(insetX, insetY, innerWidth, 1);
+            var activity = Math.Max(centerContentActivity, (topContentActivity + leftContentActivity) / 2);
+            return activity >= borderReferenceActivity + MinInsetIconActivityDelta;
         }
 
         private double ScoreTopGroupedSlotBorder(int x, int y, int width, int height)
@@ -760,6 +796,9 @@ public sealed class RoiSectionDetectionService
         private double Average(int x, int y, int width, int height) =>
             Sum(x, y, width, height) / Math.Max(1, width * height);
 
+        private double AverageContentActivity(int x, int y, int width, int height) =>
+            SumContentActivity(x, y, width, height) / Math.Max(1, width * height);
+
         private double Coverage(int x, int y, int width, int height) =>
             SumHits(x, y, width, height) / Math.Max(1, width * height);
 
@@ -796,6 +835,24 @@ public sealed class RoiSectionDetectionService
         private double SumHits(int x, int y, int width, int height)
         {
             return SumHits(_hitIntegral, x, y, width, height);
+        }
+
+        private double SumContentActivity(int x, int y, int width, int height)
+        {
+            var x1 = Math.Clamp(x, 0, Width);
+            var y1 = Math.Clamp(y, 0, Height);
+            var x2 = Math.Clamp(x + width, 0, Width);
+            var y2 = Math.Clamp(y + height, 0, Height);
+            if (x2 <= x1 || y2 <= y1)
+            {
+                return 0;
+            }
+
+            var stride = Width + 1;
+            return _contentActivityIntegral[y2 * stride + x2]
+                   - _contentActivityIntegral[y1 * stride + x2]
+                   - _contentActivityIntegral[y2 * stride + x1]
+                   + _contentActivityIntegral[y1 * stride + x1];
         }
 
         private double SumHits(double[] hitIntegral, int x, int y, int width, int height)
