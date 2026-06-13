@@ -43,22 +43,28 @@ public sealed class WgcWindowSelectionService
 
     private static GraphicsCaptureItem CreateItemForWindow(nint windowHandle)
     {
-#pragma warning disable CS0618
-        using var factoryReference = ActivationFactory.Get("Windows.Graphics.Capture.GraphicsCaptureItem")
-            .As<IGraphicsCaptureItemInterop>();
-#pragma warning restore CS0618
-        var factory = (IGraphicsCaptureItemInterop)Marshal.GetTypedObjectForIUnknown(
-            factoryReference.ThisPtr,
-            typeof(IGraphicsCaptureItemInterop));
-        var itemGuid = GraphicsCaptureItemGuid;
-        var hresult = factory.CreateForWindow(windowHandle, ref itemGuid, out var itemPointer);
-        if (hresult < 0)
-        {
-            Marshal.ThrowExceptionForHR(hresult);
-        }
-
+        var className = nint.Zero;
+        var factoryPointer = nint.Zero;
+        var itemPointer = nint.Zero;
         try
         {
+            var hresult = WindowsCreateString(
+                GraphicsCaptureItemRuntimeClassName,
+                GraphicsCaptureItemRuntimeClassName.Length,
+                out className);
+            ThrowIfFailed(hresult);
+
+            var factoryGuid = GraphicsCaptureItemInteropGuid;
+            hresult = RoGetActivationFactory(className, ref factoryGuid, out factoryPointer);
+            ThrowIfFailed(hresult);
+
+            var factory = (IGraphicsCaptureItemInterop)Marshal.GetTypedObjectForIUnknown(
+                factoryPointer,
+                typeof(IGraphicsCaptureItemInterop));
+            var itemGuid = GraphicsCaptureItemGuid;
+            hresult = factory.CreateForWindow(windowHandle, ref itemGuid, out itemPointer);
+            ThrowIfFailed(hresult);
+
             return MarshalInterface<GraphicsCaptureItem>.FromAbi(itemPointer);
         }
         finally
@@ -67,10 +73,31 @@ public sealed class WgcWindowSelectionService
             {
                 Marshal.Release(itemPointer);
             }
+
+            if (factoryPointer != nint.Zero)
+            {
+                Marshal.Release(factoryPointer);
+            }
+
+            if (className != nint.Zero)
+            {
+                _ = WindowsDeleteString(className);
+            }
         }
     }
 
+    private static void ThrowIfFailed(int hresult)
+    {
+        if (hresult < 0)
+        {
+            Marshal.ThrowExceptionForHR(hresult);
+        }
+    }
+
+    private const string GraphicsCaptureItemRuntimeClassName = "Windows.Graphics.Capture.GraphicsCaptureItem";
+
     private static readonly Guid GraphicsCaptureItemGuid = new("79C3F95B-31F7-4EC2-A464-632EF5D30760");
+    private static readonly Guid GraphicsCaptureItemInteropGuid = new("3628E81B-3CAC-4C60-B7F4-23CE0E0C3356");
 
     [ComImport]
     [Guid("3628E81B-3CAC-4C60-B7F4-23CE0E0C3356")]
@@ -83,4 +110,16 @@ public sealed class WgcWindowSelectionService
         [PreserveSig]
         int CreateForMonitor(nint monitor, ref Guid iid, out nint result);
     }
+
+    [DllImport("combase.dll", ExactSpelling = true)]
+    private static extern int RoGetActivationFactory(nint activatableClassId, ref Guid iid, out nint factory);
+
+    [DllImport("combase.dll", ExactSpelling = true)]
+    private static extern int WindowsCreateString(
+        [MarshalAs(UnmanagedType.LPWStr)] string sourceString,
+        int length,
+        out nint hstring);
+
+    [DllImport("combase.dll", ExactSpelling = true)]
+    private static extern int WindowsDeleteString(nint hstring);
 }
