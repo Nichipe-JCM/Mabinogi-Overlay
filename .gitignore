@@ -7,3 +7,5 @@ obj/
 *.cache
 TestResults/
 artifacts/
+docs/AGENTS.md
+docs/NEXT_SESSION_HANDOFF.md
