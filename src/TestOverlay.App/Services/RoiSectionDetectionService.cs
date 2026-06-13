@@ -138,16 +138,7 @@ public sealed class RoiSectionDetectionService
                         continue;
                     }
 
-                    var normalizedRect = edge.NormalizeTopLeftOuterBorder(rect, patternKind);
-                    var normalizedScore = normalizedRect == rect
-                        ? anchorScore
-                        : edge.ScoreAnchor(normalizedRect, patternKind);
-                    if (normalizedScore < 10)
-                    {
-                        continue;
-                    }
-
-                    candidates.Add(new SlotAnchor(normalizedRect, normalizedScore));
+                    candidates.Add(new SlotAnchor(rect, anchorScore));
                 }
 
                 if (candidates.Count > 5000)
@@ -515,61 +506,6 @@ public sealed class RoiSectionDetectionService
         public double ScoreAnchor(Rect rect, QuickslotSectionPatternKind patternKind) =>
             ScoreBottomRightAnchor(rect);
 
-        public Rect NormalizeTopLeftOuterBorder(Rect rect, QuickslotSectionPatternKind patternKind)
-        {
-            var x = (int)Math.Round(rect.X);
-            var y = (int)Math.Round(rect.Y);
-            var width = (int)Math.Round(rect.Width);
-            var height = (int)Math.Round(rect.Height);
-
-            while (width > MinDetectedSlotSize && height > MinDetectedSlotSize)
-            {
-                var innerX = x + 1;
-                var innerY = y + 1;
-                var innerWidth = width - 1;
-                var innerHeight = height - 1;
-                if (CountInnerBorderMatches(innerX, innerY, innerWidth, innerHeight, patternKind) < 2)
-                {
-                    break;
-                }
-
-                x = innerX;
-                y = innerY;
-                width = innerWidth;
-                height = innerHeight;
-            }
-
-            return new Rect(x, y, width, height);
-        }
-
-        private int CountInnerBorderMatches(
-            int x,
-            int y,
-            int width,
-            int height,
-            QuickslotSectionPatternKind patternKind)
-        {
-            if (width <= 0 || height <= 0)
-            {
-                return 0;
-            }
-
-            var labelMask = patternKind == QuickslotSectionPatternKind.TopGrouped
-                ? (int)Math.Round(
-                    Math.Min(width, height) * TopGroupedLabelCornerMaskRatio,
-                    MidpointRounding.AwayFromZero)
-                : 0;
-
-            var topMatch = IsTopBorderMatch(x + labelMask, y, width - labelMask, RequiredVerticalSideCoverage, RequiredVerticalSideContrastCoverage);
-            var leftMatch = IsLeftBorderMatch(x, y + labelMask, height - labelMask, RequiredVerticalSideCoverage, RequiredVerticalSideContrastCoverage);
-            var bottomMatch = IsBottomBorderMatch(x, y + height - 1, width, RequiredStrongSideCoverage, RequiredStrongSideContrastCoverage);
-            var rightMatch = IsRightBorderMatch(x + width - 1, y, height, RequiredStrongSideCoverage, RequiredStrongSideContrastCoverage);
-            return Convert.ToInt32(topMatch) +
-                   Convert.ToInt32(leftMatch) +
-                   Convert.ToInt32(bottomMatch) +
-                   Convert.ToInt32(rightMatch);
-        }
-
         private double ScoreBottomRightAnchor(Rect rect)
         {
             var x = (int)Math.Round(rect.X);
@@ -739,26 +675,6 @@ public sealed class RoiSectionDetectionService
 
         private double Coverage(int x, int y, int width, int height) =>
             SumHits(x, y, width, height) / Math.Max(1, width * height);
-
-        private bool IsTopBorderMatch(int x, int y, int width, double requiredCoverage, double requiredContrastCoverage) =>
-            width > 0 &&
-            Coverage(x, y, width, 1) >= requiredCoverage &&
-            TopBorderCoverage(x, y, width, 1) >= requiredContrastCoverage;
-
-        private bool IsBottomBorderMatch(int x, int y, int width, double requiredCoverage, double requiredContrastCoverage) =>
-            width > 0 &&
-            Coverage(x, y, width, 1) >= requiredCoverage &&
-            BottomBorderCoverage(x, y, width, 1) >= requiredContrastCoverage;
-
-        private bool IsLeftBorderMatch(int x, int y, int height, double requiredCoverage, double requiredContrastCoverage) =>
-            height > 0 &&
-            Coverage(x, y, 1, height) >= requiredCoverage &&
-            LeftBorderCoverage(x, y, 1, height) >= requiredContrastCoverage;
-
-        private bool IsRightBorderMatch(int x, int y, int height, double requiredCoverage, double requiredContrastCoverage) =>
-            height > 0 &&
-            Coverage(x, y, 1, height) >= requiredCoverage &&
-            RightBorderCoverage(x, y, 1, height) >= requiredContrastCoverage;
 
         private double TopBorderCoverage(int x, int y, int width, int height) =>
             SumHits(_topBorderHitIntegral, x, y, width, height) / Math.Max(1, width * height);
