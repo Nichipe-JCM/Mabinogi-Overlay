@@ -182,7 +182,7 @@ public sealed class RoiSectionDetectionService
                 H: (int)Math.Round(candidate.Rect.Height)))
             .Select(group => group.OrderByDescending(candidate => candidate.Score).First())
             .OrderByDescending(candidate => candidate.Score)
-            .ThenByDescending(candidate => candidate.Rect.Width)
+            .ThenBy(candidate => candidate.Rect.Width)
             .ThenBy(candidate => candidate.Rect.Y)
             .ThenBy(candidate => candidate.Rect.X)
             .Take(maxCandidates)
@@ -275,7 +275,7 @@ public sealed class RoiSectionDetectionService
         var roiArea = Math.Max(1, roi.Width * roi.Height);
         var coverage = Math.Min(1, bounds.Width * bounds.Height / roiArea);
         var topLeftPenalty = ((bounds.Left - roi.Left) * 0.02) + ((bounds.Top - roi.Top) * 0.03);
-        return average - deviation * 0.25 + coverage * 8 - topLeftPenalty;
+        return average - deviation * 0.25 + coverage * 3 - topLeftPenalty;
     }
 
     private static Rect BoundingRect(IReadOnlyList<Rect> slots)
@@ -597,7 +597,9 @@ public sealed class RoiSectionDetectionService
             var leftContrastCoverage = LeftBorderCoverage(x, y + labelMask, 1, height - labelMask);
             var rightContrastCoverage = RightBorderCoverage(x + width - 1, y, 1, height);
             if (bottomContrastCoverage < RequiredStrongSideContrastCoverage ||
-                rightContrastCoverage < RequiredStrongSideContrastCoverage)
+                rightContrastCoverage < RequiredStrongSideContrastCoverage ||
+                leftContrastCoverage < RequiredVerticalSideContrastCoverage ||
+                topContrastCoverage < RequiredVerticalSideContrastCoverage)
             {
                 return 0;
             }
@@ -642,7 +644,10 @@ public sealed class RoiSectionDetectionService
             var leftContrastCoverage = LeftBorderCoverage(x, y, 1, height);
             var rightContrastCoverage = RightBorderCoverage(x + width - 1, y, 1, height);
             var contrastCoverage = (topContrastCoverage + bottomContrastCoverage + leftContrastCoverage + rightContrastCoverage) / 4;
-            if (contrastCoverage < RequiredVerticalSideContrastCoverage)
+            if (topContrastCoverage < RequiredVerticalSideContrastCoverage ||
+                bottomContrastCoverage < RequiredVerticalSideContrastCoverage ||
+                leftContrastCoverage < RequiredVerticalSideContrastCoverage ||
+                rightContrastCoverage < RequiredVerticalSideContrastCoverage)
             {
                 return 0;
             }
