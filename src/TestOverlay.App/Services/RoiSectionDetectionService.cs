@@ -87,6 +87,8 @@ public sealed class RoiSectionDetectionService
             return null;
         }
 
+        best = NormalizeTopLeftOversizedFit(edge, roi, patternKind, best, diagnostics);
+
         diagnostics?.Add(
             $"best first={FormatRect(best.Slots[0])} gapX={best.SmallGapX:0} gapY={best.SmallGapY:0} large={best.LargeGap:0} score={best.Score:0.000}");
         return new SectionDetectionResult(
@@ -276,6 +278,49 @@ public sealed class RoiSectionDetectionService
         var coverage = Math.Min(1, bounds.Width * bounds.Height / roiArea);
         var topLeftPenalty = ((bounds.Left - roi.Left) * 0.02) + ((bounds.Top - roi.Top) * 0.03);
         return average - deviation * 0.25 + coverage * 3 - topLeftPenalty;
+    }
+
+    private static PatternFit NormalizeTopLeftOversizedFit(
+        EdgeImage edge,
+        Rect roi,
+        QuickslotSectionPatternKind patternKind,
+        PatternFit fit,
+        IList<string>? diagnostics)
+    {
+        var insetVotes = fit.Slots.Count(slot => edge.PrefersInsetTopLeftBorder(slot, patternKind));
+        var requiredVotes = Math.Max(1, (int)Math.Ceiling(fit.Slots.Count * 0.60));
+        if (insetVotes < requiredVotes)
+        {
+            diagnostics?.Add($"oversize check: insetVotes={insetVotes}/{fit.Slots.Count}, required={requiredVotes}, action=keep");
+            return fit;
+        }
+
+        var normalizedSlots = fit.Slots
+            .Select(slot => new Rect(slot.X + 1, slot.Y + 1, slot.Width - 1, slot.Height - 1))
+            .ToList();
+        if (normalizedSlots.Any(slot => slot.Width < MinDetectedSlotSize || slot.Height < MinDetectedSlotSize) ||
+            normalizedSlots.Any(slot => !Contains(roi, slot)))
+        {
+            diagnostics?.Add($"oversize check: insetVotes={insetVotes}/{fit.Slots.Count}, required={requiredVotes}, action=blocked");
+            return fit;
+        }
+
+        var normalizedGapX = fit.SmallGapX + 1;
+        var normalizedGapY = fit.SmallGapY + 1;
+        var normalizedLargeGap = patternKind == QuickslotSectionPatternKind.TopGrouped
+            ? fit.LargeGap + 1
+            : fit.LargeGap;
+        var normalizedScore = ScorePattern(edge, roi, patternKind, normalizedSlots);
+        diagnostics?.Add(
+            $"oversize check: insetVotes={insetVotes}/{fit.Slots.Count}, required={requiredVotes}, action=inset, " +
+            $"from first={FormatRect(fit.Slots[0])} gapX={fit.SmallGapX:0} gapY={fit.SmallGapY:0} large={fit.LargeGap:0} score={fit.Score:0.000}, " +
+            $"to first={FormatRect(normalizedSlots[0])} gapX={normalizedGapX:0} gapY={normalizedGapY:0} large={normalizedLargeGap:0} score={normalizedScore:0.000}");
+        return new PatternFit(
+            normalizedSlots,
+            normalizedGapX,
+            normalizedGapY,
+            normalizedLargeGap,
+            normalizedScore);
     }
 
     private static Rect BoundingRect(IReadOnlyList<Rect> slots)
@@ -562,6 +607,48 @@ public sealed class RoiSectionDetectionService
             return patternKind == QuickslotSectionPatternKind.Vertical
                 ? ScoreStrictSlotBorder(x, y, width, height)
                 : ScoreTopGroupedSlotBorder(x, y, width, height);
+        }
+
+        public bool PrefersInsetTopLeftBorder(Rect rect, QuickslotSectionPatternKind patternKind)
+        {
+            var x = (int)Math.Round(rect.X);
+            var y = (int)Math.Round(rect.Y);
+            var width = (int)Math.Round(rect.Width);
+            var height = (int)Math.Round(rect.Height);
+            var innerWidth = width - 1;
+            var innerHeight = height - 1;
+            if (innerWidth < MinDetectedSlotSize || innerHeight < MinDetectedSlotSize)
+            {
+                return false;
+            }
+
+            var labelMask = patternKind == QuickslotSectionPatternKind.TopGrouped
+                ? (int)Math.Round(
+                    Math.Min(width, height) * TopGroupedLabelCornerMaskRatio,
+                    MidpointRounding.AwayFromZero)
+                : 0;
+            var innerLabelMask = patternKind == QuickslotSectionPatternKind.TopGrouped
+                ? (int)Math.Round(
+                    Math.Min(innerWidth, innerHeight) * TopGroupedLabelCornerMaskRatio,
+                    MidpointRounding.AwayFromZero)
+                : 0;
+
+            var currentTopWidth = width - labelMask;
+            var currentLeftHeight = height - labelMask;
+            var innerTopWidth = innerWidth - innerLabelMask;
+            var innerLeftHeight = innerHeight - innerLabelMask;
+            if (currentTopWidth <= 0 || currentLeftHeight <= 0 || innerTopWidth <= 0 || innerLeftHeight <= 0)
+            {
+                return false;
+            }
+
+            var currentTopContrast = TopBorderCoverage(x + labelMask, y, currentTopWidth, 1);
+            var currentLeftContrast = LeftBorderCoverage(x, y + labelMask, 1, currentLeftHeight);
+            var innerTopContrast = TopBorderCoverage(x + 1 + innerLabelMask, y + 1, innerTopWidth, 1);
+            var innerLeftContrast = LeftBorderCoverage(x + 1, y + 1 + innerLabelMask, 1, innerLeftHeight);
+            const double minimumInsetImprovement = 0.15;
+            return innerTopContrast >= currentTopContrast + minimumInsetImprovement &&
+                   innerLeftContrast >= currentLeftContrast + minimumInsetImprovement;
         }
 
         private double ScoreTopGroupedSlotBorder(int x, int y, int width, int height)
