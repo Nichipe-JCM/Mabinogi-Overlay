@@ -9,8 +9,12 @@ public sealed class RoiSectionDetectionService
 {
     private const int MinDetectedSlotSize = 22;
     private const int DarkBorderTolerance = 140;
+    private const double MinBorderInnerContrast = 12;
+    private const double MinBorderEdge = 18;
     private const double RequiredStrongSideCoverage = 0.90;
     private const double RequiredVerticalSideCoverage = 0.85;
+    private const double RequiredStrongSideContrastCoverage = 0.35;
+    private const double RequiredVerticalSideContrastCoverage = 0.20;
     private const double TopGroupedLabelCornerMaskRatio = 0.25;
     private const double MinAnchorScore = 10;
     private const double MinPatternScore = 10;
@@ -355,13 +359,29 @@ public sealed class RoiSectionDetectionService
     {
         private readonly double[] _integral;
         private readonly double[] _hitIntegral;
+        private readonly double[] _topBorderHitIntegral;
+        private readonly double[] _bottomBorderHitIntegral;
+        private readonly double[] _leftBorderHitIntegral;
+        private readonly double[] _rightBorderHitIntegral;
 
-        private EdgeImage(int width, int height, double[] integral, double[] hitIntegral)
+        private EdgeImage(
+            int width,
+            int height,
+            double[] integral,
+            double[] hitIntegral,
+            double[] topBorderHitIntegral,
+            double[] bottomBorderHitIntegral,
+            double[] leftBorderHitIntegral,
+            double[] rightBorderHitIntegral)
         {
             Width = width;
             Height = height;
             _integral = integral;
             _hitIntegral = hitIntegral;
+            _topBorderHitIntegral = topBorderHitIntegral;
+            _bottomBorderHitIntegral = bottomBorderHitIntegral;
+            _leftBorderHitIntegral = leftBorderHitIntegral;
+            _rightBorderHitIntegral = rightBorderHitIntegral;
         }
 
         public int Width { get; }
@@ -402,31 +422,86 @@ public sealed class RoiSectionDetectionService
 
             var integral = new double[(width + 1) * (height + 1)];
             var blackIntegral = new double[(width + 1) * (height + 1)];
+            var topBorderIntegral = new double[(width + 1) * (height + 1)];
+            var bottomBorderIntegral = new double[(width + 1) * (height + 1)];
+            var leftBorderIntegral = new double[(width + 1) * (height + 1)];
+            var rightBorderIntegral = new double[(width + 1) * (height + 1)];
             for (var y = 1; y <= height; y++)
             {
                 var rowSum = 0.0;
                 var blackRowSum = 0.0;
+                var topBorderRowSum = 0.0;
+                var bottomBorderRowSum = 0.0;
+                var leftBorderRowSum = 0.0;
+                var rightBorderRowSum = 0.0;
                 for (var x = 1; x <= width; x++)
                 {
                     var pixelOffset = (y - 1) * stride + (x - 1) * 4;
+                    var sourceX = x - 1;
+                    var sourceY = y - 1;
+                    var sourceIndex = sourceY * width + sourceX;
                     var edgeValue = edge[(y - 1) * width + (x - 1)];
-                    rowSum += edgeValue;
-                    blackRowSum += IsNearBlack(
+                    var isDark = IsNearBlack(
                         pixels[pixelOffset],
                         pixels[pixelOffset + 1],
-                        pixels[pixelOffset + 2])
-                        ? 1
-                        : 0;
+                        pixels[pixelOffset + 2]);
+                    rowSum += edgeValue;
+                    blackRowSum += isDark ? 1 : 0;
+                    topBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, 0, 1, isDark) ? 1 : 0;
+                    bottomBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, 0, -1, isDark) ? 1 : 0;
+                    leftBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, 1, 0, isDark) ? 1 : 0;
+                    rightBorderRowSum += IsOnePixelBorderHit(luma, edge, width, height, sourceX, sourceY, -1, 0, isDark) ? 1 : 0;
                     integral[y * (width + 1) + x] = integral[(y - 1) * (width + 1) + x] + rowSum;
                     blackIntegral[y * (width + 1) + x] = blackIntegral[(y - 1) * (width + 1) + x] + blackRowSum;
+                    topBorderIntegral[y * (width + 1) + x] = topBorderIntegral[(y - 1) * (width + 1) + x] + topBorderRowSum;
+                    bottomBorderIntegral[y * (width + 1) + x] = bottomBorderIntegral[(y - 1) * (width + 1) + x] + bottomBorderRowSum;
+                    leftBorderIntegral[y * (width + 1) + x] = leftBorderIntegral[(y - 1) * (width + 1) + x] + leftBorderRowSum;
+                    rightBorderIntegral[y * (width + 1) + x] = rightBorderIntegral[(y - 1) * (width + 1) + x] + rightBorderRowSum;
                 }
             }
 
-            return new EdgeImage(width, height, integral, blackIntegral);
+            return new EdgeImage(
+                width,
+                height,
+                integral,
+                blackIntegral,
+                topBorderIntegral,
+                bottomBorderIntegral,
+                leftBorderIntegral,
+                rightBorderIntegral);
         }
 
         private static bool IsNearBlack(byte blue, byte green, byte red) =>
             blue + green + red < DarkBorderTolerance;
+
+        private static bool IsOnePixelBorderHit(
+            IReadOnlyList<double> luma,
+            IReadOnlyList<double> edge,
+            int width,
+            int height,
+            int x,
+            int y,
+            int innerDx,
+            int innerDy,
+            bool isDark)
+        {
+            if (!isDark)
+            {
+                return false;
+            }
+
+            var innerX = x + innerDx;
+            var innerY = y + innerDy;
+            if (innerX < 0 || innerX >= width || innerY < 0 || innerY >= height)
+            {
+                return false;
+            }
+
+            var index = y * width + x;
+            var innerIndex = innerY * width + innerX;
+            return luma[innerIndex] - luma[index] >= MinBorderInnerContrast ||
+                   edge[index] >= MinBorderEdge;
+        }
 
         public double ScoreAnchor(Rect rect, QuickslotSectionPatternKind patternKind) =>
             ScoreBottomRightAnchor(rect);
@@ -450,6 +525,14 @@ public sealed class RoiSectionDetectionService
                 return 0;
             }
 
+            var bottomContrastCoverage = BottomBorderCoverage(x, y + height - 1, width, 1);
+            var rightContrastCoverage = RightBorderCoverage(x + width - 1, y, 1, height);
+            if (bottomContrastCoverage < RequiredStrongSideContrastCoverage ||
+                rightContrastCoverage < RequiredStrongSideContrastCoverage)
+            {
+                return 0;
+            }
+
             var cornerCoverage = Coverage(
                 x + Math.Max(0, width - 3),
                 y + Math.Max(0, height - 3),
@@ -459,6 +542,8 @@ public sealed class RoiSectionDetectionService
             var rightAverage = Average(x + width - 1, y, 1, height);
             return (bottomCoverage * 45) +
                    (rightCoverage * 45) +
+                   (bottomContrastCoverage * 20) +
+                   (rightContrastCoverage * 20) +
                    (cornerCoverage * 20) +
                    ((bottomAverage + rightAverage) * 0.04);
         }
@@ -507,11 +592,26 @@ public sealed class RoiSectionDetectionService
                 return 0;
             }
 
+            var topContrastCoverage = TopBorderCoverage(x + labelMask, y, width - labelMask, 1);
+            var bottomContrastCoverage = BottomBorderCoverage(x, y + height - 1, width, 1);
+            var leftContrastCoverage = LeftBorderCoverage(x, y + labelMask, 1, height - labelMask);
+            var rightContrastCoverage = RightBorderCoverage(x + width - 1, y, 1, height);
+            if (bottomContrastCoverage < RequiredStrongSideContrastCoverage ||
+                rightContrastCoverage < RequiredStrongSideContrastCoverage)
+            {
+                return 0;
+            }
+
             var sideCoverage =
                 (rightCoverage * 0.30) +
                 (bottomCoverage * 0.30) +
                 (leftCoverage * 0.20) +
                 (topCoverage * 0.20);
+            var contrastCoverage =
+                (rightContrastCoverage * 0.30) +
+                (bottomContrastCoverage * 0.30) +
+                (leftContrastCoverage * 0.20) +
+                (topContrastCoverage * 0.20);
             var sideAverage =
                 (Average(x + labelMask, y, width - labelMask, 1) +
                  Average(x, y + height - 1, width, 1) +
@@ -520,7 +620,7 @@ public sealed class RoiSectionDetectionService
             var innerWidth = Math.Max(1, width - 2);
             var innerHeight = Math.Max(1, height - 2);
             var innerAverage = Average(x + 1, y + 1, innerWidth, innerHeight);
-            return sideCoverage * 100 + sideAverage * 0.08 - innerAverage * 0.04;
+            return sideCoverage * 70 + contrastCoverage * 55 + sideAverage * 0.08 - innerAverage * 0.04;
         }
 
         private double ScoreStrictSlotBorder(int x, int y, int width, int height)
@@ -533,6 +633,16 @@ public sealed class RoiSectionDetectionService
                 bottomCoverage < RequiredVerticalSideCoverage ||
                 leftCoverage < RequiredVerticalSideCoverage ||
                 rightCoverage < RequiredVerticalSideCoverage)
+            {
+                return 0;
+            }
+
+            var topContrastCoverage = TopBorderCoverage(x, y, width, 1);
+            var bottomContrastCoverage = BottomBorderCoverage(x, y + height - 1, width, 1);
+            var leftContrastCoverage = LeftBorderCoverage(x, y, 1, height);
+            var rightContrastCoverage = RightBorderCoverage(x + width - 1, y, 1, height);
+            var contrastCoverage = (topContrastCoverage + bottomContrastCoverage + leftContrastCoverage + rightContrastCoverage) / 4;
+            if (contrastCoverage < RequiredVerticalSideContrastCoverage)
             {
                 return 0;
             }
@@ -552,7 +662,7 @@ public sealed class RoiSectionDetectionService
             var innerWidth = Math.Max(1, width - 2);
             var innerHeight = Math.Max(1, height - 2);
             var innerAverage = Average(x + 1, y + 1, innerWidth, innerHeight);
-            return sideCoverage * 100 + cornerCoverage * 20 + sideAverage * 0.08 - innerAverage * 0.04;
+            return sideCoverage * 70 + contrastCoverage * 55 + cornerCoverage * 20 + sideAverage * 0.08 - innerAverage * 0.04;
         }
 
         private double Average(int x, int y, int width, int height) =>
@@ -560,6 +670,18 @@ public sealed class RoiSectionDetectionService
 
         private double Coverage(int x, int y, int width, int height) =>
             SumHits(x, y, width, height) / Math.Max(1, width * height);
+
+        private double TopBorderCoverage(int x, int y, int width, int height) =>
+            SumHits(_topBorderHitIntegral, x, y, width, height) / Math.Max(1, width * height);
+
+        private double BottomBorderCoverage(int x, int y, int width, int height) =>
+            SumHits(_bottomBorderHitIntegral, x, y, width, height) / Math.Max(1, width * height);
+
+        private double LeftBorderCoverage(int x, int y, int width, int height) =>
+            SumHits(_leftBorderHitIntegral, x, y, width, height) / Math.Max(1, width * height);
+
+        private double RightBorderCoverage(int x, int y, int width, int height) =>
+            SumHits(_rightBorderHitIntegral, x, y, width, height) / Math.Max(1, width * height);
 
         private double Sum(int x, int y, int width, int height)
         {
@@ -581,6 +703,11 @@ public sealed class RoiSectionDetectionService
 
         private double SumHits(int x, int y, int width, int height)
         {
+            return SumHits(_hitIntegral, x, y, width, height);
+        }
+
+        private double SumHits(double[] hitIntegral, int x, int y, int width, int height)
+        {
             var x1 = Math.Clamp(x, 0, Width);
             var y1 = Math.Clamp(y, 0, Height);
             var x2 = Math.Clamp(x + width, 0, Width);
@@ -591,10 +718,10 @@ public sealed class RoiSectionDetectionService
             }
 
             var stride = Width + 1;
-            return _hitIntegral[y2 * stride + x2]
-                   - _hitIntegral[y1 * stride + x2]
-                   - _hitIntegral[y2 * stride + x1]
-                   + _hitIntegral[y1 * stride + x1];
+            return hitIntegral[y2 * stride + x2]
+                   - hitIntegral[y1 * stride + x2]
+                   - hitIntegral[y2 * stride + x1]
+                   + hitIntegral[y1 * stride + x1];
         }
     }
 }
