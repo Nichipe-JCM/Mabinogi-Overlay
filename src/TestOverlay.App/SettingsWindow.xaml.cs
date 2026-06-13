@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using Microsoft.Win32;
+using TestOverlay.App.Models;
 
 namespace TestOverlay.App;
 
@@ -12,7 +13,8 @@ public partial class SettingsWindow : Window
         string profileDirectory,
         string defaultProfileDirectory,
         IReadOnlyList<string> profileNames,
-        string selectedProfileName)
+        string selectedProfileName,
+        OverlayRenderMode selectedRenderMode)
     {
         InitializeComponent();
         _defaultProfileDirectory = defaultProfileDirectory;
@@ -31,11 +33,23 @@ public partial class SettingsWindow : Window
         ProfileCombo.ItemsSource = names;
         ProfileCombo.SelectedItem = names.FirstOrDefault(name => string.Equals(name, SelectedProfileName, StringComparison.OrdinalIgnoreCase))
                                     ?? names.FirstOrDefault();
+
+        var renderModes = new List<RenderModeOption>
+        {
+            new(OverlayRenderMode.CpuWpf, "Existing CPU/WPF"),
+            new(OverlayRenderMode.GpuDxgi, "Current GPU/DXGI"),
+            new(OverlayRenderMode.CpuComposited, "Improved CPU/Composited")
+        };
+        RenderModeCombo.ItemsSource = renderModes;
+        RenderModeCombo.SelectedItem = renderModes.FirstOrDefault(option => option.Mode == selectedRenderMode)
+                                       ?? renderModes[0];
     }
 
     public string ProfileDirectory { get; private set; }
 
     public string SelectedProfileName { get; private set; }
+
+    public OverlayRenderMode SelectedRenderMode { get; private set; }
 
     public SettingsProfileAction RequestedProfileAction { get; private set; } = SettingsProfileAction.None;
 
@@ -75,6 +89,15 @@ public partial class SettingsWindow : Window
         Commit(SettingsProfileAction.Load);
     }
 
+    private void BenchmarkButton_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new BenchmarkWindow
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void Commit(SettingsProfileAction action)
     {
         var directory = ProfileDirectoryBox.Text.Trim();
@@ -89,6 +112,9 @@ public partial class SettingsWindow : Window
             SelectedProfileName = ProfileCombo.SelectedItem is string selected && !string.IsNullOrWhiteSpace(selected)
                 ? selected.Trim()
                 : "default";
+            SelectedRenderMode = RenderModeCombo.SelectedItem is RenderModeOption option
+                ? option.Mode
+                : OverlayRenderMode.CpuWpf;
             RequestedProfileAction = action;
             DialogResult = true;
         }
@@ -102,6 +128,8 @@ public partial class SettingsWindow : Window
                 MessageBoxImage.Warning);
         }
     }
+
+    private sealed record RenderModeOption(OverlayRenderMode Mode, string Label);
 }
 
 public enum SettingsProfileAction

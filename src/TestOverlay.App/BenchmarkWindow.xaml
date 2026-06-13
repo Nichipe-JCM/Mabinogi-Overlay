@@ -1,0 +1,122 @@
+<Window x:Class="TestOverlay.App.BenchmarkWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Benchmark"
+        Width="760"
+        Height="520"
+        MinWidth="620"
+        MinHeight="420"
+        Background="#F3F5F7"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Benchmark / Stress Test"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Foreground="#20242B"/>
+
+        <Border Grid.Row="1" Margin="0,12,0,12" Padding="12" Background="White" BorderBrush="#D9DEE7" BorderThickness="1" CornerRadius="6">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="0">
+                    <TextBlock Text="Renderers"/>
+                    <CheckBox x:Name="CpuWpfCheck" Content="Existing CPU/WPF" IsChecked="True" Margin="0,6,0,0"/>
+                    <CheckBox x:Name="CpuCompositedCheck" Content="Improved CPU/Composited" IsChecked="True" Margin="0,4,0,0"/>
+                    <CheckBox x:Name="GpuDxgiCheck" Content="GPU/DXGI offscreen" IsChecked="True" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="2">
+                    <TextBlock Text="Stress"/>
+                    <TextBlock Text="Duration seconds" Margin="0,6,0,0"/>
+                    <ComboBox x:Name="DurationCombo" Height="28" SelectedIndex="1">
+                        <ComboBoxItem Content="10"/>
+                        <ComboBoxItem Content="30"/>
+                        <ComboBoxItem Content="60"/>
+                    </ComboBox>
+                    <TextBlock Text="Iterations fallback" Margin="0,6,0,0"/>
+                    <ComboBox x:Name="IterationsCombo" Height="28" SelectedIndex="1">
+                        <ComboBoxItem Content="60"/>
+                        <ComboBoxItem Content="180"/>
+                        <ComboBoxItem Content="600"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="4">
+                    <TextBlock Text="Slot multipliers"/>
+                    <TextBox x:Name="MultipliersBox" Height="28" Margin="0,6,0,0" Text="1,5,10,20"/>
+                    <TextBlock Text="comma-separated" Foreground="#64748B" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Grid.Column="0">
+                    <TextBlock Text="Source size"/>
+                    <ComboBox x:Name="SourceSizeCombo" Height="28" Margin="0,6,0,0" SelectedIndex="0">
+                        <ComboBoxItem Content="1920x1080"/>
+                        <ComboBoxItem Content="2560x1440"/>
+                        <ComboBoxItem Content="3840x2160"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Grid.Column="2">
+                    <TextBlock Text="Overlay size"/>
+                    <ComboBox x:Name="OverlaySizeCombo" Height="28" Margin="0,6,0,0" SelectedIndex="0">
+                        <ComboBoxItem Content="960x540"/>
+                        <ComboBoxItem Content="1280x720"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Grid.Column="4">
+                    <TextBlock Text="Start"/>
+                    <Button x:Name="StartButton" Height="30" Margin="0,6,0,0" Content="Start benchmark" Click="StartButton_Click"/>
+                </StackPanel>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5"
+                           Foreground="#64748B"
+                           TextWrapping="Wrap"
+                           Text="Synthetic benchmark isolates renderer cost. GPU/DXGI offscreen waits for GPU completion; live WGC GPU stats still measure real capture + composition."/>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <TextBlock x:Name="StatusText" Foreground="#334155"/>
+            <ProgressBar x:Name="BenchmarkProgress" Height="12" Margin="0,8,0,0" Minimum="0" Maximum="1"/>
+        </StackPanel>
+
+        <TextBox Grid.Row="3"
+                 x:Name="OutputBox"
+                 IsReadOnly="True"
+                 TextWrapping="NoWrap"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas"
+                 FontSize="12"
+                 Background="#111827"
+                 Foreground="#D1D5DB"
+                 BorderBrush="#D9DEE7"/>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="CloseButton" Width="84" Height="32" Margin="8,0,0,0" Content="Close" Click="CloseButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
