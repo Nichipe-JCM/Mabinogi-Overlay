@@ -27,6 +27,7 @@ public sealed class RoiSectionDetectionService
     private const int MaxLargeGap = 60;
     private const double InsetContentSampleRatio = 0.10;
     private const double MinInsetIconActivityDelta = 8;
+    private const double RequiredContentSlotCoverage = 0.75;
 
     public SectionDetectionResult? Detect(
         BitmapSource source,
@@ -85,14 +86,16 @@ public sealed class RoiSectionDetectionService
 
         if (best.Score < MinPatternScore)
         {
-            diagnostics?.Add($"best rejected: score={best.Score:0.000} below minPatternScore={MinPatternScore:0.000}");
+            var contentCoverage = ContentCoverage(edge, patternKind, best.Slots);
+            diagnostics?.Add(
+                $"best rejected: score={best.Score:0.000} below minPatternScore={MinPatternScore:0.000}, contentCoverage={contentCoverage:0.000}");
             return null;
         }
 
         best = NormalizeTopLeftOversizedFit(edge, roi, patternKind, best, diagnostics);
 
         diagnostics?.Add(
-            $"best first={FormatRect(best.Slots[0])} gapX={best.SmallGapX:0} gapY={best.SmallGapY:0} large={best.LargeGap:0} score={best.Score:0.000}");
+            $"best first={FormatRect(best.Slots[0])} gapX={best.SmallGapX:0} gapY={best.SmallGapY:0} large={best.LargeGap:0} score={best.Score:0.000} contentCoverage={ContentCoverage(edge, patternKind, best.Slots):0.000}");
         return new SectionDetectionResult(
             patternKind,
             best.Slots,
@@ -271,6 +274,12 @@ public sealed class RoiSectionDetectionService
         QuickslotSectionPatternKind patternKind,
         IReadOnlyList<Rect> slots)
     {
+        var contentCoverage = ContentCoverage(edge, patternKind, slots);
+        if (contentCoverage < RequiredContentSlotCoverage)
+        {
+            return 0;
+        }
+
         var scores = slots.Select(slot => edge.ScoreSlotBorder(slot, patternKind)).ToList();
         var average = scores.Average();
         var variance = scores.Sum(score => Math.Pow(score - average, 2)) / Math.Max(1, scores.Count);
@@ -281,6 +290,13 @@ public sealed class RoiSectionDetectionService
         var topLeftPenalty = ((bounds.Left - roi.Left) * 0.02) + ((bounds.Top - roi.Top) * 0.03);
         return average - deviation * 0.25 + coverage * 3 - topLeftPenalty;
     }
+
+    private static double ContentCoverage(
+        EdgeImage edge,
+        QuickslotSectionPatternKind patternKind,
+        IReadOnlyCollection<Rect> slots) =>
+        slots.Count(slot => edge.HasMeaningfulSlotContent(slot, patternKind)) /
+        (double)Math.Max(1, slots.Count);
 
     private static PatternFit NormalizeTopLeftOversizedFit(
         EdgeImage edge,
@@ -685,6 +701,37 @@ public sealed class RoiSectionDetectionService
             var borderReferenceActivity = AverageContentActivity(insetX, insetY, innerWidth, 1);
             var activity = Math.Max(centerContentActivity, (topContentActivity + leftContentActivity) / 2);
             return activity >= borderReferenceActivity + MinInsetIconActivityDelta;
+        }
+
+        public bool HasMeaningfulSlotContent(Rect rect, QuickslotSectionPatternKind patternKind)
+        {
+            var x = (int)Math.Round(rect.X);
+            var y = (int)Math.Round(rect.Y);
+            var width = (int)Math.Round(rect.Width);
+            var height = (int)Math.Round(rect.Height);
+            if (width < 6 || height < 6)
+            {
+                return false;
+            }
+
+            var labelMask = patternKind == QuickslotSectionPatternKind.TopGrouped
+                ? (int)Math.Round(
+                    Math.Min(width, height) * TopGroupedLabelCornerMaskRatio,
+                    MidpointRounding.AwayFromZero)
+                : 0;
+            var contentX = x + 1 + labelMask;
+            var contentY = y + 1;
+            var contentWidth = width - 2 - labelMask;
+            var contentHeight = height - 2;
+            if (contentWidth <= 0 || contentHeight <= 0)
+            {
+                return false;
+            }
+
+            var activity = AverageContentActivity(contentX, contentY, contentWidth, contentHeight);
+            var darkness = Coverage(contentX, contentY, contentWidth, contentHeight);
+            return activity >= AverageContentActivity(x, y, width, 1) + MinInsetIconActivityDelta &&
+                   darkness < 0.95;
         }
 
         private double ScoreTopGroupedSlotBorder(int x, int y, int width, int height)
