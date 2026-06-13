@@ -521,33 +521,53 @@ public sealed class RoiSectionDetectionService
             var y = (int)Math.Round(rect.Y);
             var width = (int)Math.Round(rect.Width);
             var height = (int)Math.Round(rect.Height);
-            if (width <= MinDetectedSlotSize || height <= MinDetectedSlotSize)
+
+            while (width > MinDetectedSlotSize && height > MinDetectedSlotSize)
             {
-                return rect;
+                var innerX = x + 1;
+                var innerY = y + 1;
+                var innerWidth = width - 1;
+                var innerHeight = height - 1;
+                if (CountInnerBorderMatches(innerX, innerY, innerWidth, innerHeight, patternKind) < 2)
+                {
+                    break;
+                }
+
+                x = innerX;
+                y = innerY;
+                width = innerWidth;
+                height = innerHeight;
             }
 
-            var innerX = x + 1;
-            var innerY = y + 1;
-            var innerWidth = width - 1;
-            var innerHeight = height - 1;
+            return new Rect(x, y, width, height);
+        }
+
+        private int CountInnerBorderMatches(
+            int x,
+            int y,
+            int width,
+            int height,
+            QuickslotSectionPatternKind patternKind)
+        {
+            if (width <= 0 || height <= 0)
+            {
+                return 0;
+            }
+
             var labelMask = patternKind == QuickslotSectionPatternKind.TopGrouped
                 ? (int)Math.Round(
-                    Math.Min(innerWidth, innerHeight) * TopGroupedLabelCornerMaskRatio,
+                    Math.Min(width, height) * TopGroupedLabelCornerMaskRatio,
                     MidpointRounding.AwayFromZero)
                 : 0;
 
-            var topMatch = IsTopBorderMatch(innerX + labelMask, innerY, innerWidth - labelMask, RequiredVerticalSideCoverage, RequiredVerticalSideContrastCoverage);
-            var leftMatch = IsLeftBorderMatch(innerX, innerY + labelMask, innerHeight - labelMask, RequiredVerticalSideCoverage, RequiredVerticalSideContrastCoverage);
-            var bottomMatch = IsBottomBorderMatch(innerX, innerY + innerHeight - 1, innerWidth, RequiredStrongSideCoverage, RequiredStrongSideContrastCoverage);
-            var rightMatch = IsRightBorderMatch(innerX + innerWidth - 1, innerY, innerHeight, RequiredStrongSideCoverage, RequiredStrongSideContrastCoverage);
-            var matchCount = Convert.ToInt32(topMatch) +
-                             Convert.ToInt32(leftMatch) +
-                             Convert.ToInt32(bottomMatch) +
-                             Convert.ToInt32(rightMatch);
-
-            return (topMatch || leftMatch) && matchCount >= 3
-                ? new Rect(innerX, innerY, innerWidth, innerHeight)
-                : rect;
+            var topMatch = IsTopBorderMatch(x + labelMask, y, width - labelMask, RequiredVerticalSideCoverage, RequiredVerticalSideContrastCoverage);
+            var leftMatch = IsLeftBorderMatch(x, y + labelMask, height - labelMask, RequiredVerticalSideCoverage, RequiredVerticalSideContrastCoverage);
+            var bottomMatch = IsBottomBorderMatch(x, y + height - 1, width, RequiredStrongSideCoverage, RequiredStrongSideContrastCoverage);
+            var rightMatch = IsRightBorderMatch(x + width - 1, y, height, RequiredStrongSideCoverage, RequiredStrongSideContrastCoverage);
+            return Convert.ToInt32(topMatch) +
+                   Convert.ToInt32(leftMatch) +
+                   Convert.ToInt32(bottomMatch) +
+                   Convert.ToInt32(rightMatch);
         }
 
         private double ScoreBottomRightAnchor(Rect rect)
