@@ -32,6 +32,8 @@ public partial class MainWindow : Window
     private readonly ProfileStore _profileStore;
     private AppSettings _appSettings;
     private readonly AppLog _log = new();
+    private readonly object _detectLogSync = new();
+    private readonly string _detectSessionLogPath;
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly ObservableCollection<QuickslotSection> _sections = new();
@@ -93,6 +95,9 @@ public partial class MainWindow : Window
     {
         _appSettings = _settingsStore.Load();
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
+        _detectSessionLogPath = System.IO.Path.Combine(
+            _log.LogDirectory,
+            $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         InitializeComponent();
         DataContext = new { Candidates = _candidates };
         SectionCombo.ItemsSource = _sections;
@@ -1610,14 +1615,18 @@ public partial class MainWindow : Window
         }
 
         var before = CaptureCandidateSnapshot();
+        var diagnostics = new List<string>();
         var result = _roiSectionDetection.Detect(
             _capturedImage,
             roi,
-            patternKind);
+            patternKind,
+            diagnostics);
+        var logPath = SaveDetectLog(roi, patternKind, result, diagnostics);
 
         if (result is null)
         {
-            SetStatus("No matching quickslot section pattern was found in the selected area.");
+            _log.Info($"ROI section detection failed. Log: {logPath}");
+            SetStatus($"No matching quickslot section pattern was found in the selected area. Log: {logPath}");
             return;
         }
 
@@ -1626,11 +1635,11 @@ public partial class MainWindow : Window
 
         _log.Info(
             $"ROI section detection completed: pattern={patternKind}, roi={roi.X:0},{roi.Y:0},{roi.Width:0}x{roi.Height:0}, " +
-            $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}");
+            $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}, log={logPath}");
         SetStatus(
             $"Added {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
             $"{result.Slots.Count} slots, slot {result.Slots[0].Width:0}x{result.Slots[0].Height:0}px, " +
-            $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
+            $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px. Log: {logPath}");
     }
 
     private void RunDebugDetection(Rect roi, DebugDetectionExpectation expected)
@@ -1738,6 +1747,58 @@ public partial class MainWindow : Window
         System.IO.Directory.CreateDirectory(_log.LogDirectory);
         System.IO.File.WriteAllLines(path, lines);
         return path;
+    }
+
+    private string SaveDetectLog(
+        Rect roi,
+        QuickslotSectionPatternKind patternKind,
+        SectionDetectionResult? result,
+        IReadOnlyCollection<string> diagnostics)
+    {
+        var lines = new List<string>
+        {
+            $"Detect ROI started {DateTimeOffset.Now:O}",
+            $"pattern={patternKind}",
+            $"roi absolute x={roi.X:0.###}, y={roi.Y:0.###}, w={roi.Width:0.###}, h={roi.Height:0.###}"
+        };
+
+        if (_capturedImage is not null)
+        {
+            lines.Add($"capture image {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}");
+        }
+
+        if (result is null)
+        {
+            lines.Add("result=FAIL no matching quickslot section pattern");
+        }
+        else
+        {
+            var first = result.Slots[0];
+            lines.Add(
+                $"result=OK slots={result.Slots.Count}, first x={first.X:0.###}, y={first.Y:0.###}, w={first.Width:0.###}, h={first.Height:0.###}, " +
+                $"gapX={result.SmallGapX:0.###}, gapY={result.SmallGapY:0.###}, large={result.LargeGap:0.###}, score={result.Score:0.000}");
+        }
+
+        lines.AddRange(diagnostics.Select(line => $"  {line}"));
+        lines.Add(string.Empty);
+
+        lock (_detectLogSync)
+        {
+            System.IO.Directory.CreateDirectory(_log.LogDirectory);
+            var isNewLog = !System.IO.File.Exists(_detectSessionLogPath);
+            var output = new List<string>();
+            if (isNewLog)
+            {
+                output.Add($"Detect session log started {DateTimeOffset.Now:O}");
+                output.Add(string.Empty);
+            }
+
+            output.Add("----");
+            output.AddRange(lines);
+            System.IO.File.AppendAllLines(_detectSessionLogPath, output);
+        }
+
+        return _detectSessionLogPath;
     }
 
     private void BeginCandidateBoxSelection(Point position)
