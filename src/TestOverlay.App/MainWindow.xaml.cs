@@ -1289,7 +1289,7 @@ public partial class MainWindow : Window
         };
         return WindowCombo.SelectedItem is GameWindowInfo selected
             ? selected.LooksLikeMabinogi
-                ? $"Mabinogi window recognized. ({captureStatus})"
+                ? string.Empty
                 : $"Selected window is not recognized as Mabinogi. ({captureStatus})"
             : "No selectable window found.";
     }

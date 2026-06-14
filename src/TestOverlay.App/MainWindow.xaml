@@ -247,10 +247,14 @@
                                  Margin="14,0"
                                  ItemsSource="{Binding Candidates}"
                                  MinHeight="120"
+                                 FontSize="12"
+                                 ItemContainerStyle="{StaticResource CandidateListBoxItemStyle}"
                                  KeyDown="CandidateList_KeyDown">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="{Binding Label}" Margin="4"/>
+                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              Content="{Binding Label}"
+                                              Style="{StaticResource CandidateCheckBoxStyle}"/>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>

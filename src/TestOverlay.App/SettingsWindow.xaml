@@ -2,10 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
-        Width="760"
-        Height="500"
-        MinWidth="640"
-        MinHeight="440"
+        Width="840"
+        Height="560"
+        MinWidth="760"
+        MinHeight="520"
         Background="{StaticResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="18" Style="{StaticResource AppWindowRootStyle}">
@@ -48,9 +48,9 @@
                                 <ColumnDefinition Width="86"/>
                                 <ColumnDefinition Width="86"/>
                             </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="32"/>
-                            <Button Grid.Column="1" Height="32" Margin="8,0,0,0" Content="Save" Style="{StaticResource PrimaryActionButtonStyle}" Click="SaveProfileButton_Click"/>
-                            <Button Grid.Column="2" Height="32" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
+                            <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="40"/>
+                            <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Save" Style="{StaticResource PrimaryActionButtonStyle}" Click="SaveProfileButton_Click"/>
+                            <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
                         </Grid>
                     </StackPanel>
 
@@ -63,9 +63,9 @@
                                     <ColumnDefinition Width="86"/>
                                     <ColumnDefinition Width="86"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="ProfileDirectoryBox" Grid.Column="0" Height="32"/>
-                                <Button Grid.Column="1" Height="32" Margin="8,0,0,0" Content="Browse" Click="BrowseButton_Click"/>
-                                <Button Grid.Column="2" Height="32" Margin="8,0,0,0" Content="Default" Click="DefaultButton_Click"/>
+                                <TextBox x:Name="ProfileDirectoryBox" Grid.Column="0" Height="40"/>
+                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Browse" Click="BrowseButton_Click"/>
+                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Default" Click="DefaultButton_Click"/>
                             </Grid>
                             <TextBlock Margin="0,8,0,0"
                                        Text="Portable builds default to a save folder next to the executable."
@@ -90,7 +90,7 @@
 
                     <StackPanel Grid.Row="1" Margin="14">
                         <TextBlock Text="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
-                        <ComboBox x:Name="RenderModeCombo" Height="32" Margin="0,8,0,0" DisplayMemberPath="Label"/>
+                        <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                         <TextBlock Margin="0,8,0,0"
                                    Text="Renderer mode is saved in settings.json and applies when the overlay starts."
                                    Style="{StaticResource MutedTextStyle}"/>

@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
         Title="Overlay Layout Editor"
-        Width="1280"
-        Height="860"
-        MinWidth="980"
-        MinHeight="680"
+        Width="1360"
+        Height="920"
+        MinWidth="1120"
+        MinHeight="760"
         Background="{StaticResource OverlayBgBrush}"
         KeyDown="Window_KeyDown">
     <Grid Margin="18" Style="{StaticResource AppWindowRootStyle}">
@@ -52,19 +52,19 @@
 
                         <StackPanel Grid.Row="0" Grid.Column="0">
                             <TextBlock Text="Width" Style="{StaticResource MutedTextStyle}"/>
-                            <TextBox x:Name="CanvasWidthBox" Height="30"/>
+                            <TextBox x:Name="CanvasWidthBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2">
                             <TextBlock Text="Height" Style="{StaticResource MutedTextStyle}"/>
-                            <TextBox x:Name="CanvasHeightBox" Height="30"/>
+                            <TextBox x:Name="CanvasHeightBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="4">
                             <TextBlock Text="Screen X" Style="{StaticResource MutedTextStyle}"/>
-                            <TextBox x:Name="ScreenLeftBox" Height="30"/>
+                            <TextBox x:Name="ScreenLeftBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="6">
                             <TextBlock Text="Screen Y" Style="{StaticResource MutedTextStyle}"/>
-                            <TextBox x:Name="ScreenTopBox" Height="30"/>
+                            <TextBox x:Name="ScreenTopBox" Height="38"/>
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
@@ -110,11 +110,11 @@
 
                         <StackPanel Grid.Row="0" Grid.Column="0">
                             <TextBlock Text="Stop hotkey" Style="{StaticResource MutedTextStyle}"/>
-                            <TextBox x:Name="HotkeyBox" Height="30"/>
+                            <TextBox x:Name="HotkeyBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2">
                             <TextBlock Text="Max FPS" Style="{StaticResource MutedTextStyle}"/>
-                            <ComboBox x:Name="RefreshFpsCombo" Height="30"/>
+                            <ComboBox x:Name="RefreshFpsCombo" Height="38"/>
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
@@ -154,7 +154,7 @@
                                     MouseMove="EditorCanvas_MouseMove"
                                     MouseLeftButtonUp="EditorCanvas_MouseLeftButtonUp"/>
                             <Rectangle x:Name="EditorResizeBorder"
-                                       Stroke="#38BDF8"
+                                       Stroke="{StaticResource OverlayAccentBrush}"
                                        StrokeThickness="1"
                                        Fill="Transparent"
                                        IsHitTestVisible="False"/>
@@ -169,7 +169,7 @@
                                               DragCompleted="EditorResizeThumb_DragCompleted">
                                 <primitives:Thumb.Template>
                                     <ControlTemplate TargetType="{x:Type primitives:Thumb}">
-                                        <Border Background="#38BDF8" BorderBrush="#E0F2FE" BorderThickness="1" CornerRadius="3">
+                                        <Border Background="{StaticResource OverlayAccentBrush}" BorderBrush="#DFFFFF" BorderThickness="1" CornerRadius="3">
                                             <Grid>
                                                 <Line X1="5" Y1="16" X2="16" Y2="5" Stroke="#0F172A" StrokeThickness="1"/>
                                                 <Line X1="10" Y1="16" X2="16" Y2="10" Stroke="#0F172A" StrokeThickness="1"/>

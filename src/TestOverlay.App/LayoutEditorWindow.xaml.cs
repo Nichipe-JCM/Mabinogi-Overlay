@@ -695,7 +695,7 @@ public partial class LayoutEditorWindow : Window
         using (var context = drawingGroup.Open())
         {
             context.DrawRectangle(new SolidColorBrush(Color.FromRgb(32, 38, 51)), null, new Rect(0, 0, gridSize, gridSize));
-            var pen = new Pen(new SolidColorBrush(Color.FromArgb(80, 148, 163, 184)), 1);
+            var pen = new Pen(new SolidColorBrush(Color.FromArgb(76, 137, 222, 212)), 1);
             context.DrawLine(pen, new Point(0, 0), new Point(gridSize, 0));
             context.DrawLine(pen, new Point(0, 0), new Point(0, gridSize));
         }

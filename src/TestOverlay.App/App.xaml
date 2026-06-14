@@ -18,10 +18,11 @@
             <Color x:Key="OverlayBorderColor">#343638</Color>
             <Color x:Key="OverlayTextColor">#ECECEC</Color>
             <Color x:Key="OverlayMutedColor">#A7AAAD</Color>
-            <Color x:Key="OverlayAccentColor">#E7E7E7</Color>
-            <Color x:Key="OverlayAccentTextColor">#171717</Color>
-            <Color x:Key="OverlayBlueColor">#38BDF8</Color>
+            <Color x:Key="OverlayAccentColor">#89DED4</Color>
+            <Color x:Key="OverlayAccentTextColor">#071414</Color>
+            <Color x:Key="OverlayBlueColor">#89DED4</Color>
             <Color x:Key="OverlayDangerColor">#FFB4AB</Color>
+            <Color x:Key="CandidateCheckColor">#FBBF24</Color>
 
             <SolidColorBrush x:Key="OverlayBgBrush" Color="{StaticResource OverlayBgColor}"/>
             <SolidColorBrush x:Key="OverlayPanelBrush" Color="{StaticResource OverlayPanelColor}"/>
@@ -34,6 +35,7 @@
             <SolidColorBrush x:Key="OverlayAccentTextBrush" Color="{StaticResource OverlayAccentTextColor}"/>
             <SolidColorBrush x:Key="OverlayBlueBrush" Color="{StaticResource OverlayBlueColor}"/>
             <SolidColorBrush x:Key="OverlayDangerBrush" Color="{StaticResource OverlayDangerColor}"/>
+            <SolidColorBrush x:Key="CandidateCheckBrush" Color="{StaticResource CandidateCheckColor}"/>
 
             <Style x:Key="AppWindowRootStyle" TargetType="{x:Type Grid}">
                 <Setter Property="Background" Value="{StaticResource OverlayBgBrush}"/>
@@ -89,10 +91,92 @@
             </Style>
 
             <Style x:Key="PrimaryActionButtonStyle" TargetType="{x:Type Button}">
-                <Setter Property="Background" Value="{StaticResource OverlayAccentBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource OverlayAccentTextBrush}"/>
+                <Setter Property="Background" Value="{StaticResource OverlayPanelElevatedBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
                 <Setter Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
+            </Style>
+
+            <Style x:Key="CandidateListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
+                <Setter Property="MinHeight" Value="24"/>
+                <Setter Property="Padding" Value="2,0"/>
+                <Setter Property="Margin" Value="0,1"/>
+                <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                            <Border x:Name="ItemBorder"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter VerticalAlignment="Center"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="#141F2928"/>
+                                    <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#33515F5D"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="#2A89DED4"/>
+                                    <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#AA89DED4"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="CandidateCheckBoxStyle" TargetType="{x:Type CheckBox}">
+                <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="MinHeight" Value="20"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type CheckBox}">
+                            <Grid MinHeight="20" SnapsToDevicePixels="True">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="CheckBoxBorder"
+                                        Width="13"
+                                        Height="13"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Background="#22171717"
+                                        BorderBrush="{StaticResource CandidateCheckBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="2"/>
+                                <Path x:Name="CheckMark"
+                                      Data="M 3 6 L 5.4 8.4 L 10 3.5"
+                                      Stroke="{StaticResource CandidateCheckBrush}"
+                                      StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Visibility="Collapsed"/>
+                                <ContentPresenter Grid.Column="1"
+                                                  Margin="5,0,0,0"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="CheckBoxBorder" Property="Background" Value="#33FBBF24"/>
+                                    <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="#FFF59E0B"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="DangerTextStyle" TargetType="{x:Type TextBlock}">
