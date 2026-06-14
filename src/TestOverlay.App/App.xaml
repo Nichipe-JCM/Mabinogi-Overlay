@@ -1,9 +1,105 @@
-﻿<Application x:Class="TestOverlay.App.App"
+<Application x:Class="TestOverlay.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:TestOverlay.App"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
-         
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Dark"/>
+                <ui:ControlsDictionary/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <Color x:Key="OverlayBgColor">#070707</Color>
+            <Color x:Key="OverlayPanelColor">#171717</Color>
+            <Color x:Key="OverlayPanelElevatedColor">#202020</Color>
+            <Color x:Key="OverlayPanelSoftColor">#101010</Color>
+            <Color x:Key="OverlayBorderColor">#343638</Color>
+            <Color x:Key="OverlayTextColor">#ECECEC</Color>
+            <Color x:Key="OverlayMutedColor">#A7AAAD</Color>
+            <Color x:Key="OverlayAccentColor">#E7E7E7</Color>
+            <Color x:Key="OverlayAccentTextColor">#171717</Color>
+            <Color x:Key="OverlayBlueColor">#38BDF8</Color>
+            <Color x:Key="OverlayDangerColor">#FFB4AB</Color>
+
+            <SolidColorBrush x:Key="OverlayBgBrush" Color="{StaticResource OverlayBgColor}"/>
+            <SolidColorBrush x:Key="OverlayPanelBrush" Color="{StaticResource OverlayPanelColor}"/>
+            <SolidColorBrush x:Key="OverlayPanelElevatedBrush" Color="{StaticResource OverlayPanelElevatedColor}"/>
+            <SolidColorBrush x:Key="OverlayPanelSoftBrush" Color="{StaticResource OverlayPanelSoftColor}"/>
+            <SolidColorBrush x:Key="OverlayBorderBrush" Color="{StaticResource OverlayBorderColor}"/>
+            <SolidColorBrush x:Key="OverlayTextBrush" Color="{StaticResource OverlayTextColor}"/>
+            <SolidColorBrush x:Key="OverlayMutedBrush" Color="{StaticResource OverlayMutedColor}"/>
+            <SolidColorBrush x:Key="OverlayAccentBrush" Color="{StaticResource OverlayAccentColor}"/>
+            <SolidColorBrush x:Key="OverlayAccentTextBrush" Color="{StaticResource OverlayAccentTextColor}"/>
+            <SolidColorBrush x:Key="OverlayBlueBrush" Color="{StaticResource OverlayBlueColor}"/>
+            <SolidColorBrush x:Key="OverlayDangerBrush" Color="{StaticResource OverlayDangerColor}"/>
+
+            <Style x:Key="AppWindowRootStyle" TargetType="{x:Type Grid}">
+                <Setter Property="Background" Value="{StaticResource OverlayBgBrush}"/>
+            </Style>
+
+            <Style x:Key="GlassCardStyle" TargetType="{x:Type Border}">
+                <Setter Property="Background" Value="#D9171717"/>
+                <Setter Property="BorderBrush" Value="#66343638"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="12"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+            </Style>
+
+            <Style x:Key="CardHeaderStyle" TargetType="{x:Type Border}">
+                <Setter Property="Background" Value="#80202020"/>
+                <Setter Property="BorderBrush" Value="#55343638"/>
+                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                <Setter Property="Padding" Value="14,12"/>
+            </Style>
+
+            <Style x:Key="InsetPanelStyle" TargetType="{x:Type Border}">
+                <Setter Property="Background" Value="{StaticResource OverlayPanelSoftBrush}"/>
+                <Setter Property="BorderBrush" Value="#55343638"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="12"/>
+            </Style>
+
+            <Style x:Key="SectionTitleStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                <Setter Property="FontSize" Value="17"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+            </Style>
+
+            <Style x:Key="PanelTitleStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+            </Style>
+
+            <Style x:Key="MutedTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{StaticResource OverlayMutedBrush}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+            </Style>
+
+            <Style x:Key="MonoSummaryStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource MutedTextStyle}">
+                <Setter Property="FontFamily" Value="Cascadia Mono, Consolas"/>
+                <Setter Property="FontSize" Value="11"/>
+            </Style>
+
+            <Style x:Key="PrimaryActionButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="Background" Value="{StaticResource OverlayAccentBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource OverlayAccentTextBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </Style>
+
+            <Style x:Key="DangerTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{StaticResource OverlayDangerBrush}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+            </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

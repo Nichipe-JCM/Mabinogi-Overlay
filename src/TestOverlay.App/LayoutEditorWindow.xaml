@@ -3,130 +3,193 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
         Title="Overlay Layout Editor"
-        Width="1180"
-        Height="840"
-        MinWidth="940"
-        MinHeight="640"
-        Background="#F3F5F7"
+        Width="1280"
+        Height="860"
+        MinWidth="980"
+        MinHeight="680"
+        Background="{StaticResource OverlayBgBrush}"
         KeyDown="Window_KeyDown">
-    <Grid Margin="16">
+    <Grid Margin="18" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="0,0,0,12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="8"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="10"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="8"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="1.2*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="1*"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,0">
-                <TextBlock Text="Width"/>
-                <TextBox x:Name="CanvasWidthBox"/>
-            </StackPanel>
-            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,0">
-                <TextBlock Text="Height"/>
-                <TextBox x:Name="CanvasHeightBox"/>
-            </StackPanel>
-            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,10,0">
-                <TextBlock Text="Opacity"/>
-                <Slider x:Name="OpacitySlider" Minimum="0.2" Maximum="1" TickFrequency="0.05"/>
-            </StackPanel>
-            <StackPanel Grid.Row="0" Grid.Column="3">
-                <TextBlock Text="Slot scale"/>
-                <Slider x:Name="SlotScaleSlider" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
-                <TextBlock x:Name="SlotScaleText"/>
-            </StackPanel>
+            <Border Grid.Column="0" Style="{StaticResource GlassCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
+                        <TextBlock Text="Canvas and Screen" Style="{StaticResource SectionTitleStyle}"/>
+                    </Border>
+                    <Grid Grid.Row="1" Margin="14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,0">
-                <TextBlock Text="Screen X"/>
-                <TextBox x:Name="ScreenLeftBox"/>
-            </StackPanel>
-            <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,10,0">
-                <TextBlock Text="Screen Y"/>
-                <TextBox x:Name="ScreenTopBox"/>
-            </StackPanel>
-            <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,10,0">
-                <TextBlock Text="Stop hotkey"/>
-                <TextBox x:Name="HotkeyBox"/>
-            </StackPanel>
-            <StackPanel Grid.Row="2" Grid.Column="3">
-                <TextBlock Text="Max FPS"/>
-                <ComboBox x:Name="RefreshFpsCombo"/>
-            </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="0">
+                            <TextBlock Text="Width" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBox x:Name="CanvasWidthBox" Height="30"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="2">
+                            <TextBlock Text="Height" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBox x:Name="CanvasHeightBox" Height="30"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="4">
+                            <TextBlock Text="Screen X" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBox x:Name="ScreenLeftBox" Height="30"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="6">
+                            <TextBlock Text="Screen Y" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBox x:Name="ScreenTopBox" Height="30"/>
+                        </StackPanel>
 
-            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4">
-                <TextBlock x:Name="GridSizeText"/>
-                <Slider x:Name="GridSizeSlider" Minimum="1" Maximum="64" Value="10" TickFrequency="1" IsSnapToTickEnabled="True"/>
-            </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                            <TextBlock Text="Opacity" Style="{StaticResource MutedTextStyle}"/>
+                            <Slider x:Name="OpacitySlider" Minimum="0.2" Maximum="1" TickFrequency="0.05"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="4" Grid.ColumnSpan="3">
+                            <TextBlock Text="Slot scale" Style="{StaticResource MutedTextStyle}"/>
+                            <Slider x:Name="SlotScaleSlider" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                            <TextBlock x:Name="SlotScaleText" Style="{StaticResource MutedTextStyle}"/>
+                        </StackPanel>
 
-            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,10,0">
-                <TextBlock x:Name="SelectedOpacityText" Text="Selected opacity"/>
-                <Slider x:Name="SelectedOpacitySlider" Minimum="0.05" Maximum="1" Value="1" TickFrequency="0.05"/>
-            </StackPanel>
-            <StackPanel Grid.Row="6" Grid.Column="2" Grid.ColumnSpan="2">
-                <TextBlock x:Name="SelectedSlotScaleText" Text="Selected slot scale"/>
-                <Slider x:Name="SelectedSlotScaleSlider" Minimum="0.1" Maximum="10" Value="1" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
-            </StackPanel>
-        </Grid>
-
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#111827">
-            <Border BorderBrush="#2F3645" BorderThickness="1" Background="#202633">
-                <Grid x:Name="EditorSurface" Background="#202633">
-                    <Canvas x:Name="EditorCanvas"
-                            Focusable="True"
-                            Background="#202633"
-                            MouseLeftButtonDown="EditorCanvas_MouseLeftButtonDown"
-                            MouseMove="EditorCanvas_MouseMove"
-                            MouseLeftButtonUp="EditorCanvas_MouseLeftButtonUp"/>
-                    <Rectangle x:Name="EditorResizeBorder"
-                               Stroke="#38BDF8"
-                               StrokeThickness="1"
-                               Fill="Transparent"
-                               IsHitTestVisible="False"/>
-                    <primitives:Thumb x:Name="EditorResizeThumb"
-                                      Width="18"
-                                      Height="18"
-                                      HorizontalAlignment="Right"
-                                      VerticalAlignment="Bottom"
-                                      Cursor="SizeNWSE"
-                                      DragStarted="EditorResizeThumb_DragStarted"
-                                      DragDelta="EditorResizeThumb_DragDelta"
-                                      DragCompleted="EditorResizeThumb_DragCompleted">
-                        <primitives:Thumb.Template>
-                            <ControlTemplate TargetType="{x:Type primitives:Thumb}">
-                                <Border Background="#38BDF8" BorderBrush="#E0F2FE" BorderThickness="1">
-                                    <Grid>
-                                        <Line X1="5" Y1="16" X2="16" Y2="5" Stroke="#0F172A" StrokeThickness="1"/>
-                                        <Line X1="10" Y1="16" X2="16" Y2="10" Stroke="#0F172A" StrokeThickness="1"/>
-                                    </Grid>
-                                </Border>
-                            </ControlTemplate>
-                        </primitives:Thumb.Template>
-                    </primitives:Thumb>
+                        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="7">
+                            <TextBlock x:Name="GridSizeText" Style="{StaticResource MutedTextStyle}"/>
+                            <Slider x:Name="GridSizeSlider" Minimum="1" Maximum="64" Value="10" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </Border>
-        </ScrollViewer>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Width="96" Height="34" Content="Default Pos" Click="DefaultPositionButton_Click"/>
+            <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
+                        <TextBlock Text="Runtime and Selection" Style="{StaticResource SectionTitleStyle}"/>
+                    </Border>
+                    <Grid Grid.Row="1" Margin="14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Row="0" Grid.Column="0">
+                            <TextBlock Text="Stop hotkey" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBox x:Name="HotkeyBox" Height="30"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="2">
+                            <TextBlock Text="Max FPS" Style="{StaticResource MutedTextStyle}"/>
+                            <ComboBox x:Name="RefreshFpsCombo" Height="30"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                            <TextBlock x:Name="SelectedOpacityText" Text="Selected opacity" Style="{StaticResource MutedTextStyle}"/>
+                            <Slider x:Name="SelectedOpacitySlider" Minimum="0.05" Maximum="1" Value="1" TickFrequency="0.05"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
+                            <TextBlock x:Name="SelectedSlotScaleText" Text="Selected slot scale" Style="{StaticResource MutedTextStyle}"/>
+                            <Slider x:Name="SelectedSlotScaleSlider" Minimum="0.1" Maximum="10" Value="1" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource GlassCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
+                    <DockPanel>
+                        <TextBlock Text="Layout Canvas" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock DockPanel.Dock="Right"
+                                   Text="Drag slots, use arrow keys for fine movement, resize the canvas with the corner handle."
+                                   Style="{StaticResource MutedTextStyle}"/>
+                    </DockPanel>
+                </Border>
+                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{StaticResource OverlayBgBrush}">
+                    <Border BorderBrush="{StaticResource OverlayBorderBrush}" BorderThickness="1" Background="{StaticResource OverlayPanelSoftBrush}">
+                        <Grid x:Name="EditorSurface" Background="{StaticResource OverlayPanelSoftBrush}">
+                            <Canvas x:Name="EditorCanvas"
+                                    Focusable="True"
+                                    Background="{StaticResource OverlayPanelSoftBrush}"
+                                    MouseLeftButtonDown="EditorCanvas_MouseLeftButtonDown"
+                                    MouseMove="EditorCanvas_MouseMove"
+                                    MouseLeftButtonUp="EditorCanvas_MouseLeftButtonUp"/>
+                            <Rectangle x:Name="EditorResizeBorder"
+                                       Stroke="#38BDF8"
+                                       StrokeThickness="1"
+                                       Fill="Transparent"
+                                       IsHitTestVisible="False"/>
+                            <primitives:Thumb x:Name="EditorResizeThumb"
+                                              Width="18"
+                                              Height="18"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Bottom"
+                                              Cursor="SizeNWSE"
+                                              DragStarted="EditorResizeThumb_DragStarted"
+                                              DragDelta="EditorResizeThumb_DragDelta"
+                                              DragCompleted="EditorResizeThumb_DragCompleted">
+                                <primitives:Thumb.Template>
+                                    <ControlTemplate TargetType="{x:Type primitives:Thumb}">
+                                        <Border Background="#38BDF8" BorderBrush="#E0F2FE" BorderThickness="1" CornerRadius="3">
+                                            <Grid>
+                                                <Line X1="5" Y1="16" X2="16" Y2="5" Stroke="#0F172A" StrokeThickness="1"/>
+                                                <Line X1="10" Y1="16" X2="16" Y2="10" Stroke="#0F172A" StrokeThickness="1"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </primitives:Thumb.Template>
+                            </primitives:Thumb>
+                        </Grid>
+                    </Border>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Width="104" Height="34" Content="Default Pos" Click="DefaultPositionButton_Click"/>
             <Button Width="132" Height="34" Margin="8,0,0,0" Content="Screen Preview" Click="ScreenPreviewButton_Click"/>
-            <Button Width="112" Height="34" Margin="8,0,0,0" Content="Delete Selected" Click="DeleteSelectedButton_Click"/>
-            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Apply" Click="ApplyButton_Click"/>
+            <Button Width="122" Height="34" Margin="8,0,0,0" Content="Delete Selected" Click="DeleteSelectedButton_Click"/>
+            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Apply" Style="{StaticResource PrimaryActionButtonStyle}" Click="ApplyButton_Click"/>
             <Button Width="96" Height="34" Margin="8,0,0,0" Content="Close" Click="CloseButton_Click"/>
-        </StackPanel>
+        </WrapPanel>
     </Grid>
 </Window>
