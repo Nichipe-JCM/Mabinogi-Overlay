@@ -30,7 +30,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Canvas and Screen" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="Canvas and Screen" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}"/>
                     </Border>
                     <Grid Grid.Row="1" Margin="14">
                         <Grid.RowDefinitions>
@@ -68,12 +68,12 @@
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                            <TextBlock Text="Opacity" Style="{StaticResource MutedTextStyle}"/>
-                            <Slider x:Name="OpacitySlider" Minimum="0.2" Maximum="1" TickFrequency="0.05"/>
+                            <TextBlock x:Name="OpacityText" Text="Opacity" Style="{StaticResource MutedTextStyle}"/>
+                            <Slider x:Name="OpacitySlider" Minimum="0" Maximum="1" TickFrequency="0.05"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="4" Grid.ColumnSpan="3">
                             <TextBlock Text="Slot scale" Style="{StaticResource MutedTextStyle}"/>
-                            <Slider x:Name="SlotScaleSlider" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                            <Slider x:Name="SlotScaleSlider" Minimum="0.1" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
                             <TextBlock x:Name="SlotScaleText" Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
 
@@ -92,7 +92,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Runtime and Selection" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="Runtime and Selection" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}"/>
                     </Border>
                     <Grid Grid.Row="1" Margin="14">
                         <Grid.RowDefinitions>
@@ -143,7 +143,7 @@
                             <ColumnDefinition Width="24"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Layout Canvas" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="0" Text="Layout Canvas" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="2"
                                    Text="Drag slots, use arrow keys for fine movement, resize the canvas with the corner handle."
                                    Style="{StaticResource MutedTextStyle}" VerticalAlignment="Center" TextAlignment="Right"/>

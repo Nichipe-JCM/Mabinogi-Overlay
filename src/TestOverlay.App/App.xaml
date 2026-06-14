@@ -156,18 +156,21 @@
                                         BorderBrush="{StaticResource CandidateCheckBrush}"
                                         BorderThickness="1"
                                         CornerRadius="2"/>
-                                <Path x:Name="CheckMark"
-                                      Grid.Column="0"
-                                      Width="10"
-                                      Height="10"
-                                      HorizontalAlignment="Center"
-                                      VerticalAlignment="Center"
-                                      Data="M 3 6 L 5.4 8.4 L 10 3.5"
-                                      Stroke="{StaticResource CandidateCheckBrush}"
-                                      StrokeThickness="1.8"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
-                                      Visibility="Collapsed"/>
+                                <Viewbox x:Name="CheckMark"
+                                         Grid.Column="0"
+                                         Width="13"
+                                         Height="13"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Visibility="Collapsed">
+                                    <Canvas Width="13" Height="13">
+                                        <Path Data="M 3 6.5 L 5.4 8.9 L 10.2 3.8"
+                                              Stroke="{StaticResource CandidateCheckBrush}"
+                                              StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"/>
+                                    </Canvas>
+                                </Viewbox>
                                 <ContentPresenter Grid.Column="1"
                                                   Margin="5,0,0,0"
                                                   VerticalAlignment="Center"

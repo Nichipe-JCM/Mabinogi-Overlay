@@ -16,7 +16,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,14">
-            <TextBlock Text="Settings" FontSize="22" FontWeight="Bold"/>
+            <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
             <TextBlock Text="Profiles, storage path, renderer mode, and benchmark tools." Style="{StaticResource MutedTextStyle}"/>
         </StackPanel>
 
@@ -103,6 +103,7 @@
                                        Text="Open a controlled stress test window to compare renderer cost."
                                        Style="{StaticResource MutedTextStyle}"/>
                             <Button Height="34" Content="Open benchmark" Click="BenchmarkButton_Click"/>
+                            <Button Height="34" Margin="0,8,0,0" Content="Log" Click="LogButton_Click"/>
                         </StackPanel>
                     </Border>
                 </Grid>

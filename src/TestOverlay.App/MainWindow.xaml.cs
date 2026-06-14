@@ -802,7 +802,9 @@ public partial class MainWindow : Window
             _settingsStore.DefaultProfileDirectory,
             _profileNames,
             ReadSelectedProfileName(),
-            _appSettings.OverlayRenderMode)
+            _appSettings.OverlayRenderMode,
+            _log.LogPath,
+            _log.SessionStartedAt)
         {
             Owner = this
         };
@@ -952,12 +954,12 @@ public partial class MainWindow : Window
         _layoutCanvasHeight = Math.Max(80, profile.CanvasHeight);
         _overlayLeft = profile.ScreenLeft;
         _overlayTop = profile.ScreenTop;
-        _overlayOpacity = Math.Clamp(profile.Opacity, 0.2, 1);
+        _overlayOpacity = Math.Clamp(profile.Opacity, 0, 1);
         _stopHotkey = profile.StopHotkey;
         _refreshFps = CoerceRefreshFps(profile.RefreshFps > 0
             ? profile.RefreshFps
             : FpsFromInterval(profile.RefreshIntervalMs));
-        _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
+        _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 0.1, 10);
         _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
@@ -2710,7 +2712,7 @@ public partial class MainWindow : Window
 
     private int ReadCandidateBoxHeight() => ReadSlotInnerHeight() + CandidateBorderPixels * 2;
 
-    private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
+    private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 0.1, 10);
 
     private static double InferSlotScale(OverlayProfileSlot slot)
     {
@@ -2881,7 +2883,7 @@ public partial class MainWindow : Window
     {
         LayoutSummaryText.Text =
             $"Slots: {_overlaySlots.Count} | Canvas: {_layoutCanvasWidth:0}x{_layoutCanvasHeight:0} | " +
-            $"Screen: {_overlayLeft:0}, {_overlayTop:0} | Opacity: {_overlayOpacity:0.00} | " +
+            $"Screen: {_overlayLeft:0}, {_overlayTop:0} | Opacity: {_overlayOpacity * 100:0}% | " +
             $"Scale: {_layoutSlotScale:0.0}x | Grid: {_layoutGridSnapSize:0}px | Hotkey: {_stopHotkey} | Max FPS: {_refreshFps}";
     }
 

@@ -27,25 +27,25 @@
 
                 <Grid Grid.Column="0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="38"/>
+                        <ColumnDefinition Width="56"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Width="34"
-                            Height="34"
+                    <Border Width="51"
+                            Height="51"
                             Background="#1EFFFFFF"
                             BorderBrush="#35FFFFFF"
                             BorderThickness="1"
                             CornerRadius="8">
                         <Image Source="/Image/Logo.png"
-                               Width="28"
-                               Height="28"
+                               Width="42"
+                               Height="42"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Stretch="Uniform"/>
                     </Border>
-                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
-                        <TextBlock Text="Management dashboard" Style="{StaticResource MutedTextStyle}"/>
+                        <TextBlock Text="v0.0.2-beta" Style="{StaticResource MutedTextStyle}"/>
                     </StackPanel>
                 </Grid>
 
@@ -76,7 +76,7 @@
                     <Button x:Name="ManualCaptureButton" Width="124" Height="36" Margin="6,0,0,0" Content="Manual capture" Click="ManualCaptureButton_Click"/>
                     <Button x:Name="DetectButton" Width="150" Height="36" Margin="6,0,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
                     <Button x:Name="DebugDetectButton" Width="116" Height="36" Margin="6,0,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>
-                    <Button x:Name="StopOverlayButton" Width="88" Height="36" Margin="6,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
+                    <Button x:Name="SettingsButton" Width="112" Height="36" Margin="6,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
                 </WrapPanel>
             </Grid>
         </Border>
@@ -296,9 +296,8 @@
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,14">
                             <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
                             <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="68" Height="34" Margin="4,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
-                            <Button x:Name="StopOverlayLayoutButton" Width="62" Height="34" Margin="4,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
-                            <Button x:Name="SettingsButton" Width="112" Height="34" Margin="4,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
+                            <Button x:Name="StartOverlayButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay start" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="StopOverlayLayoutButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay stop" Click="StopOverlayButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>

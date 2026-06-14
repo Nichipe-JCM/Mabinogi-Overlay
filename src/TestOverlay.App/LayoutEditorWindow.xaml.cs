@@ -51,10 +51,10 @@ public partial class LayoutEditorWindow : Window
         CanvasHeight = Math.Max(80, canvasHeight);
         ScreenLeft = screenLeft;
         ScreenTop = screenTop;
-        OverlayOpacity = Math.Clamp(opacity, 0.2, 1);
+        OverlayOpacity = Math.Clamp(opacity, 0, 1);
         StopHotkey = hotkey;
         RefreshFps = CoerceFps(refreshFps);
-        SlotScale = Math.Clamp(slotScale, 1, 3);
+        SlotScale = Math.Clamp(slotScale, 0.1, 10);
         GridSnapSize = Math.Clamp(gridSnapSize, 1, 64);
         foreach (var slot in _slots)
         {
@@ -63,6 +63,17 @@ public partial class LayoutEditorWindow : Window
                 Math.Max(1, slot.Source.SourceRect.Height));
         }
 
+        OpacitySlider.ValueChanged += (_, _) =>
+        {
+            UpdateOpacityText();
+            if (_isPopulatingControls)
+            {
+                return;
+            }
+
+            OverlayOpacity = Math.Clamp(OpacitySlider.Value, 0, 1);
+            UpdateOverlayPreview();
+        };
         SlotScaleSlider.ValueChanged += (_, _) =>
         {
             SlotScaleText.Text = $"{SlotScaleSlider.Value:0.0}x";
@@ -132,6 +143,7 @@ public partial class LayoutEditorWindow : Window
         ScreenLeftBox.Text = ScreenLeft.ToString("0");
         ScreenTopBox.Text = ScreenTop.ToString("0");
         OpacitySlider.Value = OverlayOpacity;
+        UpdateOpacityText();
         HotkeyBox.Text = StopHotkey;
         RefreshFpsCombo.ItemsSource = FpsOptions;
         RefreshFpsCombo.SelectedItem = RefreshFps;
@@ -292,8 +304,8 @@ public partial class LayoutEditorWindow : Window
     private void DefaultPositionButton_Click(object sender, RoutedEventArgs e)
     {
         ApplySettingsFromControls();
-        ScreenLeft = Math.Max(0, SystemParameters.WorkArea.Right - CanvasWidth - 40);
-        ScreenTop = Math.Max(0, SystemParameters.WorkArea.Top + 120);
+        ScreenLeft = Math.Max(0, SystemParameters.PrimaryScreenWidth / 2.0);
+        ScreenTop = Math.Max(0, SystemParameters.PrimaryScreenHeight / 2.0);
         ScreenLeftBox.Text = ScreenLeft.ToString("0");
         ScreenTopBox.Text = ScreenTop.ToString("0");
         UpdateOverlayPreview();
@@ -342,12 +354,12 @@ public partial class LayoutEditorWindow : Window
         CanvasHeight = ReadPositiveDouble(CanvasHeightBox.Text, CanvasHeight);
         ScreenLeft = ReadDouble(ScreenLeftBox.Text, ScreenLeft);
         ScreenTop = ReadDouble(ScreenTopBox.Text, ScreenTop);
-        OverlayOpacity = Math.Clamp(OpacitySlider.Value, 0.2, 1);
+        OverlayOpacity = Math.Clamp(OpacitySlider.Value, 0, 1);
         StopHotkey = HotkeyBox.Text;
         RefreshFps = RefreshFpsCombo.SelectedItem is int selectedFps
             ? selectedFps
             : CoerceFps(RefreshFps);
-        SlotScale = Math.Clamp(SlotScaleSlider.Value, 1, 3);
+        SlotScale = Math.Clamp(SlotScaleSlider.Value, 0.1, 10);
         GridSnapSize = ReadGridSize();
         ApplyCanvasSize();
         UpdateOverlayPreview();
@@ -653,8 +665,8 @@ public partial class LayoutEditorWindow : Window
         if (SelectedOpacityText is not null)
         {
             SelectedOpacityText.Text = _selectedSlots.Count == 0
-                ? "Selected opacity"
-                : $"Selected opacity {SelectedOpacitySlider.Value:0.00} ({_selectedSlots.Count})";
+                ? $"Selected opacity {FormatPercent(SelectedOpacitySlider.Value)}"
+                : $"Selected opacity {FormatPercent(SelectedOpacitySlider.Value)} ({_selectedSlots.Count})";
         }
 
         if (SelectedSlotScaleText is not null)
@@ -664,6 +676,17 @@ public partial class LayoutEditorWindow : Window
                 : $"Selected slot scale {SelectedSlotScaleSlider.Value:0.0}x ({_selectedSlots.Count})";
         }
     }
+
+    private void UpdateOpacityText()
+    {
+        if (OpacityText is not null)
+        {
+            OpacityText.Text = $"Opacity {FormatPercent(OpacitySlider.Value)}";
+        }
+    }
+
+    private static string FormatPercent(double value) =>
+        $"{Math.Clamp(value, 0, 1) * 100:0}%";
 
     private double Snap(double value)
     {

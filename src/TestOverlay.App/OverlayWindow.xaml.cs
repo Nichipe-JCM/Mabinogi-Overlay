@@ -37,7 +37,7 @@ public partial class OverlayWindow : Window
 
         Width = Math.Max(120, width);
         Height = Math.Max(80, height);
-        Opacity = Math.Clamp(opacity, 0.2, 1);
+        Opacity = Math.Clamp(opacity, 0, 1);
 
         Focusable = false;
         ShowActivated = false;

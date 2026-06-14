@@ -8,16 +8,22 @@ namespace TestOverlay.App;
 public partial class SettingsWindow : Window
 {
     private readonly string _defaultProfileDirectory;
+    private readonly string _logPath;
+    private readonly DateTimeOffset _logSessionStartedAt;
 
     public SettingsWindow(
         string profileDirectory,
         string defaultProfileDirectory,
         IReadOnlyList<string> profileNames,
         string selectedProfileName,
-        OverlayRenderMode selectedRenderMode)
+        OverlayRenderMode selectedRenderMode,
+        string logPath,
+        DateTimeOffset logSessionStartedAt)
     {
         InitializeComponent();
         _defaultProfileDirectory = defaultProfileDirectory;
+        _logPath = logPath;
+        _logSessionStartedAt = logSessionStartedAt;
         ProfileDirectory = profileDirectory;
         ProfileDirectoryBox.Text = profileDirectory;
         SelectedProfileName = string.IsNullOrWhiteSpace(selectedProfileName) ? "default" : selectedProfileName.Trim();
@@ -92,6 +98,15 @@ public partial class SettingsWindow : Window
     private void BenchmarkButton_Click(object sender, RoutedEventArgs e)
     {
         var window = new BenchmarkWindow
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    private void LogButton_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new LogWindow(_logPath, _logSessionStartedAt)
         {
             Owner = this
         };
