@@ -1175,6 +1175,50 @@ public partial class MainWindow : Window
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
 
+    private void TitleBarArea_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (e.ClickCount == 2)
+        {
+            ToggleMainWindowMaximize();
+            return;
+        }
+
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            // DragMove can throw if the mouse state changes while the drag starts.
+        }
+    }
+
+    private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState.Minimized;
+
+    private void MaximizeWindowButton_Click(object sender, RoutedEventArgs e) =>
+        ToggleMainWindowMaximize();
+
+    private void CloseWindowButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Window_StateChanged(object? sender, EventArgs e) => UpdateMainWindowStateButton();
+
+    private void ToggleMainWindowMaximize() =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void UpdateMainWindowStateButton()
+    {
+        if (MaximizeWindowButton is not null)
+        {
+            MaximizeWindowButton.Content = WindowState == WindowState.Maximized ? "❐" : "□";
+        }
+    }
+
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var position = e.GetPosition(CaptureCanvas);
