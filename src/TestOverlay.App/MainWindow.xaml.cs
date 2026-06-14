@@ -1215,7 +1215,7 @@ public partial class MainWindow : Window
     {
         if (MaximizeWindowButton is not null)
         {
-            MaximizeWindowButton.Content = WindowState == WindowState.Maximized ? "❐" : "□";
+            MaximizeWindowButton.Content = WindowState == WindowState.Maximized ? "R" : "[]";
         }
     }
 

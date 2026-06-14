@@ -21,20 +21,53 @@
     <Grid Margin="12" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
-            <Grid Margin="16,12" MouseLeftButtonDown="TitleBarArea_MouseLeftButtonDown">
+            <Grid Height="42" Margin="12,0" MouseLeftButtonDown="TitleBarArea_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Image Grid.Column="0"
+                       Source="/Image/Logo.png"
+                       Width="24"
+                       Height="24"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock Grid.Column="1"
+                           Text="Mabinogi Overlay"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource OverlayAccentBrush}"/>
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Width="34" Height="28" Margin="4,0,0,0" Content="-" Click="MinimizeWindowButton_Click"/>
+                    <Button x:Name="MaximizeWindowButton" Width="34" Height="28" Margin="4,0,0,0" Content="[]" Click="MaximizeWindowButton_Click"/>
+                    <Button Width="34" Height="28" Margin="4,0,0,0" Content="X" Click="CloseWindowButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Style="{StaticResource GlassCardStyle}">
+            <Grid Margin="16,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="18"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="118"/>
                 </Grid.ColumnDefinitions>
-
                 <Grid Grid.Column="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="56"/>
@@ -51,7 +84,8 @@
                                Height="42"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               Stretch="Uniform"/>
+                               Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
@@ -80,7 +114,7 @@
                     <TextBlock x:Name="WindowStatusText" Margin="0,6,0,0" Style="{StaticResource MutedTextStyle}" Visibility="Collapsed"/>
                 </StackPanel>
 
-                <WrapPanel Grid.Column="3" Margin="16,0,8,0" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <WrapPanel Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button x:Name="RefreshWindowsButton" Width="92" Height="36" Margin="6,0,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
                     <Button x:Name="AutoCaptureButton" Width="112" Height="36" Margin="6,0,0,0" Content="Auto capture" Click="AutoCaptureButton_Click"/>
                     <Button x:Name="ManualCaptureButton" Width="124" Height="36" Margin="6,0,0,0" Content="Manual capture" Click="ManualCaptureButton_Click"/>
@@ -88,19 +122,10 @@
                     <Button x:Name="DebugDetectButton" Width="116" Height="36" Margin="6,0,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>
                     <Button x:Name="SettingsButton" Width="112" Height="36" Margin="6,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
                 </WrapPanel>
-                <StackPanel Grid.Column="4"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Top"
-                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Width="34" Height="30" Margin="4,0,0,0" Content="-" Click="MinimizeWindowButton_Click"/>
-                    <Button x:Name="MaximizeWindowButton" Width="34" Height="30" Margin="4,0,0,0" Content="□" Click="MaximizeWindowButton_Click"/>
-                    <Button Width="34" Height="30" Margin="4,0,0,0" Content="X" Click="CloseWindowButton_Click"/>
-                </StackPanel>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" Margin="0,16,0,16">
+        <Grid Grid.Row="2" Margin="0,16,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" MinWidth="520"/>
                 <ColumnDefinition Width="14"/>
@@ -323,7 +348,7 @@
             </Grid>
         </Grid>
 
-        <Border Grid.Row="2" Padding="12,8" Style="{StaticResource GlassCardStyle}">
+        <Border Grid.Row="3" Padding="12,8" Style="{StaticResource GlassCardStyle}">
             <TextBlock x:Name="StatusText"
                        Style="{StaticResource MutedTextStyle}"
                        Text="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."/>
