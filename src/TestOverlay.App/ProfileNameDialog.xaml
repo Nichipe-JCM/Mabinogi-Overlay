@@ -24,7 +24,7 @@
 
             <WrapPanel Grid.Row="3" HorizontalAlignment="Right">
                 <Button Width="84" Height="34" Content="Cancel" Click="CancelButton_Click"/>
-                <Button Width="84" Height="34" Margin="8,0,0,0" Content="Save" Style="{StaticResource PrimaryActionButtonStyle}" Click="SaveButton_Click"/>
+                <Button Width="84" Height="34" Margin="8,0,0,0" Content="Save" Click="SaveButton_Click"/>
             </WrapPanel>
         </Grid>
     </Border>

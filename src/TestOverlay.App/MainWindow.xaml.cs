@@ -176,7 +176,7 @@ public partial class MainWindow : Window
 
         _appSettings.CaptureBackend = option.Backend;
         _settingsStore.Save(_appSettings);
-        WindowStatusText.Text = BuildWindowStatusText();
+        SetWindowStatusText(BuildWindowStatusText());
         SetStatus($"Capture method selected: {option.Label}.");
     }
 
@@ -184,7 +184,7 @@ public partial class MainWindow : Window
     {
         if (WindowStatusText is not null)
         {
-            WindowStatusText.Text = BuildWindowStatusText();
+            SetWindowStatusText(BuildWindowStatusText());
         }
     }
 
@@ -1275,7 +1275,13 @@ public partial class MainWindow : Window
         var windows = _windowDiscovery.GetVisibleWindows();
         WindowCombo.ItemsSource = windows;
         WindowCombo.SelectedItem = windows.FirstOrDefault(window => window.LooksLikeMabinogi) ?? windows.FirstOrDefault();
-        WindowStatusText.Text = BuildWindowStatusText();
+        SetWindowStatusText(BuildWindowStatusText());
+    }
+
+    private void SetWindowStatusText(string text)
+    {
+        WindowStatusText.Text = text;
+        WindowStatusText.Visibility = string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private string BuildWindowStatusText()

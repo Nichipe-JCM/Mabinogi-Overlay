@@ -65,7 +65,7 @@
                     <TextBlock Text="Slot multipliers" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}"/>
                     <TextBox x:Name="MultipliersBox" Height="30" Text="1,5,10,20"/>
                     <TextBlock Text="comma-separated" Margin="0,4,0,0" Style="{StaticResource MutedTextStyle}"/>
-                    <Button x:Name="StartButton" Height="34" Margin="0,12,0,0" Content="Start benchmark" Style="{StaticResource PrimaryActionButtonStyle}" Click="StartButton_Click"/>
+                    <Button x:Name="StartButton" Height="34" Margin="0,12,0,0" Content="Start benchmark" Click="StartButton_Click"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0">

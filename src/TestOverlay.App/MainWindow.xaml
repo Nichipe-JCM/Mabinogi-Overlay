@@ -36,18 +36,20 @@
                             BorderBrush="#35FFFFFF"
                             BorderThickness="1"
                             CornerRadius="8">
-                        <TextBlock Text="MO"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontWeight="Bold"/>
+                        <Image Source="/Image/Logo.png"
+                               Width="28"
+                               Height="28"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Stretch="Uniform"/>
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                        <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold"/>
+                        <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
                         <TextBlock Text="Management dashboard" Style="{StaticResource MutedTextStyle}"/>
                     </StackPanel>
                 </Grid>
 
-                <StackPanel Grid.Column="2">
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="210"/>
@@ -56,25 +58,25 @@
                         </Grid.ColumnDefinitions>
                         <ComboBox x:Name="CaptureBackendCombo"
                                   Grid.Column="0"
-                                  Height="34"
+                                  Height="36"
                                   DisplayMemberPath="Label"
                                   SelectionChanged="CaptureBackendCombo_SelectionChanged"/>
                         <ComboBox x:Name="WindowCombo"
                                   Grid.Column="2"
-                                  Height="34"
+                                  Height="36"
                                   DisplayMemberPath="DisplayName"
                                   SelectionChanged="WindowCombo_SelectionChanged"/>
                     </Grid>
-                    <TextBlock x:Name="WindowStatusText" Margin="0,6,0,0" Style="{StaticResource MutedTextStyle}"/>
+                    <TextBlock x:Name="WindowStatusText" Margin="0,6,0,0" Style="{StaticResource MutedTextStyle}" Visibility="Collapsed"/>
                 </StackPanel>
 
                 <WrapPanel Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center">
-                    <Button x:Name="RefreshWindowsButton" Width="92" Height="34" Margin="6,0,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
-                    <Button x:Name="AutoCaptureButton" Width="112" Height="34" Margin="6,0,0,0" Content="Auto capture" Click="AutoCaptureButton_Click"/>
-                    <Button x:Name="ManualCaptureButton" Width="124" Height="34" Margin="6,0,0,0" Content="Manual capture" Click="ManualCaptureButton_Click"/>
-                    <Button x:Name="DetectButton" Width="150" Height="34" Margin="6,0,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
-                    <Button x:Name="DebugDetectButton" Width="116" Height="34" Margin="6,0,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>
-                    <Button x:Name="StopOverlayButton" Width="88" Height="34" Margin="6,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
+                    <Button x:Name="RefreshWindowsButton" Width="92" Height="36" Margin="6,0,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
+                    <Button x:Name="AutoCaptureButton" Width="112" Height="36" Margin="6,0,0,0" Content="Auto capture" Click="AutoCaptureButton_Click"/>
+                    <Button x:Name="ManualCaptureButton" Width="124" Height="36" Margin="6,0,0,0" Content="Manual capture" Click="ManualCaptureButton_Click"/>
+                    <Button x:Name="DetectButton" Width="150" Height="36" Margin="6,0,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
+                    <Button x:Name="DebugDetectButton" Width="116" Height="36" Margin="6,0,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>
+                    <Button x:Name="StopOverlayButton" Width="88" Height="36" Margin="6,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
                 </WrapPanel>
             </Grid>
         </Border>
@@ -101,7 +103,7 @@
                                 <TextBlock x:Name="DetectModeText"
                                            Margin="0,4,0,0"
                                            FontWeight="SemiBold"
-                                           Foreground="#FBBF24"
+                                           Foreground="{StaticResource OverlayAccentBrush}"
                                            Visibility="Collapsed"
                                            Text="AUTO DETECT SECTION: drag a section area"/>
                             </StackPanel>
@@ -294,7 +296,7 @@
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,14">
                             <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
                             <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="68" Height="34" Margin="4,0,0,0" Content="Start" Style="{StaticResource PrimaryActionButtonStyle}" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="StartOverlayButton" Width="68" Height="34" Margin="4,0,0,0" Content="Start" Click="StartOverlayButton_Click"/>
                             <Button x:Name="StopOverlayLayoutButton" Width="62" Height="34" Margin="4,0,0,0" Content="Stop" Click="StopOverlayButton_Click"/>
                             <Button x:Name="SettingsButton" Width="112" Height="34" Margin="4,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
                         </WrapPanel>

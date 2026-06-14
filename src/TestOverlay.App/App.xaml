@@ -11,18 +11,18 @@
                 <ui:ControlsDictionary/>
             </ResourceDictionary.MergedDictionaries>
 
-            <Color x:Key="OverlayBgColor">#070707</Color>
-            <Color x:Key="OverlayPanelColor">#171717</Color>
-            <Color x:Key="OverlayPanelElevatedColor">#202020</Color>
-            <Color x:Key="OverlayPanelSoftColor">#101010</Color>
-            <Color x:Key="OverlayBorderColor">#343638</Color>
+            <Color x:Key="OverlayBgColor">#111315</Color>
+            <Color x:Key="OverlayPanelColor">#1B1D20</Color>
+            <Color x:Key="OverlayPanelElevatedColor">#24272A</Color>
+            <Color x:Key="OverlayPanelSoftColor">#151719</Color>
+            <Color x:Key="OverlayBorderColor">#3B3F43</Color>
             <Color x:Key="OverlayTextColor">#ECECEC</Color>
             <Color x:Key="OverlayMutedColor">#A7AAAD</Color>
             <Color x:Key="OverlayAccentColor">#89DED4</Color>
             <Color x:Key="OverlayAccentTextColor">#071414</Color>
             <Color x:Key="OverlayBlueColor">#89DED4</Color>
             <Color x:Key="OverlayDangerColor">#FFB4AB</Color>
-            <Color x:Key="CandidateCheckColor">#FBBF24</Color>
+            <Color x:Key="CandidateCheckColor">#89DED4</Color>
 
             <SolidColorBrush x:Key="OverlayBgBrush" Color="{StaticResource OverlayBgColor}"/>
             <SolidColorBrush x:Key="OverlayPanelBrush" Color="{StaticResource OverlayPanelColor}"/>
@@ -42,15 +42,15 @@
             </Style>
 
             <Style x:Key="GlassCardStyle" TargetType="{x:Type Border}">
-                <Setter Property="Background" Value="#D9171717"/>
-                <Setter Property="BorderBrush" Value="#66343638"/>
+                <Setter Property="Background" Value="#D91B1D20"/>
+                <Setter Property="BorderBrush" Value="#663B3F43"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="12"/>
                 <Setter Property="SnapsToDevicePixels" Value="True"/>
             </Style>
 
             <Style x:Key="CardHeaderStyle" TargetType="{x:Type Border}">
-                <Setter Property="Background" Value="#80202020"/>
+                <Setter Property="Background" Value="#8024272A"/>
                 <Setter Property="BorderBrush" Value="#55343638"/>
                 <Setter Property="BorderThickness" Value="0,0,0,1"/>
                 <Setter Property="Padding" Value="14,12"/>
@@ -93,8 +93,8 @@
             <Style x:Key="PrimaryActionButtonStyle" TargetType="{x:Type Button}">
                 <Setter Property="Background" Value="{StaticResource OverlayPanelElevatedBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
-                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="BorderBrush" Value="{StaticResource OverlayBorderBrush}"/>
+                <Setter Property="FontWeight" Value="Normal"/>
             </Style>
 
             <Style x:Key="CandidateListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
@@ -144,6 +144,9 @@
                                     <ColumnDefinition Width="18"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
                                 <Border x:Name="CheckBoxBorder"
                                         Width="13"
                                         Height="13"
@@ -154,6 +157,11 @@
                                         BorderThickness="1"
                                         CornerRadius="2"/>
                                 <Path x:Name="CheckMark"
+                                      Grid.Column="0"
+                                      Width="10"
+                                      Height="10"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
                                       Data="M 3 6 L 5.4 8.4 L 10 3.5"
                                       Stroke="{StaticResource CandidateCheckBrush}"
                                       StrokeThickness="1.8"
@@ -167,11 +175,11 @@
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="CheckBoxBorder" Property="Background" Value="#33FBBF24"/>
+                                    <Setter TargetName="CheckBoxBorder" Property="Background" Value="#3389DED4"/>
                                     <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="#FFF59E0B"/>
+                                    <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
