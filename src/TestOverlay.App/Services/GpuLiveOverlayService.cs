@@ -24,6 +24,7 @@ public sealed class GpuLiveOverlayService : IDisposable
     private readonly AppLog _log;
     private readonly int _surfaceWidth;
     private readonly int _surfaceHeight;
+    private readonly double _defaultSlotOpacity;
     private readonly long _minFrameTicks;
     private readonly long _statsIntervalTicks = Stopwatch.Frequency * 5;
     private readonly Stopwatch _frameClock = Stopwatch.StartNew();
@@ -59,6 +60,7 @@ public sealed class GpuLiveOverlayService : IDisposable
         int surfaceHeight,
         GraphicsCaptureItem captureItem,
         IReadOnlyList<OverlaySlot> slots,
+        double defaultSlotOpacity,
         int maxFps,
         AppLog log)
     {
@@ -71,6 +73,7 @@ public sealed class GpuLiveOverlayService : IDisposable
         _surfaceWidth = Math.Max(1, surfaceWidth);
         _surfaceHeight = Math.Max(1, surfaceHeight);
         _slots = slots;
+        _defaultSlotOpacity = Math.Clamp(defaultSlotOpacity, 0, 1);
         _minFrameTicks = Stopwatch.Frequency / Math.Clamp(maxFps, 1, 240);
 
         _log.Info(
@@ -372,7 +375,12 @@ public sealed class GpuLiveOverlayService : IDisposable
 
         var sourceRect = ToRawRect(source);
         var destinationRect = ToRawRect(destination);
-        var opacity = (float)Math.Clamp(slot.Opacity, 0.05, 1);
+        var opacity = (float)slot.EffectiveOpacity(_defaultSlotOpacity);
+        if (opacity <= 0)
+        {
+            return;
+        }
+
         _d2dContext.DrawBitmap(
             frameBitmap,
             destinationRect,

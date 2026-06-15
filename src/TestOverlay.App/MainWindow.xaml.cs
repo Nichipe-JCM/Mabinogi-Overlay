@@ -922,6 +922,7 @@ public partial class MainWindow : Window
                 OverlayWidth = slot.OverlayRect.Width,
                 OverlayHeight = slot.OverlayRect.Height,
                 Opacity = slot.Opacity,
+                HasOpacityOverride = slot.HasOpacityOverride,
                 Scale = slot.Scale
             }).ToList()
         };
@@ -1034,12 +1035,14 @@ public partial class MainWindow : Window
             }
 
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
+            var hasOpacityOverride = savedSlot.HasOpacityOverride || Math.Abs(savedSlot.Opacity - 1) > 0.001;
             var slot = new OverlaySlot(
                 candidate,
                 new Rect(savedSlot.OverlayX, savedSlot.OverlayY, savedSlot.OverlayWidth, savedSlot.OverlayHeight),
                 crop,
                 savedSlot.Opacity > 0 ? savedSlot.Opacity : 1,
-                savedSlot.Scale > 0 ? savedSlot.Scale : InferSlotScale(savedSlot));
+                savedSlot.Scale > 0 ? savedSlot.Scale : InferSlotScale(savedSlot),
+                hasOpacityOverride);
             _overlaySlots.Add(slot);
         }
 
@@ -1123,6 +1126,7 @@ public partial class MainWindow : Window
                         (int)Math.Ceiling(_layoutCanvasHeight),
                         _wgcSelection.Item,
                         _overlaySlots,
+                        _overlayOpacity,
                         _refreshFps,
                         _log);
                     _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
@@ -1176,9 +1180,14 @@ public partial class MainWindow : Window
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
 
-    private void TitleBarArea_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void TitleBarArea_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (FindVisualAncestor<Button>(e.OriginalSource as DependencyObject) is not null)
         {
             return;
         }
@@ -1186,6 +1195,7 @@ public partial class MainWindow : Window
         if (e.ClickCount == 2)
         {
             ToggleMainWindowMaximize();
+            e.Handled = true;
             return;
         }
 
@@ -1197,6 +1207,23 @@ public partial class MainWindow : Window
         {
             // DragMove can throw if the mouse state changes while the drag starts.
         }
+    }
+
+    private void CandidateLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: SlotCandidate candidate })
+        {
+            return;
+        }
+
+        CandidateList.SelectedItem = candidate;
+        if (e.ClickCount != 2)
+        {
+            return;
+        }
+
+        candidate.IsSelected = !candidate.IsSelected;
+        e.Handled = true;
     }
 
     private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) =>
@@ -2686,7 +2713,8 @@ public partial class MainWindow : Window
                     liveCapture,
                     _overlaySlots,
                     (int)Math.Ceiling(_layoutCanvasWidth),
-                    (int)Math.Ceiling(_layoutCanvasHeight));
+                    (int)Math.Ceiling(_layoutCanvasHeight),
+                    _overlayOpacity);
                 _overlayWindow.RenderCompositedFrame(compositedFrame);
             }
             else
@@ -2758,6 +2786,22 @@ public partial class MainWindow : Window
     private int ReadCandidateBoxHeight() => ReadSlotInnerHeight() + CandidateBorderPixels * 2;
 
     private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 0.1, 10);
+
+    private static T? FindVisualAncestor<T>(DependencyObject? current)
+        where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
+    }
 
     private static double InferSlotScale(OverlayProfileSlot slot)
     {

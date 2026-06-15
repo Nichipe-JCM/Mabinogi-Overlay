@@ -26,8 +26,11 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Margin="0,0,0,8" Style="{StaticResource GlassCardStyle}">
-            <Grid Height="42" Margin="12,0" MouseLeftButtonDown="TitleBarArea_MouseLeftButtonDown">
+        <Border Grid.Row="0"
+                Margin="0,0,0,8"
+                Style="{StaticResource GlassCardStyle}"
+                PreviewMouseLeftButtonDown="TitleBarArea_PreviewMouseLeftButtonDown">
+            <Grid Height="42" Margin="12,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -371,16 +374,29 @@
                                  KeyDown="CandidateList_KeyDown">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                              Content="{Binding Label}"
-                                              Style="{StaticResource CandidateCheckBoxStyle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="18"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Grid.Column="0"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  VerticalAlignment="Center"
+                                                  Style="{StaticResource CandidateCheckBoxStyle}"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Margin="5,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource OverlayTextBrush}"
+                                                   Text="{Binding Label}"
+                                                   MouseLeftButtonDown="CandidateLabel_MouseLeftButtonDown"/>
+                                    </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
 
                         <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="14,12,14,14">
-                            <Button x:Name="SelectAllCandidatesButton" Width="68" Height="32" Margin="4,0,0,0" Content="All" Click="SelectAllCandidatesButton_Click"/>
-                            <Button x:Name="DeselectAllCandidatesButton" Width="72" Height="32" Margin="4,0,0,0" Content="None" Click="DeselectAllCandidatesButton_Click"/>
+                            <Button x:Name="SelectAllCandidatesButton" Width="96" Height="32" Margin="4,0,0,0" Content="Select all" Click="SelectAllCandidatesButton_Click"/>
+                            <Button x:Name="DeselectAllCandidatesButton" Width="108" Height="32" Margin="4,0,0,0" Content="Select none" Click="DeselectAllCandidatesButton_Click"/>
                             <Button x:Name="AddManualCandidateButton" Width="72" Height="32" Margin="4,0,0,0" Content="Add" Click="AddManualCandidateButton_Click"/>
                             <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,0" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
                             <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,0" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
