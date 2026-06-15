@@ -11,6 +11,7 @@ namespace TestOverlay.App;
 
 public partial class OverlayWindow : Window
 {
+    private readonly double _defaultSlotOpacity;
     private readonly Image _compositedImage = new()
     {
         Stretch = Stretch.Fill,
@@ -37,7 +38,8 @@ public partial class OverlayWindow : Window
 
         Width = Math.Max(120, width);
         Height = Math.Max(80, height);
-        Opacity = Math.Clamp(opacity, 0.2, 1);
+        Opacity = 1;
+        _defaultSlotOpacity = Math.Clamp(opacity, 0, 1);
 
         Focusable = false;
         ShowActivated = false;
@@ -91,7 +93,7 @@ public partial class OverlayWindow : Window
                 Height = slot.OverlayRect.Height,
                 Source = slot.Preview,
                 Stretch = Stretch.Fill,
-                Opacity = Math.Clamp(slot.Opacity, 0.05, 1),
+                Opacity = slot.EffectiveOpacity(_defaultSlotOpacity),
                 Focusable = false,
                 IsHitTestVisible = false
             };

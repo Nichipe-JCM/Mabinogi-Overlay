@@ -11,6 +11,7 @@ public partial class OverlayPlacementPreviewWindow : Window
 {
     private readonly IReadOnlyList<OverlaySlot> _slots;
     private readonly Action<double, double, double, double> _placementChanged;
+    private readonly double _defaultSlotOpacity;
 
     public OverlayPlacementPreviewWindow(
         double left,
@@ -24,11 +25,12 @@ public partial class OverlayPlacementPreviewWindow : Window
         InitializeComponent();
         _slots = slots;
         _placementChanged = placementChanged;
+        _defaultSlotOpacity = Math.Clamp(opacity, 0, 1);
         Left = left;
         Top = top;
         Width = Math.Max(MinWidth, width);
         Height = Math.Max(MinHeight, height);
-        Opacity = Math.Clamp(opacity, 0.35, 1);
+        Opacity = 1;
         RenderSlots();
         LocationChanged += (_, _) => NotifyPlacementChanged();
         SizeChanged += (_, _) =>
@@ -52,7 +54,7 @@ public partial class OverlayPlacementPreviewWindow : Window
                 Width = slot.OverlayRect.Width,
                 Height = slot.OverlayRect.Height,
                 Stretch = Stretch.Fill,
-                Opacity = Math.Clamp(slot.Opacity, 0.05, 1) * 0.9,
+                Opacity = slot.EffectiveOpacity(_defaultSlotOpacity) * 0.9,
                 IsHitTestVisible = false
             };
             Canvas.SetLeft(image, slot.OverlayRect.X);

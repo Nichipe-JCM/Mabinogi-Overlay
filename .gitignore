@@ -17,5 +17,6 @@ UpgradeLog*.htm
 *.sln.docstates
 save/
 publish/
+Image/icon-build/
 docs/AGENTS.md
 docs/NEXT_SESSION_HANDOFF.md

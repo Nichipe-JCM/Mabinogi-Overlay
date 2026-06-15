@@ -76,6 +76,8 @@ public sealed class OverlayProfileSlot
 
     public double Opacity { get; set; } = 1;
 
+    public bool HasOpacityOverride { get; set; }
+
     public double Scale { get; set; } = 1;
 }
 

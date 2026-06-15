@@ -12,7 +12,7 @@ public sealed class CpuCompositedOverlayRenderer
     private int _targetWidth;
     private int _targetHeight;
 
-    public BitmapSource Render(BitmapSource sourceFrame, IReadOnlyList<OverlaySlot> slots, int width, int height)
+    public BitmapSource Render(BitmapSource sourceFrame, IReadOnlyList<OverlaySlot> slots, int width, int height, double defaultSlotOpacity = 1)
     {
         width = Math.Max(1, width);
         height = Math.Max(1, height);
@@ -21,7 +21,7 @@ public sealed class CpuCompositedOverlayRenderer
 
         foreach (var slot in slots)
         {
-            CompositeSlot(sourceFrame, slot);
+            CompositeSlot(sourceFrame, slot, defaultSlotOpacity);
         }
 
         var bitmap = BitmapSource.Create(
@@ -49,7 +49,7 @@ public sealed class CpuCompositedOverlayRenderer
         _targetHeight = height;
     }
 
-    private void CompositeSlot(BitmapSource sourceFrame, OverlaySlot slot)
+    private void CompositeSlot(BitmapSource sourceFrame, OverlaySlot slot, double defaultSlotOpacity)
     {
         var sourceRect = ClampSourceRect(sourceFrame, slot.Source.SourceRect);
         var destinationRect = ClampDestinationRect(slot.OverlayRect);
@@ -70,7 +70,12 @@ public sealed class CpuCompositedOverlayRenderer
 
         sourceFrame.CopyPixels(sourceRect, _sourceBuffer, sourceStride, 0);
 
-        var opacity = Math.Clamp(slot.Opacity, 0.05, 1);
+        var opacity = slot.EffectiveOpacity(defaultSlotOpacity);
+        if (opacity <= 0)
+        {
+            return;
+        }
+
         for (var y = 0; y < destinationRect.Height; y++)
         {
             var sourceY = Math.Min(sourceRect.Height - 1, (int)((long)y * sourceRect.Height / destinationRect.Height));
@@ -93,10 +98,10 @@ public sealed class CpuCompositedOverlayRenderer
                 }
                 else
                 {
-                    _targetBuffer[targetOffset] = Blend(_sourceBuffer[sourceOffset], _targetBuffer[targetOffset], opacity);
-                    _targetBuffer[targetOffset + 1] = Blend(_sourceBuffer[sourceOffset + 1], _targetBuffer[targetOffset + 1], opacity);
-                    _targetBuffer[targetOffset + 2] = Blend(_sourceBuffer[sourceOffset + 2], _targetBuffer[targetOffset + 2], opacity);
-                    _targetBuffer[targetOffset + 3] = 255;
+                    _targetBuffer[targetOffset] = _sourceBuffer[sourceOffset];
+                    _targetBuffer[targetOffset + 1] = _sourceBuffer[sourceOffset + 1];
+                    _targetBuffer[targetOffset + 2] = _sourceBuffer[sourceOffset + 2];
+                    _targetBuffer[targetOffset + 3] = (byte)Math.Round(255 * opacity);
                 }
             }
         }
@@ -120,6 +125,4 @@ public sealed class CpuCompositedOverlayRenderer
         return new Int32Rect(x, y, right - x, bottom - y);
     }
 
-    private static byte Blend(byte source, byte destination, double opacity) =>
-        (byte)Math.Clamp((int)Math.Round(source * opacity + destination * (1 - opacity)), 0, 255);
 }

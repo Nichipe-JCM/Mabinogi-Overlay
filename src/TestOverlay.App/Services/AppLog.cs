@@ -13,6 +13,8 @@ public sealed class AppLog
 
     public string LogPath => Path.Combine(LogDirectory, "app.log");
 
+    public DateTimeOffset SessionStartedAt { get; } = DateTimeOffset.Now;
+
     public void Info(string message) => Write("INFO", message);
 
     public void Error(string message, Exception exception) =>
