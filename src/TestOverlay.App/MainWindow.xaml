@@ -305,13 +305,13 @@
                                       loc:Localize.ContentKey="Create manual section"
                                       Style="{StaticResource ManualSectionToggleStyle}"
                                       PreviewMouseLeftButtonDown="ManualSectionToggle_PreviewMouseLeftButtonDown"
-                                      PreviewMouseLeftButtonUp="ManualSectionToggle_PreviewMouseLeftButtonUp"
                                       Click="ManualSectionToggle_Click"/>
                         <Popup x:Name="ManualSectionPopup"
                                PlacementTarget="{Binding ElementName=ManualSectionToggle}"
                                Placement="Bottom"
-                               IsOpen="{Binding ElementName=ManualSectionToggle, Path=IsChecked, Mode=TwoWay}"
+                               IsOpen="False"
                                StaysOpen="False"
+                               Closed="ManualSectionPopup_Closed"
                                AllowsTransparency="True">
                             <Border Width="{Binding ElementName=CandidatePanelGrid, Path=ActualWidth}"
                                     MaxWidth="720"
