@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
         Width="1260"
-        Height="560"
+        Height="660"
         MinWidth="960"
-        MinHeight="520"
+        MinHeight="620"
         Background="{StaticResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="18" Style="{StaticResource AppWindowRootStyle}">
@@ -40,21 +40,23 @@
                         <TextBlock Text="Profile" Style="{StaticResource SectionTitleStyle}"/>
                     </Border>
 
-                    <StackPanel Grid.Row="1" Margin="14">
-                        <TextBlock Text="Active profile" Style="{StaticResource PanelTitleStyle}"/>
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="86"/>
-                                <ColumnDefinition Width="86"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="40"/>
-                            <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
-                            <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
-                        </Grid>
-                    </StackPanel>
+                    <Border Grid.Row="1" Margin="14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Active profile" Style="{StaticResource PanelTitleStyle}"/>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="86"/>
+                                    <ColumnDefinition Width="86"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="40"/>
+                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
+                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
-                    <Border Grid.Row="2" Margin="14,0,14,14" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="118" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
                             <TextBlock Text="Profile save folder" Style="{StaticResource PanelTitleStyle}"/>
                             <Grid Margin="0,8,0,0">
@@ -80,7 +82,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
@@ -88,15 +90,17 @@
                         <TextBlock Text="Runtime" Style="{StaticResource SectionTitleStyle}"/>
                     </Border>
 
-                    <StackPanel Grid.Row="1" Margin="14">
-                        <TextBlock Text="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
-                        <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
-                        <TextBlock Margin="0,8,0,0"
-                                   Text="Renderer mode is saved in settings.json and applies when the overlay starts."
-                                   Style="{StaticResource MutedTextStyle}"/>
-                    </StackPanel>
+                    <Border Grid.Row="1" Margin="14" MinHeight="126" Style="{StaticResource InsetPanelStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
+                            <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
+                            <TextBlock Margin="0,8,0,0"
+                                       Text="Renderer mode is saved in settings.json and applies when the overlay starts."
+                                       Style="{StaticResource MutedTextStyle}"/>
+                        </StackPanel>
+                    </Border>
 
-                    <Border Grid.Row="2" Margin="14,0,14,0" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="126" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
                             <TextBlock Text="Capture method" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="CaptureBackendCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
@@ -106,7 +110,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Row="3" Margin="14" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="150" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
                             <TextBlock Text="Benchmark" Style="{StaticResource PanelTitleStyle}"/>
                             <TextBlock Margin="0,6,0,10"
