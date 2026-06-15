@@ -112,6 +112,8 @@ public partial class LayoutEditorWindow : Window
             ApplySelectedSlotScale(SelectedSlotScaleSlider.Value);
             PushUndoIfChanged(before);
         };
+        WireDirectSliderInput(OpacitySlider);
+        WireDirectSliderInput(SelectedOpacitySlider);
         PopulateControls();
         UpdateGridSizeText();
         RenderSlots();
@@ -693,6 +695,54 @@ public partial class LayoutEditorWindow : Window
 
     private static string FormatPercent(double value) =>
         $"{Math.Clamp(value, 0, 1) * 100:0}%";
+
+    private static void WireDirectSliderInput(Slider slider)
+    {
+        slider.PreviewMouseLeftButtonDown += (_, args) =>
+        {
+            if (!slider.IsEnabled)
+            {
+                return;
+            }
+
+            SetSliderValueFromPointer(slider, args);
+            slider.CaptureMouse();
+            slider.Focus();
+            args.Handled = true;
+        };
+        slider.PreviewMouseMove += (_, args) =>
+        {
+            if (!slider.IsEnabled ||
+                !slider.IsMouseCaptured ||
+                args.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            SetSliderValueFromPointer(slider, args);
+            args.Handled = true;
+        };
+        slider.PreviewMouseLeftButtonUp += (_, args) =>
+        {
+            if (!slider.IsMouseCaptured)
+            {
+                return;
+            }
+
+            SetSliderValueFromPointer(slider, args);
+            slider.ReleaseMouseCapture();
+            args.Handled = true;
+        };
+    }
+
+    private static void SetSliderValueFromPointer(Slider slider, MouseEventArgs args)
+    {
+        var width = Math.Max(1, slider.ActualWidth);
+        var x = Math.Clamp(args.GetPosition(slider).X, 0, width);
+        var ratio = x / width;
+        var value = slider.Minimum + (slider.Maximum - slider.Minimum) * ratio;
+        slider.Value = Math.Clamp(value, slider.Minimum, slider.Maximum);
+    }
 
     private double Snap(double value)
     {
