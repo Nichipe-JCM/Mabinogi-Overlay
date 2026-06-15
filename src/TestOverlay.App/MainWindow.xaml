@@ -18,7 +18,7 @@
                             ResizeBorderThickness="7"
                             UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
-    <Grid Margin="12" Style="{StaticResource AppWindowRootStyle}">
+    <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -26,7 +26,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
+        <Border Grid.Row="0" Margin="0,0,0,8" Style="{StaticResource GlassCardStyle}">
             <Grid Height="42" Margin="12,0" MouseLeftButtonDown="TitleBarArea_MouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -53,9 +53,33 @@
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Width="34" Height="28" Margin="4,0,0,0" Content="-" Click="MinimizeWindowButton_Click"/>
-                    <Button x:Name="MaximizeWindowButton" Width="34" Height="28" Margin="4,0,0,0" Content="[]" Click="MaximizeWindowButton_Click"/>
-                    <Button Width="34" Height="28" Margin="4,0,0,0" Content="X" Click="CloseWindowButton_Click"/>
+                    <Button Width="34" Height="28" Margin="4,0,0,0" Click="MinimizeWindowButton_Click">
+                        <TextBlock Text="&#x1F5D5;"
+                                   FontFamily="Segoe UI Symbol, Segoe UI Emoji, Segoe UI"
+                                   FontSize="13"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource OverlayAccentBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Button>
+                    <Button x:Name="MaximizeWindowButton" Width="34" Height="28" Margin="4,0,0,0" Click="MaximizeWindowButton_Click">
+                        <TextBlock x:Name="MaximizeWindowIcon"
+                                   Text="&#x1F5D6;"
+                                   FontFamily="Segoe UI Symbol, Segoe UI Emoji, Segoe UI"
+                                   FontSize="13"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource OverlayAccentBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Button>
+                    <Button Width="34" Height="28" Margin="4,0,0,0" Click="CloseWindowButton_Click">
+                        <TextBlock Text="&#x2715;"
+                                   FontSize="13"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource OverlayAccentBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -224,7 +248,7 @@
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                            <TextBlock Text="2. Slot Candidates" Style="{StaticResource SectionTitleStyle}"/>
+                            <TextBlock Text="Slot Candidates" Style="{StaticResource SectionTitleStyle}"/>
                         </Border>
 
                         <Expander Grid.Row="1" Header="Create manual section" IsExpanded="False" Margin="14,12,14,10">
@@ -325,7 +349,7 @@
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                            <TextBlock Text="3. Overlay Layout" Style="{StaticResource SectionTitleStyle}"/>
+                            <TextBlock Text="Overlay Layout" Style="{StaticResource SectionTitleStyle}"/>
                         </Border>
 
                         <Border Grid.Row="1" Margin="14,12" Style="{StaticResource InsetPanelStyle}">

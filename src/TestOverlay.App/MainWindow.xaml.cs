@@ -1213,9 +1213,9 @@ public partial class MainWindow : Window
 
     private void UpdateMainWindowStateButton()
     {
-        if (MaximizeWindowButton is not null)
+        if (MaximizeWindowIcon is not null)
         {
-            MaximizeWindowButton.Content = WindowState == WindowState.Maximized ? "R" : "[]";
+            MaximizeWindowIcon.Text = WindowState == WindowState.Maximized ? char.ConvertFromUtf32(0x1F5D7) : char.ConvertFromUtf32(0x1F5D6);
         }
     }
 
