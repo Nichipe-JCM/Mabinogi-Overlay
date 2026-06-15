@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private const int CandidateBorderPixels = 1;
     private const int CandidateVisualPaddingPixels = 1;
     private const int DebugDetectRuns = 100;
+    private const double MinimumOverlaySlotSize = 1;
     private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
@@ -430,8 +431,8 @@ public partial class MainWindow : Window
         foreach (var candidate in selected)
         {
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
-            var width = Math.Max(16, candidate.SourceRect.Width * ReadLayoutSlotScale());
-            var height = Math.Max(16, candidate.SourceRect.Height * ReadLayoutSlotScale());
+            var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * ReadLayoutSlotScale());
+            var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * ReadLayoutSlotScale());
             if (cursorX + width > _layoutCanvasWidth - 8)
             {
                 cursorX = 8;
@@ -546,8 +547,8 @@ public partial class MainWindow : Window
         foreach (var slot in _overlaySlots.Where(slot => ReferenceEquals(slot.Source, candidate)))
         {
             slot.Preview = _captureService.Crop(_capturedImage, candidate.SourceRect);
-            var overlayWidth = Math.Max(16, slot.OverlayRect.Width * width / oldWidth);
-            var overlayHeight = Math.Max(16, slot.OverlayRect.Height * height / oldHeight);
+            var overlayWidth = Math.Max(MinimumOverlaySlotSize, slot.OverlayRect.Width * width / oldWidth);
+            var overlayHeight = Math.Max(MinimumOverlaySlotSize, slot.OverlayRect.Height * height / oldHeight);
             slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, overlayWidth, overlayHeight);
         }
 

@@ -11,6 +11,7 @@ namespace TestOverlay.App;
 
 public partial class LayoutEditorWindow : Window
 {
+    private const double MinimumOverlaySlotSize = 1;
     private readonly IList<OverlaySlot> _slots;
     private readonly Dictionary<Image, OverlaySlot> _images = new();
     private readonly HashSet<OverlaySlot> _selectedSlots = new();
@@ -795,8 +796,8 @@ public partial class LayoutEditorWindow : Window
             var sourceSize = _sourceSizes.TryGetValue(slot, out var savedSize)
                 ? savedSize
                 : new Size(Math.Max(1, slot.Source.SourceRect.Width), Math.Max(1, slot.Source.SourceRect.Height));
-            var width = Math.Max(16, sourceSize.Width * scale);
-            var height = Math.Max(16, sourceSize.Height * scale);
+            var width = Math.Max(MinimumOverlaySlotSize, sourceSize.Width * scale);
+            var height = Math.Max(MinimumOverlaySlotSize, sourceSize.Height * scale);
             slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, width, height);
             slot.Scale = Math.Clamp(scale, 0.1, 10);
         }
