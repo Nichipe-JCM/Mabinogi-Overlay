@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private const int CandidateBorderPixels = 1;
     private const int CandidateVisualPaddingPixels = 1;
     private const int DebugDetectRuns = 100;
+    private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
     private readonly WindowDiscoveryService _windowDiscovery = new();
@@ -1556,10 +1557,10 @@ public partial class MainWindow : Window
         _selectionStartPosition = position;
         _selectionRect = new Rectangle
         {
-            Stroke = Brushes.Gold,
+            Stroke = CreateProjectAccentBrush(),
             StrokeThickness = 2,
             StrokeDashArray = new DoubleCollection { 6, 3 },
-            Fill = new SolidColorBrush(Color.FromArgb(30, 255, 215, 0)),
+            Fill = CreateProjectAccentBrush(30),
             IsHitTestVisible = false
         };
         CaptureCanvas.Children.Add(_selectionRect);
@@ -1574,10 +1575,10 @@ public partial class MainWindow : Window
         _selectionStartPosition = position;
         _selectionRect = new Rectangle
         {
-            Stroke = Brushes.Magenta,
+            Stroke = CreateProjectAccentBrush(),
             StrokeThickness = 2,
             StrokeDashArray = new DoubleCollection { 4, 2 },
-            Fill = new SolidColorBrush(Color.FromArgb(26, 255, 0, 255)),
+            Fill = CreateProjectAccentBrush(26),
             IsHitTestVisible = false
         };
         CaptureCanvas.Children.Add(_selectionRect);
@@ -1659,7 +1660,7 @@ public partial class MainWindow : Window
         if (DetectButton is not null)
         {
             DetectButton.Content = active ? L.T("Drag ROI...") : L.T("Auto detect section");
-            DetectButton.Background = active ? Brushes.Gold : SystemColors.ControlBrush;
+            ApplyDetectModeButtonStyle(DetectButton, active);
         }
     }
 
@@ -1674,8 +1675,24 @@ public partial class MainWindow : Window
         if (DebugDetectButton is not null)
         {
             DebugDetectButton.Content = active ? L.T("Drag debug ROI...") : L.T("Debug detect");
-            DebugDetectButton.Background = active ? Brushes.Magenta : SystemColors.ControlBrush;
+            ApplyDetectModeButtonStyle(DebugDetectButton, active);
         }
+    }
+
+    private static SolidColorBrush CreateProjectAccentBrush(byte alpha = 255) =>
+        new(Color.FromArgb(alpha, ProjectAccentColor.R, ProjectAccentColor.G, ProjectAccentColor.B));
+
+    private static void ApplyDetectModeButtonStyle(Button button, bool active)
+    {
+        if (!active)
+        {
+            button.ClearValue(Control.BackgroundProperty);
+            button.ClearValue(Control.BorderBrushProperty);
+            return;
+        }
+
+        button.Background = CreateProjectAccentBrush(52);
+        button.BorderBrush = CreateProjectAccentBrush();
     }
 
     private static QuickslotSectionPatternKind ResolveDetectionPatternKind(Rect roi) =>
@@ -1938,9 +1955,9 @@ public partial class MainWindow : Window
 
         _selectionRect = new Rectangle
         {
-            Stroke = Brushes.DeepSkyBlue,
+            Stroke = CreateProjectAccentBrush(),
             StrokeThickness = 1,
-            Fill = new SolidColorBrush(Color.FromArgb(35, 0, 191, 255)),
+            Fill = CreateProjectAccentBrush(35),
             IsHitTestVisible = false
         };
         CaptureCanvas.Children.Add(_selectionRect);
