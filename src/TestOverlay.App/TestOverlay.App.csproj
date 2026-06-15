@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>..\..\Image\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +20,7 @@
 
   <ItemGroup>
     <Resource Include="..\..\Image\Logo.png" Link="Image\Logo.png" />
+    <Resource Include="..\..\Image\AppIcon.ico" Link="Image\AppIcon.ico" />
   </ItemGroup>
 
 </Project>

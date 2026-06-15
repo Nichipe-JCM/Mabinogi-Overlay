@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Mabinogi Overlay"
+        Icon="/Image/AppIcon.ico"
         Height="920"
         Width="1660"
         MinHeight="760"
