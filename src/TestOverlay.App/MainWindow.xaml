@@ -1,8 +1,10 @@
 <Window x:Class="TestOverlay.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Mabinogi Overlay"
+        loc:Localize.TitleKey="Mabinogi Overlay"
         Icon="/Image/AppIcon.ico"
         Height="920"
         Width="1660"
@@ -47,6 +49,7 @@
                        RenderOptions.BitmapScalingMode="HighQuality"/>
                 <TextBlock Grid.Column="1"
                            Text="Mabinogi Overlay"
+                           loc:Localize.TextKey="Mabinogi Overlay"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            FontSize="15"
@@ -130,12 +133,12 @@
                 </StackPanel>
 
                 <WrapPanel Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button x:Name="RefreshWindowsButton" Width="92" Height="36" Margin="6,0,0,0" Content="Refresh" Click="RefreshWindowsButton_Click"/>
-                    <Button x:Name="AutoCaptureButton" Width="112" Height="36" Margin="6,0,0,0" Content="Auto capture" Click="AutoCaptureButton_Click"/>
-                    <Button x:Name="ManualCaptureButton" Width="124" Height="36" Margin="6,0,0,0" Content="Manual capture" Click="ManualCaptureButton_Click"/>
-                    <Button x:Name="DetectButton" Width="150" Height="36" Margin="6,0,0,0" Content="Auto detect section" Click="DetectButton_Click"/>
-                    <Button x:Name="DebugDetectButton" Width="116" Height="36" Margin="6,0,0,0" Content="Debug detect" Click="DebugDetectButton_Click"/>
-                    <Button x:Name="SettingsButton" Width="112" Height="36" Margin="6,0,0,0" Content="Settings" Click="SettingsButton_Click"/>
+                    <Button x:Name="RefreshWindowsButton" Width="92" Height="36" Margin="6,0,0,0" Content="Refresh" loc:Localize.ContentKey="Refresh" Click="RefreshWindowsButton_Click"/>
+                    <Button x:Name="AutoCaptureButton" Width="112" Height="36" Margin="6,0,0,0" Content="Auto capture" loc:Localize.ContentKey="Auto capture" Click="AutoCaptureButton_Click"/>
+                    <Button x:Name="ManualCaptureButton" Width="124" Height="36" Margin="6,0,0,0" Content="Manual capture" loc:Localize.ContentKey="Manual capture" Click="ManualCaptureButton_Click"/>
+                    <Button x:Name="DetectButton" Width="150" Height="36" Margin="6,0,0,0" Content="Auto detect section" loc:Localize.ContentKey="Auto detect section" Click="DetectButton_Click"/>
+                    <Button x:Name="DebugDetectButton" Width="116" Height="36" Margin="6,0,0,0" Content="Debug detect" loc:Localize.ContentKey="Debug detect" Click="DebugDetectButton_Click"/>
+                    <Button x:Name="SettingsButton" Width="112" Height="36" Margin="6,0,0,0" Content="Settings" loc:Localize.ContentKey="Settings" Click="SettingsButton_Click"/>
                 </WrapPanel>
             </Grid>
         </Border>
@@ -158,18 +161,19 @@
                     <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
                         <DockPanel LastChildFill="False">
                             <StackPanel DockPanel.Dock="Left">
-                                <TextBlock Text="Capture Preview" Style="{StaticResource SectionTitleStyle}"/>
+                                <TextBlock Text="Capture Preview" loc:Localize.TextKey="Capture Preview" Style="{StaticResource SectionTitleStyle}"/>
                                 <TextBlock x:Name="DetectModeText"
                                            Margin="0,4,0,0"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource OverlayAccentBrush}"
                                            Visibility="Collapsed"
-                                           Text="AUTO DETECT SECTION: drag a section area"/>
+                                           Text="AUTO DETECT SECTION: drag a section area"
+                                           loc:Localize.TextKey="AUTO DETECT SECTION: drag a section area"/>
                             </StackPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                                 <TextBlock x:Name="CaptureInfoText" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
                                 <Button Width="28" Height="26" Margin="12,0,6,0" Content="-" Click="ZoomOutButton_Click"/>
-                                <TextBlock Text="Zoom" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
+                                <TextBlock Text="Zoom" loc:Localize.TextKey="Zoom" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
                                 <Slider x:Name="CaptureZoomSlider"
                                         Width="140"
                                         Minimum="0.25"
@@ -244,18 +248,20 @@
                                                HorizontalAlignment="Center"
                                                FontWeight="SemiBold"
                                                Foreground="#B9C0C4"
-                                               Text="대기 중... (Waiting for capture)"/>
+                                               Text="Waiting for capture..."
+                                               loc:Localize.TextKey="Waiting for capture..."/>
                                     <TextBlock Margin="0,6,0,0"
                                                HorizontalAlignment="Center"
                                                Foreground="{StaticResource OverlayMutedBrush}"
-                                               Text="Auto capture 또는 Manual capture를 실행하세요."/>
+                                               Text="Run Auto capture or Manual capture."
+                                               loc:Localize.TextKey="Run Auto capture or Manual capture."/>
                                 </StackPanel>
                             </Grid>
                         </Border>
                     </Grid>
 
                     <Border Grid.Row="2" Padding="12,8" Background="#55101010" BorderBrush="#44343638" BorderThickness="0,1,0,0">
-                        <TextBlock Text="Drag to select slots or sections. Use Ctrl/Shift for multi-select and mouse wheel for zoom." Style="{StaticResource MutedTextStyle}"/>
+                        <TextBlock Text="Drag to select slots or sections. Use Ctrl/Shift for multi-select and mouse wheel for zoom." loc:Localize.TextKey="Drag to select slots or sections. Use Ctrl/Shift for multi-select and mouse wheel for zoom." Style="{StaticResource MutedTextStyle}"/>
                     </Border>
                 </Grid>
             </Border>
@@ -288,10 +294,10 @@
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                            <TextBlock Text="Slot Candidates" Style="{StaticResource SectionTitleStyle}"/>
+                            <TextBlock Text="Slot Candidates" loc:Localize.TextKey="Slot Candidates" Style="{StaticResource SectionTitleStyle}"/>
                         </Border>
 
-                        <Expander Grid.Row="1" Header="Create manual section" IsExpanded="False" Margin="14,12,14,10">
+                        <Expander Grid.Row="1" Header="Create manual section" loc:Localize.HeaderKey="Create manual section" IsExpanded="False" Margin="14,12,14,10">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -309,31 +315,31 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
-                                    <TextBlock Text="Slot size" Style="{StaticResource PanelTitleStyle}"/>
+                                    <TextBlock Text="Slot size" loc:Localize.TextKey="Slot size" Style="{StaticResource PanelTitleStyle}"/>
                                     <WrapPanel Margin="0,6,0,0">
-                                        <TextBlock Text="W" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
+                                        <TextBlock Text="W" loc:Localize.TextKey="W" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
                                         <TextBox x:Name="SlotWidthBox" Width="64" Height="28" Margin="6,0,14,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
-                                        <TextBlock Text="H" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
+                                        <TextBlock Text="H" loc:Localize.TextKey="H" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
                                         <TextBox x:Name="SlotHeightBox" Width="64" Height="28" Margin="6,0,0,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
-                                        <Button x:Name="ApplySlotSizeButton" Width="70" Height="28" Margin="10,0,0,0" Content="Apply" Click="ApplySlotSizeButton_Click"/>
+                                        <Button x:Name="ApplySlotSizeButton" Width="70" Height="28" Margin="10,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ApplySlotSizeButton_Click"/>
                                     </WrapPanel>
                                     <TextBlock x:Name="SlotSizeText" Margin="0,4,0,0" Style="{StaticResource MutedTextStyle}"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="2" Grid.Column="0">
-                                    <TextBlock Text="Section pattern" Style="{StaticResource PanelTitleStyle}"/>
+                                    <TextBlock Text="Section pattern" loc:Localize.TextKey="Section pattern" Style="{StaticResource PanelTitleStyle}"/>
                                     <ComboBox x:Name="SectionPatternCombo" Height="30" Margin="0,6,0,0" SelectedIndex="0">
-                                        <ComboBoxItem Content="Top grouped 4x2 x3"/>
-                                        <ComboBoxItem Content="Vertical 2x8"/>
+                                        <ComboBoxItem Content="Top grouped 4x2 x3" loc:Localize.ContentKey="Top grouped 4x2 x3"/>
+                                        <ComboBoxItem Content="Vertical 2x8" loc:Localize.ContentKey="Vertical 2x8"/>
                                     </ComboBox>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="2" Grid.Column="2">
-                                    <TextBlock Text="Section" Style="{StaticResource PanelTitleStyle}"/>
+                                    <TextBlock Text="Section" loc:Localize.TextKey="Section" Style="{StaticResource PanelTitleStyle}"/>
                                     <ComboBox x:Name="SectionCombo" Height="30" Margin="0,6,0,0" DisplayMemberPath="Label" SelectionChanged="SectionCombo_SelectionChanged"/>
                                     <WrapPanel Margin="0,6,0,0">
-                                        <Button x:Name="AddSectionFromSelectedButton" Width="112" Height="28" Content="Add Section" Click="AddSectionFromSelectedButton_Click"/>
-                                        <Button x:Name="DeleteSectionButton" Width="76" Height="28" Margin="6,0,0,0" Content="Delete" Click="DeleteSectionButton_Click"/>
+                                        <Button x:Name="AddSectionFromSelectedButton" Width="112" Height="28" Content="Add Section" loc:Localize.ContentKey="Add Section" Click="AddSectionFromSelectedButton_Click"/>
+                                        <Button x:Name="DeleteSectionButton" Width="76" Height="28" Margin="6,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="DeleteSectionButton_Click"/>
                                     </WrapPanel>
                                 </StackPanel>
 
@@ -383,12 +389,12 @@
                         </ListBox>
 
                         <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="14,12,14,14">
-                            <Button x:Name="SelectAllCandidatesButton" Width="96" Height="32" Margin="4,0,0,0" Content="Select all" Click="SelectAllCandidatesButton_Click"/>
-                            <Button x:Name="DeselectAllCandidatesButton" Width="108" Height="32" Margin="4,0,0,0" Content="Select none" Click="DeselectAllCandidatesButton_Click"/>
-                            <Button x:Name="AddManualCandidateButton" Width="72" Height="32" Margin="4,0,0,0" Content="Add" Click="AddManualCandidateButton_Click"/>
-                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,0" Content="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
-                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,0" Content="Add to overlay" Click="AddToOverlayButton_Click"/>
-                            <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,0" Content="Clear" Click="ClearCandidatesButton_Click"/>
+                            <Button x:Name="SelectAllCandidatesButton" Width="96" Height="32" Margin="4,0,0,0" Content="Select all" loc:Localize.ContentKey="Select all" Click="SelectAllCandidatesButton_Click"/>
+                            <Button x:Name="DeselectAllCandidatesButton" Width="108" Height="32" Margin="4,0,0,0" Content="Select none" loc:Localize.ContentKey="Select none" Click="DeselectAllCandidatesButton_Click"/>
+                            <Button x:Name="AddManualCandidateButton" Width="72" Height="32" Margin="4,0,0,0" Content="Add" loc:Localize.ContentKey="Add" Click="AddManualCandidateButton_Click"/>
+                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
+                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,0" Content="Add to overlay" loc:Localize.ContentKey="Add to overlay" Click="AddToOverlayButton_Click"/>
+                            <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearCandidatesButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>
@@ -402,7 +408,7 @@
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                            <TextBlock Text="Overlay Layout" Style="{StaticResource SectionTitleStyle}"/>
+                            <TextBlock Text="Overlay Layout" loc:Localize.TextKey="Overlay Layout" Style="{StaticResource SectionTitleStyle}"/>
                         </Border>
 
                         <Border Grid.Row="1" Margin="14,12" Style="{StaticResource InsetPanelStyle}">
@@ -410,15 +416,16 @@
                                 <TextBlock x:Name="LayoutSummaryText" Style="{StaticResource MonoSummaryStyle}"/>
                                 <TextBlock Margin="0,8,0,0"
                                            Text="Use the layout editor to size the canvas, arrange slots, set screen position, opacity, scale, hotkey, and refresh interval."
+                                           loc:Localize.TextKey="Use the layout editor to size the canvas, arrange slots, set screen position, opacity, scale, hotkey, and refresh interval."
                                            Style="{StaticResource MutedTextStyle}"/>
                             </StackPanel>
                         </Border>
 
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,14">
-                            <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
-                            <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay start" Click="StartOverlayButton_Click"/>
-                            <Button x:Name="StopOverlayLayoutButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay stop" Click="StopOverlayButton_Click"/>
+                            <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
+                            <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearLayoutButton_Click"/>
+                            <Button x:Name="StartOverlayButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay start" loc:Localize.ContentKey="Overlay start" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="StopOverlayLayoutButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay stop" loc:Localize.ContentKey="Overlay stop" Click="StopOverlayButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>
@@ -428,7 +435,8 @@
         <Border Grid.Row="3" Padding="12,8" Style="{StaticResource GlassCardStyle}">
             <TextBlock x:Name="StatusText"
                        Style="{StaticResource MutedTextStyle}"
-                       Text="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."/>
+                       Text="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."
+                       loc:Localize.TextKey="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."/>
         </Border>
     </Grid>
 </Window>

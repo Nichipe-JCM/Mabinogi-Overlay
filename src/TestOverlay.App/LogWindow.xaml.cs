@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Windows;
+using TestOverlay.App.Services;
 
 namespace TestOverlay.App;
 
@@ -27,7 +28,7 @@ public partial class LogWindow : Window
     {
         if (!File.Exists(_logPath))
         {
-            LogSummaryText.Text = "No log file exists for this session yet.";
+            LogSummaryText.Text = L.T("No log file exists for this session yet.");
             LogTextBox.Text = string.Empty;
             return;
         }
@@ -35,14 +36,14 @@ public partial class LogWindow : Window
         try
         {
             var lines = ReadSessionLines();
-            LogSummaryText.Text = $"Showing current session log since {_sessionStartedAt:yyyy-MM-dd HH:mm:ss zzz}. Lines: {lines.Count}";
+            LogSummaryText.Text = L.F("Showing current session log since {0}. Lines: {1}", _sessionStartedAt.ToString("yyyy-MM-dd HH:mm:ss zzz"), lines.Count);
             LogTextBox.Text = string.Join(Environment.NewLine, lines);
             LogTextBox.CaretIndex = LogTextBox.Text.Length;
             LogTextBox.ScrollToEnd();
         }
         catch (Exception exception)
         {
-            LogSummaryText.Text = "Failed to read log file.";
+            LogSummaryText.Text = L.T("Failed to read log file.");
             LogTextBox.Text = exception.ToString();
         }
     }

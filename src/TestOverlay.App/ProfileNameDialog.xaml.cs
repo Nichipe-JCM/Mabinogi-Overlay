@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using TestOverlay.App.Services;
 
 namespace TestOverlay.App;
 
@@ -21,7 +22,7 @@ public partial class ProfileNameDialog : Window
         var name = ProfileNameBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            ErrorText.Text = "Enter a profile name.";
+            ErrorText.Text = L.T("Enter a profile name.");
             return;
         }
 

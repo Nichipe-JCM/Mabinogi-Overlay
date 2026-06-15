@@ -69,7 +69,7 @@ public partial class BenchmarkWindow : Window
             _overlayWidth = settings.OverlayWidth;
             _overlayHeight = settings.OverlayHeight;
 
-            Append("Benchmark settings loaded. Pressing Start runs selected cases and writes results to app.log.");
+            Append(L.T("Benchmark settings loaded. Pressing Start runs selected cases and writes results to app.log."));
             _log.Info(
                 $"Benchmark started: syntheticSource={settings.SourceWidth}x{settings.SourceHeight}, " +
                 $"overlay={settings.OverlayWidth}x{settings.OverlayHeight}, durationSeconds={settings.DurationSeconds}, " +
@@ -89,15 +89,15 @@ public partial class BenchmarkWindow : Window
 
             if (cases.Count == 0)
             {
-                StatusText.Text = "No benchmark cases selected.";
-                Append("No benchmark cases selected.");
+                StatusText.Text = L.T("No benchmark cases selected.");
+                Append(L.T("No benchmark cases selected."));
                 return;
             }
 
             for (var index = 0; index < cases.Count; index++)
             {
                 var benchmarkCase = cases[index];
-                StatusText.Text = $"Running {RenderModeLabel(benchmarkCase.Mode)} {benchmarkCase.Multiplier}x...";
+                StatusText.Text = L.F("Running {0} {1}x...", L.T(RenderModeLabel(benchmarkCase.Mode)), benchmarkCase.Multiplier);
                 BenchmarkProgress.Value = index / (double)cases.Count;
                 await Task.Yield();
 
@@ -121,13 +121,13 @@ public partial class BenchmarkWindow : Window
             }
 
             BenchmarkProgress.Value = 1;
-            StatusText.Text = $"Benchmark complete. Log: {_log.LogPath}";
-            Append($"Benchmark complete. Log: {_log.LogPath}");
+            StatusText.Text = L.F("Benchmark complete. Log: {0}", _log.LogPath);
+            Append(L.F("Benchmark complete. Log: {0}", _log.LogPath));
             _log.Info("Benchmark completed.");
         }
         catch (Exception exception)
         {
-            StatusText.Text = $"Benchmark failed: {exception.Message}";
+            StatusText.Text = L.F("Benchmark failed: {0}", exception.Message);
             Append(exception.ToString());
             _log.Error("Benchmark failed.", exception);
         }

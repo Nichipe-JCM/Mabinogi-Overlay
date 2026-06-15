@@ -1,7 +1,9 @@
 <Window x:Class="TestOverlay.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
         Title="Settings"
+        loc:Localize.TitleKey="Settings"
         Icon="/Image/AppIcon.ico"
         Width="1260"
         Height="660"
@@ -17,8 +19,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,14">
-            <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
-            <TextBlock Text="Profiles, storage path, capture method, renderer mode, and benchmark tools." Style="{StaticResource MutedTextStyle}"/>
+            <TextBlock Text="Settings" loc:Localize.TextKey="Settings" FontSize="22" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
+            <TextBlock Text="Profiles, storage path, capture method, renderer mode, and benchmark tools." loc:Localize.TextKey="Profiles, storage path, capture method, renderer mode, and benchmark tools." Style="{StaticResource MutedTextStyle}"/>
         </StackPanel>
 
         <Grid Grid.Row="1">
@@ -38,12 +40,12 @@
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Profile" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="Profile" loc:Localize.TextKey="Profile" Style="{StaticResource SectionTitleStyle}"/>
                     </Border>
 
                     <Border Grid.Row="1" Margin="14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
-                            <TextBlock Text="Active profile" Style="{StaticResource PanelTitleStyle}"/>
+                            <TextBlock Text="Active profile" loc:Localize.TextKey="Active profile" Style="{StaticResource PanelTitleStyle}"/>
                             <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -51,15 +53,15 @@
                                     <ColumnDefinition Width="86"/>
                                 </Grid.ColumnDefinitions>
                                 <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="40"/>
-                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Save" Click="SaveProfileButton_Click"/>
-                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Load" Click="LoadProfileButton_Click"/>
+                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveProfileButton_Click"/>
+                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Load" loc:Localize.ContentKey="Load" Click="LoadProfileButton_Click"/>
                             </Grid>
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="118" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
-                            <TextBlock Text="Profile save folder" Style="{StaticResource PanelTitleStyle}"/>
+                            <TextBlock Text="Profile save folder" loc:Localize.TextKey="Profile save folder" Style="{StaticResource PanelTitleStyle}"/>
                             <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -67,11 +69,12 @@
                                     <ColumnDefinition Width="86"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="ProfileDirectoryBox" Grid.Column="0" Height="40"/>
-                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Browse" Click="BrowseButton_Click"/>
-                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Default" Click="DefaultButton_Click"/>
+                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Browse" loc:Localize.ContentKey="Browse" Click="BrowseButton_Click"/>
+                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Default" loc:Localize.ContentKey="Default" Click="DefaultButton_Click"/>
                             </Grid>
                             <TextBlock Margin="0,8,0,0"
                                        Text="Portable builds default to a save folder next to the executable."
+                                       loc:Localize.TextKey="Portable builds default to a save folder next to the executable."
                                        Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
                     </Border>
@@ -85,40 +88,51 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Runtime" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="Runtime" loc:Localize.TextKey="Runtime" Style="{StaticResource SectionTitleStyle}"/>
                     </Border>
 
                     <Border Grid.Row="1" Margin="14" MinHeight="126" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
-                            <TextBlock Text="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
+                            <TextBlock Text="Overlay renderer" loc:Localize.TextKey="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                             <TextBlock Margin="0,8,0,0"
                                        Text="Renderer mode is saved in settings.json and applies when the overlay starts."
+                                       loc:Localize.TextKey="Renderer mode is saved in settings.json and applies when the overlay starts."
                                        Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="126" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
-                            <TextBlock Text="Capture method" Style="{StaticResource PanelTitleStyle}"/>
+                            <TextBlock Text="Capture method" loc:Localize.TextKey="Capture method" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="CaptureBackendCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                             <TextBlock Margin="0,8,0,0"
                                        Text="WGC captures the game window for preview. DXGI and GDI are available for overlay runtime comparison."
+                                       loc:Localize.TextKey="WGC captures the game window for preview. DXGI and GDI are available for overlay runtime comparison."
                                        Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="150" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
-                            <TextBlock Text="Benchmark" Style="{StaticResource PanelTitleStyle}"/>
+                            <TextBlock Text="Language" loc:Localize.TextKey="Language" Style="{StaticResource PanelTitleStyle}"/>
+                            <ComboBox x:Name="LanguageCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="4" Margin="14,0,14,14" MinHeight="150" Style="{StaticResource InsetPanelStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Benchmark" loc:Localize.TextKey="Benchmark" Style="{StaticResource PanelTitleStyle}"/>
                             <TextBlock Margin="0,6,0,10"
                                        Text="Open a controlled stress test window to compare renderer cost."
+                                       loc:Localize.TextKey="Open a controlled stress test window to compare renderer cost."
                                        Style="{StaticResource MutedTextStyle}"/>
-                            <Button Height="34" Content="Open benchmark" Click="BenchmarkButton_Click"/>
-                            <Button Height="34" Margin="0,8,0,0" Content="Log" Click="LogButton_Click"/>
+                            <Button Height="34" Content="Open benchmark" loc:Localize.ContentKey="Open benchmark" Click="BenchmarkButton_Click"/>
+                            <Button Height="34" Margin="0,8,0,0" Content="Log" loc:Localize.ContentKey="Log" Click="LogButton_Click"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -126,8 +140,8 @@
         </Grid>
 
         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Width="88" Height="34" Content="OK" Click="OkButton_Click"/>
-            <Button Width="88" Height="34" Margin="8,0,0,0" Content="Cancel" IsCancel="True"/>
+            <Button Width="88" Height="34" Content="OK" loc:Localize.ContentKey="OK" Click="OkButton_Click"/>
+            <Button Width="88" Height="34" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" IsCancel="True"/>
         </WrapPanel>
     </Grid>
 </Window>

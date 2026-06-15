@@ -94,6 +94,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _appSettings = _settingsStore.Load();
+        LocalizationService.Instance.SetLanguage(_appSettings.Language);
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
         _detectSessionLogPath = System.IO.Path.Combine(
             _log.LogDirectory,
@@ -213,13 +214,13 @@ public partial class MainWindow : Window
             _wgcSelection = selection;
             _selectedWindow = window;
             _capturedImage = await _wgcCaptureService.CaptureOnceAsync(selection.Item, TimeSpan.FromSeconds(3));
-            ApplyCapturedPreview(_capturedImage, $"Auto captured WGC Mabinogi window: {window.DisplayName}");
+            ApplyCapturedPreview(_capturedImage, L.F("Auto captured WGC Mabinogi window: {0}", window.DisplayName));
             _log.Info($"Auto WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, window={window.DisplayName}");
         }
         catch (Exception ex)
         {
             _log.Error("Auto WGC capture failed.", ex);
-            SetStatus($"Auto capture failed: {ex.Message}");
+            SetStatus(L.F("Auto capture failed: {0}", ex.Message));
         }
         finally
         {
@@ -242,7 +243,7 @@ public partial class MainWindow : Window
 
             if (!result.LooksLikeMabinogi)
             {
-                SetStatus($"Manual capture rejected: selected window is not recognized as Mabinogi ({result.DisplayName}).");
+                SetStatus(L.F("Manual capture rejected: selected window is not recognized as Mabinogi ({0}).", result.DisplayName));
                 _log.Info($"Manual WGC capture rejected: {result.DisplayName}");
                 return;
             }
@@ -250,13 +251,13 @@ public partial class MainWindow : Window
             _wgcSelection = result;
             _selectedWindow = MatchPickedMabinogiWindow(result);
             _capturedImage = await _wgcCaptureService.CaptureOnceAsync(result.Item, TimeSpan.FromSeconds(3));
-            ApplyCapturedPreview(_capturedImage, $"Manual captured WGC Mabinogi window: {result.DisplayName}");
+            ApplyCapturedPreview(_capturedImage, L.F("Manual captured WGC Mabinogi window: {0}", result.DisplayName));
             _log.Info($"Manual WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, item={result.DisplayName}");
         }
         catch (Exception ex)
         {
             _log.Error("Manual WGC capture failed.", ex);
-            SetStatus($"Manual capture failed: {ex.Message}");
+            SetStatus(L.F("Manual capture failed: {0}", ex.Message));
         }
         finally
         {
@@ -274,7 +275,7 @@ public partial class MainWindow : Window
         _candidates.Clear();
         ClearCandidateRects();
         ClearSections();
-        SetStatus($"{status}. Run slot detection next.");
+        SetStatus(L.F("{0}. Run slot detection next.", status));
     }
 
     private GameWindowInfo? FindAutoMabinogiWindow()
@@ -342,7 +343,7 @@ public partial class MainWindow : Window
 
         _debugDetectionExpectation = expectation;
         SetDebugDetectionMode(active: true);
-        SetStatus($"Debug detect: drag one {expectation.Label} ROI. It will run 100 simulations and save a log.");
+        SetStatus(L.F("Debug detect: drag one {0} ROI. It will run 100 simulations and save a log.", expectation.Label));
     }
 
     private void AddToOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -415,8 +416,8 @@ public partial class MainWindow : Window
         UpdateLayoutSummary();
         _log.Info($"Placed overlay slots: added={selected.Count}, total={_overlaySlots.Count}, clearExisting={clearExisting}, canvas={_layoutCanvasWidth}x{_layoutCanvasHeight}");
         SetStatus(clearExisting
-            ? $"Placed {_overlaySlots.Count} slots. Open Manage Layout to arrange them."
-            : $"Added {selected.Count} slot(s) to overlay. Total {_overlaySlots.Count}.");
+            ? L.F("Placed {0} slots. Open Manage Layout to arrange them.", _overlaySlots.Count)
+            : L.F("Added {0} slot(s) to overlay. Total {1}.", selected.Count, _overlaySlots.Count));
     }
 
     private void SelectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -426,7 +427,7 @@ public partial class MainWindow : Window
             candidate.IsSelected = true;
         }
 
-        SetStatus($"Selected all {_candidates.Count} candidates.");
+        SetStatus(L.F("Selected all {0} candidates.", _candidates.Count));
     }
 
     private void DeselectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -436,7 +437,7 @@ public partial class MainWindow : Window
             candidate.IsSelected = false;
         }
 
-        SetStatus($"Deselected all {_candidates.Count} candidates.");
+        SetStatus(L.F("Deselected all {0} candidates.", _candidates.Count));
     }
 
     private void AddManualCandidateButton_Click(object sender, RoutedEventArgs e)
@@ -511,7 +512,7 @@ public partial class MainWindow : Window
         }
 
         PushUndoIfChanged(before);
-        SetStatus($"Applied candidate size {width}x{height} to #{candidate.Id:000}.");
+        SetStatus(L.F("Applied candidate size {0}x{1} to #{2}.", width, height, candidate.Id.ToString("000")));
     }
 
     private void AddSectionFromSelectedButton_Click(object sender, RoutedEventArgs e)
@@ -536,7 +537,7 @@ public partial class MainWindow : Window
         var added = AddSectionCandidates(seed, pattern, Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1), settings);
         PushUndoIfChanged(before);
         _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}");
-        SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Adjust small/large gap sliders to align the section.");
+        SetStatus(L.F("Generated {0} from #{1}. Adjust small/large gap sliders to align the section.", L.T(pattern.Name), seed.Id.ToString("000")));
     }
 
     private void DeleteSectionButton_Click(object sender, RoutedEventArgs e)
@@ -567,7 +568,7 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
-        SetStatus($"Deleted section and {candidates.Count} candidate(s).");
+        SetStatus(L.F("Deleted section and {0} candidate(s).", candidates.Count));
     }
 
     private void SectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -585,7 +586,7 @@ public partial class MainWindow : Window
 
         SelectSectionCandidates(_selectedSection);
         LoadSectionControls(_selectedSection);
-        SetStatus($"Selected section {_selectedSection.Label}.");
+        SetStatus(L.F("Selected section {0}.", _selectedSection.Label));
     }
 
     private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -685,7 +686,7 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
-        SetStatus($"Deleted {selected.Count} selected candidates.");
+        SetStatus(L.F("Deleted {0} selected candidates.", selected.Count));
     }
 
     private List<SlotCandidate> GetCandidatesToDelete()
@@ -718,8 +719,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                "Stop the overlay before opening Manage Layout.",
-                "Overlay is running",
+                L.T("Stop the overlay before opening Manage Layout."),
+                L.T("Overlay is running"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             SetStatus("Stop the overlay before opening Manage Layout.");
@@ -776,6 +777,7 @@ public partial class MainWindow : Window
             ReadSelectedProfileName(),
             _appSettings.OverlayRenderMode,
             _appSettings.CaptureBackend,
+            _appSettings.Language,
             _log.LogPath,
             _log.SessionStartedAt)
         {
@@ -794,6 +796,8 @@ public partial class MainWindow : Window
             _appSettings.ProfileDirectory = directory;
             _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
             _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
+            _appSettings.Language = LocalizationService.NormalizeLanguage(dialog.SelectedLanguage);
+            LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
             RefreshProfileList(dialog.SelectedProfileName);
@@ -803,7 +807,7 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             _log.Error("Failed to save settings.", exception);
-            SetStatus($"Settings save failed: {exception.Message}");
+            SetStatus(L.F("Settings save failed: {0}", exception.Message));
             return;
         }
 
@@ -816,7 +820,11 @@ public partial class MainWindow : Window
                 LoadSelectedProfile();
                 break;
             default:
-                SetStatus($"Settings saved: {_profileStore.ProfileDirectory}, renderer={RenderModeLabel(_appSettings.OverlayRenderMode)}, capture={CaptureBackendLabel(_appSettings.CaptureBackend)}");
+                SetStatus(L.F(
+                    "Settings saved: {0}, renderer={1}, capture={2}",
+                    _profileStore.ProfileDirectory,
+                    L.T(RenderModeLabel(_appSettings.OverlayRenderMode)),
+                    L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
                 break;
         }
     }
@@ -904,7 +912,7 @@ public partial class MainWindow : Window
         var path = _profileStore.Save(profile, profileName);
         RefreshProfileList(System.IO.Path.GetFileNameWithoutExtension(path));
         _log.Info($"Profile saved: {path}, candidates={profile.Candidates.Count}, slots={profile.Slots.Count}");
-        SetStatus($"Profile saved: {path}");
+        SetStatus(L.F("Profile saved: {0}", path));
     }
 
     private void LoadProfileButton_Click(object sender, RoutedEventArgs e) => LoadSelectedProfile();
@@ -921,7 +929,7 @@ public partial class MainWindow : Window
         var profile = _profileStore.Load(profileName);
         if (profile is null)
         {
-            SetStatus($"No saved profile exists: {_profileStore.GetProfilePath(profileName)}");
+            SetStatus(L.F("No saved profile exists: {0}", _profileStore.GetProfilePath(profileName)));
             return;
         }
 
@@ -1025,7 +1033,7 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
-        SetStatus($"Profile loaded: {_profileStore.GetProfilePath(profileName)} ({_candidates.Count} candidates, {profile.Slots.Count} slots).");
+        SetStatus(L.F("Profile loaded: {0} ({1} candidates, {2} slots).", _profileStore.GetProfilePath(profileName), _candidates.Count, profile.Slots.Count));
     }
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -1074,7 +1082,7 @@ public partial class MainWindow : Window
                 _wgcCaptureService.StopLiveCapture();
                 _liveOverlayTimer.Stop();
 
-                SetStatus($"Overlay click-through configuration failed: {detail}");
+                SetStatus(L.F("Overlay click-through configuration failed: {0}", detail));
                 return;
             }
 
@@ -1084,7 +1092,7 @@ public partial class MainWindow : Window
             if (captureBackend != CaptureBackend.Wgc && _selectedWindow is null)
             {
                 StopOverlay(setStatus: false);
-                SetStatus($"Run Auto capture or Manual capture before starting the overlay with {CaptureBackendLabel(captureBackend)}.");
+                SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
                 return;
             }
 
@@ -1142,13 +1150,13 @@ public partial class MainWindow : Window
                 $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
                 $"topmost={_overlayWindow.IsTopmostConfigured}, " +
                 $"inputHook={_overlayWindow.IsInputHookConfigured}");
-            SetStatus($"Overlay started ({clickThroughStatus}, {CaptureBackendLabel(captureBackend)}, {rendererMode}). Stop hotkey: {_stopHotkey}");
+            SetStatus(L.F("Overlay started ({0}, {1}, {2}). Stop hotkey: {3}", L.T(clickThroughStatus), L.T(CaptureBackendLabel(captureBackend)), L.T(rendererMode), _stopHotkey));
         }
         catch (Exception ex)
         {
             _log.Error("Overlay start failed.", ex);
             StopOverlay(setStatus: false);
-            SetStatus($"Overlay start failed: {ex.Message}");
+            SetStatus(L.F("Overlay start failed: {0}", ex.Message));
         }
     }
 
@@ -1589,7 +1597,7 @@ public partial class MainWindow : Window
 
         if (DetectButton is not null)
         {
-            DetectButton.Content = active ? "Drag ROI..." : "Auto detect section";
+            DetectButton.Content = active ? L.T("Drag ROI...") : L.T("Auto detect section");
             DetectButton.Background = active ? Brushes.Gold : SystemColors.ControlBrush;
         }
     }
@@ -1604,7 +1612,7 @@ public partial class MainWindow : Window
         _isAwaitingDebugDetectionRoi = active;
         if (DebugDetectButton is not null)
         {
-            DebugDetectButton.Content = active ? "Drag debug ROI..." : "Debug detect";
+            DebugDetectButton.Content = active ? L.T("Drag debug ROI...") : L.T("Debug detect");
             DebugDetectButton.Background = active ? Brushes.Magenta : SystemColors.ControlBrush;
         }
     }
@@ -1613,8 +1621,8 @@ public partial class MainWindow : Window
     {
         var result = MessageBox.Show(
             this,
-            "Choose the quickslot section type.\n\nYes: Top grouped 4x2 x3\nNo: Vertical 2x8\nCancel: cancel detection",
-            "Section Type",
+            $"{L.T("Choose the quickslot section type.")}\n\n{L.T("Yes: Top grouped 4x2 x3")}\n{L.T("No: Vertical 2x8")}\n{L.T("Cancel: cancel detection")}",
+            L.T("Section Type"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
 
@@ -1630,8 +1638,8 @@ public partial class MainWindow : Window
     {
         var sectionResult = MessageBox.Show(
             this,
-            "Choose the debug detect target.\n\nYes: Top grouped 4x2 x3\nNo: Vertical 2x8\nCancel: cancel debug detection",
-            "Debug Detect Target",
+            $"{L.T("Choose the debug detect target.")}\n\n{L.T("Yes: Top grouped 4x2 x3")}\n{L.T("No: Vertical 2x8")}\n{L.T("Cancel: cancel debug detection")}",
+            L.T("Debug Detect Target"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
 
@@ -1647,8 +1655,8 @@ public partial class MainWindow : Window
 
         var topResult = MessageBox.Show(
             this,
-            "Choose the top grouped debug target.\n\nYes: Top grouped 1 (x=7, y=18)\nNo: Top grouped 2 (x=627, y=18)\nCancel: cancel debug detection",
-            "Top Grouped Debug Target",
+            $"{L.T("Choose the top grouped debug target.")}\n\nYes: Top grouped 1 (x=7, y=18)\nNo: Top grouped 2 (x=627, y=18)\n{L.T("Cancel: cancel debug detection")}",
+            L.T("Top Grouped Debug Target"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
 
@@ -1680,7 +1688,7 @@ public partial class MainWindow : Window
         if (result is null)
         {
             _log.Info($"ROI section detection failed. Log: {logPath}");
-            SetStatus($"No matching quickslot section pattern was found in the selected area. Log: {logPath}");
+            SetStatus(L.F("No matching quickslot section pattern was found in the selected area. Log: {0}", logPath));
             return;
         }
 
@@ -1690,10 +1698,16 @@ public partial class MainWindow : Window
         _log.Info(
             $"ROI section detection completed: pattern={patternKind}, roi={roi.X:0},{roi.Y:0},{roi.Width:0}x{roi.Height:0}, " +
             $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}, log={logPath}");
-        SetStatus(
-            $"Added {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
-            $"{result.Slots.Count} slots, slot {result.Slots[0].Width:0}x{result.Slots[0].Height:0}px, " +
-            $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px. Log: {logPath}");
+        SetStatus(L.F(
+            "Added {0}: {1} slots, slot {2}x{3}px, gap X {4}px, gap Y {5}px, large gap {6}px. Log: {7}",
+            L.T(GetSectionPatternName(PatternIndexFromKind(patternKind))),
+            result.Slots.Count,
+            result.Slots[0].Width.ToString("0"),
+            result.Slots[0].Height.ToString("0"),
+            result.SmallGapX.ToString("0"),
+            result.SmallGapY.ToString("0"),
+            result.LargeGap.ToString("0"),
+            logPath));
     }
 
     private void RunDebugDetection(Rect roi, DebugDetectionExpectation expected)
@@ -1770,7 +1784,13 @@ public partial class MainWindow : Window
         lines.Insert(4, $"summary exact={exactMatches}/{DebugDetectRuns}, detected={detections}/{DebugDetectRuns}, failed={DebugDetectRuns - detections}");
         var logPath = SaveDebugDetectLog(lines);
         _log.Info($"Debug detect log saved: {logPath}");
-        SetStatus($"Debug detect finished: exact {exactMatches}/{DebugDetectRuns}, detected {detections}/{DebugDetectRuns}. Log: {logPath}");
+        SetStatus(L.F(
+            "Debug detect finished: exact {0}/{1}, detected {2}/{3}. Log: {4}",
+            exactMatches,
+            DebugDetectRuns,
+            detections,
+            DebugDetectRuns,
+            logPath));
     }
 
     private sealed record DebugDetectionExpectation(
@@ -2158,7 +2178,12 @@ public partial class MainWindow : Window
         }
 
         RefreshSectionLabels();
-        SetStatus($"Adjusted {_selectedSection.Label}: gap X {ReadSmallGapX():0}px, gap Y {ReadSmallGapY():0}px, large gap {ReadLargeGap():0}px.");
+        SetStatus(L.F(
+            "Adjusted {0}: gap X {1}px, gap Y {2}px, large gap {3}px.",
+            _selectedSection.Label,
+            ReadSmallGapX().ToString("0"),
+            ReadSmallGapY().ToString("0"),
+            ReadLargeGap().ToString("0")));
     }
 
     private bool TryNudgeSelectedCandidates(Key key)
@@ -2199,7 +2224,7 @@ public partial class MainWindow : Window
         }
         PushUndoIfChanged(before);
 
-        SetStatus($"Nudged {selected.Count} candidate(s) by 1px.");
+        SetStatus(L.F("Nudged {0} candidate(s) by 1px.", selected.Count));
         return true;
     }
 
@@ -2707,7 +2732,7 @@ public partial class MainWindow : Window
             _cpuStatsErrors++;
             _log.Error("Live overlay refresh failed.", ex);
             StopOverlay(setStatus: false);
-            SetStatus($"Live overlay refresh failed: {ex.Message}");
+            SetStatus(L.F("Live overlay refresh failed: {0}", ex.Message));
         }
         finally
         {
@@ -2733,7 +2758,7 @@ public partial class MainWindow : Window
         if (!registered)
         {
             _log.Info($"Stop hotkey registration failed: {hotkey.DisplayText}");
-            SetStatus($"Stop hotkey registration failed: {hotkey.DisplayText}");
+            SetStatus(L.F("Stop hotkey registration failed: {0}", hotkey.DisplayText));
         }
         else
         {
@@ -2836,18 +2861,23 @@ public partial class MainWindow : Window
     {
         if (SlotSizeText is not null)
         {
-            SlotSizeText.Text = $"inside {ReadSlotInnerWidth()}x{ReadSlotInnerHeight()}px, box {ReadCandidateBoxWidth()}x{ReadCandidateBoxHeight()}px";
+            SlotSizeText.Text = L.F(
+                "inside {0}x{1}px, box {2}x{3}px",
+                ReadSlotInnerWidth(),
+                ReadSlotInnerHeight(),
+                ReadCandidateBoxWidth(),
+                ReadCandidateBoxHeight());
         }
     }
 
     private void UpdateSectionGapLabels()
     {
         var usesLargeGap = SectionPatternCombo.SelectedIndex == 0;
-        SmallGapXText.Text = $"Small gap X {ReadSmallGapX():0}px";
-        SmallGapYText.Text = $"Small gap Y {ReadSmallGapY():0}px";
+        SmallGapXText.Text = L.F("Small gap X {0}px", ReadSmallGapX().ToString("0"));
+        SmallGapYText.Text = L.F("Small gap Y {0}px", ReadSmallGapY().ToString("0"));
         LargeGapText.Text = usesLargeGap
-            ? $"Large gap {ReadLargeGap():0}px"
-            : "Large gap unused";
+            ? L.F("Large gap {0}px", ReadLargeGap().ToString("0"))
+            : L.T("Large gap unused");
         LargeGapSlider.IsEnabled = usesLargeGap;
     }
 
@@ -2944,15 +2974,21 @@ public partial class MainWindow : Window
 
     private void UpdateLayoutSummary()
     {
-        LayoutSummaryText.Text =
-            $"Slots: {_overlaySlots.Count} | Canvas: {_layoutCanvasWidth:0}x{_layoutCanvasHeight:0} | " +
-            $"Screen: {_overlayLeft:0}, {_overlayTop:0} | Opacity: {_overlayOpacity * 100:0}% | " +
-            $"Scale: {_layoutSlotScale:0.0}x | Grid: {_layoutGridSnapSize:0}px | Hotkey: {_stopHotkey} | Max FPS: {_refreshFps}";
+        LayoutSummaryText.Text = string.Join(
+            " | ",
+            L.F("Slots: {0}", _overlaySlots.Count),
+            L.F("Canvas: {0}x{1}", _layoutCanvasWidth.ToString("0"), _layoutCanvasHeight.ToString("0")),
+            L.F("Screen: {0}, {1}", _overlayLeft.ToString("0"), _overlayTop.ToString("0")),
+            L.F("Opacity {0}%", (_overlayOpacity * 100).ToString("0")),
+            L.F("Scale: {0}x", _layoutSlotScale.ToString("0.0")),
+            L.F("Grid: {0}px", _layoutGridSnapSize.ToString("0")),
+            L.F("Hotkey: {0}", _stopHotkey),
+            L.F("Max FPS: {0}", _refreshFps));
     }
 
     private void SetStatus(string message)
     {
-        StatusText.Text = message;
+        StatusText.Text = L.T(message);
         _log.Info($"Status: {message}");
     }
 

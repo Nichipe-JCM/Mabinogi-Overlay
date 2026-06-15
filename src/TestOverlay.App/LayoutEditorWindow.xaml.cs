@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using TestOverlay.App.Models;
+using TestOverlay.App.Services;
 
 namespace TestOverlay.App;
 
@@ -77,7 +78,7 @@ public partial class LayoutEditorWindow : Window
         };
         SlotScaleSlider.ValueChanged += (_, _) =>
         {
-            SlotScaleText.Text = $"{SlotScaleSlider.Value:0.0}x";
+            SlotScaleText.Text = L.F("Slot scale {0}x", SlotScaleSlider.Value.ToString("0.0"));
             if (_isPopulatingControls)
             {
                 return;
@@ -151,7 +152,7 @@ public partial class LayoutEditorWindow : Window
         RefreshFpsCombo.ItemsSource = FpsOptions;
         RefreshFpsCombo.SelectedItem = RefreshFps;
         SlotScaleSlider.Value = SlotScale;
-        SlotScaleText.Text = $"{SlotScale:0.0}x";
+        SlotScaleText.Text = L.F("Slot scale {0}x", SlotScale.ToString("0.0"));
         GridSizeSlider.Value = GridSnapSize;
         UpdateSelectedSlotControls();
         _isPopulatingControls = false;
@@ -673,15 +674,15 @@ public partial class LayoutEditorWindow : Window
         if (SelectedOpacityText is not null)
         {
             SelectedOpacityText.Text = _selectedSlots.Count == 0
-                ? $"Selected opacity {FormatPercent(SelectedOpacitySlider.Value)}"
-                : $"Selected opacity {FormatPercent(SelectedOpacitySlider.Value)} ({_selectedSlots.Count})";
+                ? L.F("Selected opacity {0}%", FormatPercentNumber(SelectedOpacitySlider.Value))
+                : L.F("Selected opacity {0}% ({1})", FormatPercentNumber(SelectedOpacitySlider.Value), _selectedSlots.Count);
         }
 
         if (SelectedSlotScaleText is not null)
         {
             SelectedSlotScaleText.Text = _selectedSlots.Count == 0
-                ? "Selected slot scale"
-                : $"Selected slot scale {SelectedSlotScaleSlider.Value:0.0}x ({_selectedSlots.Count})";
+                ? L.T("Selected slot scale")
+                : L.F("Selected slot scale {0}x ({1})", SelectedSlotScaleSlider.Value.ToString("0.0"), _selectedSlots.Count);
         }
     }
 
@@ -689,12 +690,12 @@ public partial class LayoutEditorWindow : Window
     {
         if (OpacityText is not null)
         {
-            OpacityText.Text = $"Opacity {FormatPercent(OpacitySlider.Value)}";
+            OpacityText.Text = L.F("Opacity {0}%", FormatPercentNumber(OpacitySlider.Value));
         }
     }
 
-    private static string FormatPercent(double value) =>
-        $"{Math.Clamp(value, 0, 1) * 100:0}%";
+    private static string FormatPercentNumber(double value) =>
+        $"{Math.Clamp(value, 0, 1) * 100:0}";
 
     private static void WireDirectSliderInput(Slider slider)
     {
@@ -756,7 +757,7 @@ public partial class LayoutEditorWindow : Window
     {
         if (GridSizeText is not null)
         {
-            GridSizeText.Text = $"Grid snap {ReadGridSize():0}px";
+            GridSizeText.Text = L.F("Grid snap {0}px", ReadGridSize().ToString("0"));
         }
 
         UpdateEditorGridBrush();

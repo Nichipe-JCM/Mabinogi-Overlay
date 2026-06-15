@@ -1,7 +1,9 @@
 <Window x:Class="TestOverlay.App.ProfileNameDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
         Title="Save Profile"
+        loc:Localize.TitleKey="Save Profile"
         Icon="/Image/AppIcon.ico"
         Width="390"
         Height="190"
@@ -19,13 +21,13 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Text="Profile name" Style="{StaticResource SectionTitleStyle}"/>
+            <TextBlock Text="Profile name" loc:Localize.TextKey="Profile name" Style="{StaticResource SectionTitleStyle}"/>
             <TextBox Grid.Row="1" x:Name="ProfileNameBox" Height="34" Margin="0,10,0,0"/>
             <TextBlock Grid.Row="2" x:Name="ErrorText" Margin="0,8,0,0" Style="{StaticResource DangerTextStyle}"/>
 
             <WrapPanel Grid.Row="3" HorizontalAlignment="Right">
-                <Button Width="84" Height="34" Content="Cancel" Click="CancelButton_Click"/>
-                <Button Width="84" Height="34" Margin="8,0,0,0" Content="Save" Click="SaveButton_Click"/>
+                <Button Width="84" Height="34" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelButton_Click"/>
+                <Button Width="84" Height="34" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveButton_Click"/>
             </WrapPanel>
         </Grid>
     </Border>

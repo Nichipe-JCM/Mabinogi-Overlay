@@ -1,8 +1,10 @@
 <Window x:Class="TestOverlay.App.LayoutEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
         xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
         Title="Overlay Layout Editor"
+        loc:Localize.TitleKey="Overlay Layout Editor"
         Icon="/Image/AppIcon.ico"
         Width="1360"
         Height="920"
@@ -31,7 +33,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Canvas and Screen" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}"/>
+                        <TextBlock Text="Canvas and Screen" loc:Localize.TextKey="Canvas and Screen" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}"/>
                     </Border>
                     <Grid Grid.Row="1" Margin="14">
                         <Grid.RowDefinitions>
@@ -52,28 +54,28 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Row="0" Grid.Column="0">
-                            <TextBlock Text="Width" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock Text="Width" loc:Localize.TextKey="Width" Style="{StaticResource MutedTextStyle}"/>
                             <TextBox x:Name="CanvasWidthBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2">
-                            <TextBlock Text="Height" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock Text="Height" loc:Localize.TextKey="Height" Style="{StaticResource MutedTextStyle}"/>
                             <TextBox x:Name="CanvasHeightBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="4">
-                            <TextBlock Text="Screen X" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock Text="Screen X" loc:Localize.TextKey="Screen X" Style="{StaticResource MutedTextStyle}"/>
                             <TextBox x:Name="ScreenLeftBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="6">
-                            <TextBlock Text="Screen Y" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock Text="Screen Y" loc:Localize.TextKey="Screen Y" Style="{StaticResource MutedTextStyle}"/>
                             <TextBox x:Name="ScreenTopBox" Height="38"/>
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                            <TextBlock x:Name="OpacityText" Text="Opacity" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock x:Name="OpacityText" Text="Opacity" loc:Localize.TextKey="Opacity" Style="{StaticResource MutedTextStyle}"/>
                             <Slider x:Name="OpacitySlider" Minimum="0" Maximum="1" TickFrequency="0.05"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="4" Grid.ColumnSpan="3">
-                            <TextBlock Text="Slot scale" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock Text="Slot scale" loc:Localize.TextKey="Slot scale" Style="{StaticResource MutedTextStyle}"/>
                             <Slider x:Name="SlotScaleSlider" Minimum="0.1" Maximum="10" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
                             <TextBlock x:Name="SlotScaleText" Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
@@ -93,7 +95,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Runtime and Selection" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}"/>
+                        <TextBlock Text="Runtime and Selection" loc:Localize.TextKey="Runtime and Selection" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}"/>
                     </Border>
                     <Grid Grid.Row="1" Margin="14">
                         <Grid.RowDefinitions>
@@ -110,20 +112,20 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Row="0" Grid.Column="0">
-                            <TextBlock Text="Stop hotkey" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock Text="Stop hotkey" loc:Localize.TextKey="Stop hotkey" Style="{StaticResource MutedTextStyle}"/>
                             <TextBox x:Name="HotkeyBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2">
-                            <TextBlock Text="Max FPS" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock Text="Max FPS" loc:Localize.TextKey="Max FPS" Style="{StaticResource MutedTextStyle}"/>
                             <ComboBox x:Name="RefreshFpsCombo" Height="38"/>
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                            <TextBlock x:Name="SelectedOpacityText" Text="Selected opacity" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock x:Name="SelectedOpacityText" Text="Selected opacity" loc:Localize.TextKey="Selected opacity" Style="{StaticResource MutedTextStyle}"/>
                             <Slider x:Name="SelectedOpacitySlider" Minimum="0.05" Maximum="1" Value="1" TickFrequency="0.05"/>
                         </StackPanel>
                         <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
-                            <TextBlock x:Name="SelectedSlotScaleText" Text="Selected slot scale" Style="{StaticResource MutedTextStyle}"/>
+                            <TextBlock x:Name="SelectedSlotScaleText" Text="Selected slot scale" loc:Localize.TextKey="Selected slot scale" Style="{StaticResource MutedTextStyle}"/>
                             <Slider x:Name="SelectedSlotScaleSlider" Minimum="0.1" Maximum="10" Value="1" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
                         </StackPanel>
                     </Grid>
@@ -144,9 +146,10 @@
                             <ColumnDefinition Width="24"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Layout Canvas" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="0" Text="Layout Canvas" loc:Localize.TextKey="Layout Canvas" Style="{StaticResource SectionTitleStyle}" Foreground="{StaticResource OverlayAccentBrush}" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="2"
                                    Text="Drag slots, use arrow keys for fine movement, resize the canvas with the corner handle."
+                                   loc:Localize.TextKey="Drag slots, use arrow keys for fine movement, resize the canvas with the corner handle."
                                    Style="{StaticResource MutedTextStyle}" VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
                 </Border>
@@ -191,11 +194,11 @@
         </Border>
 
         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Width="104" Height="34" Content="Default Pos" Click="DefaultPositionButton_Click"/>
-            <Button Width="132" Height="34" Margin="8,0,0,0" Content="Screen Preview" Click="ScreenPreviewButton_Click"/>
-            <Button Width="122" Height="34" Margin="8,0,0,0" Content="Delete Selected" Click="DeleteSelectedButton_Click"/>
-            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Apply" Click="ApplyButton_Click"/>
-            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Close" Click="CloseButton_Click"/>
+            <Button Width="104" Height="34" Content="Default Pos" loc:Localize.ContentKey="Default Pos" Click="DefaultPositionButton_Click"/>
+            <Button Width="132" Height="34" Margin="8,0,0,0" Content="Screen Preview" loc:Localize.ContentKey="Screen Preview" Click="ScreenPreviewButton_Click"/>
+            <Button Width="122" Height="34" Margin="8,0,0,0" Content="Delete Selected" loc:Localize.ContentKey="Delete Selected" Click="DeleteSelectedButton_Click"/>
+            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ApplyButton_Click"/>
+            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Close" loc:Localize.ContentKey="Close" Click="CloseButton_Click"/>
         </WrapPanel>
     </Grid>
 </Window>

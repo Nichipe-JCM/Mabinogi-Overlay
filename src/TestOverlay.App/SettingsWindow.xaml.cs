@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using Microsoft.Win32;
 using TestOverlay.App.Models;
+using TestOverlay.App.Services;
 
 namespace TestOverlay.App;
 
@@ -18,6 +19,7 @@ public partial class SettingsWindow : Window
         string selectedProfileName,
         OverlayRenderMode selectedRenderMode,
         CaptureBackend selectedCaptureBackend,
+        string selectedLanguage,
         string logPath,
         DateTimeOffset logSessionStartedAt)
     {
@@ -43,9 +45,9 @@ public partial class SettingsWindow : Window
 
         var renderModes = new List<RenderModeOption>
         {
-            new(OverlayRenderMode.CpuWpf, "Existing CPU/WPF"),
-            new(OverlayRenderMode.GpuDxgi, "Current GPU/DXGI"),
-            new(OverlayRenderMode.CpuComposited, "Improved CPU/Composited")
+            new(OverlayRenderMode.CpuWpf, L.T("Existing CPU/WPF")),
+            new(OverlayRenderMode.GpuDxgi, L.T("GPU/DXGI")),
+            new(OverlayRenderMode.CpuComposited, L.T("Improved CPU/Composited"))
         };
         RenderModeCombo.ItemsSource = renderModes;
         RenderModeCombo.SelectedItem = renderModes.FirstOrDefault(option => option.Mode == selectedRenderMode)
@@ -53,13 +55,22 @@ public partial class SettingsWindow : Window
 
         var captureBackends = new List<CaptureBackendOption>
         {
-            new(CaptureBackend.Wgc, "WGC window"),
-            new(CaptureBackend.DxgiDesktopDuplication, "DXGI monitor"),
-            new(CaptureBackend.GdiBitBlt, "GDI BitBlt")
+            new(CaptureBackend.Wgc, L.T("WGC window")),
+            new(CaptureBackend.DxgiDesktopDuplication, L.T("DXGI monitor")),
+            new(CaptureBackend.GdiBitBlt, L.T("GDI BitBlt"))
         };
         CaptureBackendCombo.ItemsSource = captureBackends;
         CaptureBackendCombo.SelectedItem = captureBackends.FirstOrDefault(option => option.Backend == selectedCaptureBackend)
                                            ?? captureBackends[0];
+
+        var languages = new List<LanguageOption>
+        {
+            new(LocalizationService.English, "English"),
+            new(LocalizationService.Korean, "\uD55C\uAD6D\uC5B4")
+        };
+        LanguageCombo.ItemsSource = languages;
+        LanguageCombo.SelectedItem = languages.FirstOrDefault(option =>
+            string.Equals(option.Language, LocalizationService.NormalizeLanguage(selectedLanguage), StringComparison.OrdinalIgnoreCase)) ?? languages[0];
     }
 
     public string ProfileDirectory { get; private set; }
@@ -70,13 +81,15 @@ public partial class SettingsWindow : Window
 
     public CaptureBackend SelectedCaptureBackend { get; private set; }
 
+    public string SelectedLanguage { get; private set; } = LocalizationService.English;
+
     public SettingsProfileAction RequestedProfileAction { get; private set; } = SettingsProfileAction.None;
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Choose profile save folder",
+            Title = L.T("Choose profile save folder"),
             InitialDirectory = Directory.Exists(ProfileDirectoryBox.Text)
                 ? ProfileDirectoryBox.Text
                 : _defaultProfileDirectory
@@ -146,6 +159,9 @@ public partial class SettingsWindow : Window
             SelectedCaptureBackend = CaptureBackendCombo.SelectedItem is CaptureBackendOption captureOption
                 ? captureOption.Backend
                 : CaptureBackend.Wgc;
+            SelectedLanguage = LanguageCombo.SelectedItem is LanguageOption languageOption
+                ? languageOption.Language
+                : LocalizationService.English;
             RequestedProfileAction = action;
             DialogResult = true;
         }
@@ -154,7 +170,7 @@ public partial class SettingsWindow : Window
             MessageBox.Show(
                 this,
                 exception.Message,
-                "Invalid folder",
+                L.T("Invalid folder"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -163,6 +179,8 @@ public partial class SettingsWindow : Window
     private sealed record RenderModeOption(OverlayRenderMode Mode, string Label);
 
     private sealed record CaptureBackendOption(CaptureBackend Backend, string Label);
+
+    private sealed record LanguageOption(string Language, string Label);
 }
 
 public enum SettingsProfileAction
