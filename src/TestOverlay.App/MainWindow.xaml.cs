@@ -90,6 +90,7 @@ public partial class MainWindow : Window
     private int _refreshFps = 30;
     private double _layoutSlotScale = 1.5;
     private double _layoutGridSnapSize = 10;
+    private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
     {
@@ -100,6 +101,7 @@ public partial class MainWindow : Window
             _log.LogDirectory,
             $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         InitializeComponent();
+        LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
         DataContext = new { Candidates = _candidates };
         SectionCombo.ItemsSource = _sections;
         SectionPatternCombo.SelectionChanged += (_, _) =>
@@ -133,7 +135,11 @@ public partial class MainWindow : Window
         };
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
-        Closed += (_, _) => StopOverlay(setStatus: false);
+        Closed += (_, _) =>
+        {
+            LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
+            StopOverlay(setStatus: false);
+        };
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
         CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         ApplySectionSettingsToControls(_currentSectionIndex);
@@ -148,6 +154,51 @@ public partial class MainWindow : Window
         RefreshWindows();
         RefreshProfileList();
         _log.Info("Application loaded.");
+    }
+
+    private void LocalizationService_LanguageChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => LocalizationService_LanguageChanged(sender, e));
+            return;
+        }
+
+        UpdateSizeLabels();
+        UpdateSectionGapLabels();
+        UpdateLayoutSummary();
+
+        if (WindowStatusText is not null)
+        {
+            SetWindowStatusText(BuildWindowStatusText());
+        }
+
+        if (DetectButton is not null)
+        {
+            DetectButton.Content = _isAwaitingDetectionRoi ? L.T("Drag ROI...") : L.T("Auto detect section");
+        }
+
+        if (DebugDetectButton is not null)
+        {
+            DebugDetectButton.Content = _isAwaitingDebugDetectionRoi ? L.T("Drag debug ROI...") : L.T("Debug detect");
+        }
+
+        if (!string.IsNullOrEmpty(_lastStatusMessage) && StatusText is not null)
+        {
+            StatusText.Text = L.T(_lastStatusMessage);
+        }
+    }
+
+    private void ManualSectionToggle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ManualSectionPopup is not { IsOpen: true })
+        {
+            return;
+        }
+
+        ManualSectionPopup.IsOpen = false;
+        ManualSectionToggle.IsChecked = false;
+        e.Handled = true;
     }
 
     private CaptureBackend CurrentCaptureBackend => _appSettings.CaptureBackend;
@@ -2988,6 +3039,7 @@ public partial class MainWindow : Window
 
     private void SetStatus(string message)
     {
+        _lastStatusMessage = message;
         StatusText.Text = L.T(message);
         _log.Info($"Status: {message}");
     }
