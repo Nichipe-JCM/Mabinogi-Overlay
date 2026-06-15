@@ -201,7 +201,8 @@
                                     Background="{StaticResource OverlayBgBrush}"
                                     MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
                                     MouseMove="CaptureCanvas_MouseMove"
-                                    MouseLeftButtonUp="CaptureCanvas_MouseLeftButtonUp">
+                                    MouseLeftButtonUp="CaptureCanvas_MouseLeftButtonUp"
+                                    MouseRightButtonDown="CaptureCanvas_MouseRightButtonDown">
                                 <Canvas.LayoutTransform>
                                     <ScaleTransform ScaleX="{Binding ElementName=CaptureZoomSlider, Path=Value}" ScaleY="{Binding ElementName=CaptureZoomSlider, Path=Value}"/>
                                 </Canvas.LayoutTransform>

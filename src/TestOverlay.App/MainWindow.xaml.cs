@@ -1365,6 +1365,14 @@ public partial class MainWindow : Window
         _candidateDragSnapshotBefore = null;
     }
 
+    private void CaptureCanvas_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (CancelCapturePreviewInteraction(cancelAwaitingModes: true, restoreDragSnapshot: true))
+        {
+            e.Handled = true;
+        }
+    }
+
     private void RefreshWindows()
     {
         var windows = _windowDiscovery.GetVisibleWindows();
@@ -1456,45 +1464,63 @@ public partial class MainWindow : Window
             return;
         }
 
+        CancelCapturePreviewInteraction(cancelAwaitingModes: false, restoreDragSnapshot: false);
+    }
+
+    private bool CancelCapturePreviewInteraction(bool cancelAwaitingModes, bool restoreDragSnapshot)
+    {
+        var hadDetection = _isSelectingDetectionRoi || (cancelAwaitingModes && _isAwaitingDetectionRoi);
+        var hadDebugDetection = _isSelectingDebugDetectionRoi || (cancelAwaitingModes && _isAwaitingDebugDetectionRoi);
         var hadSelection = _selectionRect is not null ||
+                           _isSelectingCandidates ||
                            _isSelectingDetectionRoi ||
-                           _isSelectingDebugDetectionRoi ||
-                           _isSelectingCandidates;
+                           _isSelectingDebugDetectionRoi;
         var hadDrag = _draggingCandidate is not null;
-        if (!hadSelection && !hadDrag)
+        if (!hadSelection && !hadDrag && !hadDetection && !hadDebugDetection)
         {
-            return;
+            return false;
         }
 
+        var dragSnapshot = restoreDragSnapshot ? _candidateDragSnapshotBefore : null;
+
         RemoveSelectionRectangle();
-        if (_isSelectingDetectionRoi)
+        if (hadDetection)
         {
             _isSelectingDetectionRoi = false;
             SetDetectionMode(active: false);
         }
 
-        if (_isSelectingDebugDetectionRoi)
+        if (hadDebugDetection)
         {
             _isSelectingDebugDetectionRoi = false;
             SetDebugDetectionMode(active: false);
         }
 
         _isSelectingCandidates = false;
-        if (_candidateDragSnapshotBefore is not null)
-        {
-            PushUndoIfChanged(_candidateDragSnapshotBefore);
-        }
-
         if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var draggingRect))
         {
             ReleaseCaptureSafely(draggingRect);
+        }
+
+        if (dragSnapshot is not null)
+        {
+            RestoreCandidateSnapshot(dragSnapshot);
+        }
+        else if (_candidateDragSnapshotBefore is not null)
+        {
+            PushUndoIfChanged(_candidateDragSnapshotBefore);
         }
 
         _draggingCandidate = null;
         _candidateDragOrigins.Clear();
         _candidateDragSnapshotBefore = null;
         ReleaseCaptureSafely(CaptureCanvas);
-        SetStatus("Interrupted preview drag was canceled.");
+        SetStatus(hadDebugDetection
+            ? "Debug detect canceled."
+            : hadDetection
+                ? "Section detection canceled."
+                : "Interrupted preview drag was canceled.");
+        return true;
     }
 
     private void RemoveSelectionRectangle()
@@ -1585,14 +1611,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var patternKind = ChooseDetectionPatternKind();
-        if (patternKind is null)
-        {
-            SetStatus("Section detection canceled.");
-            return;
-        }
-
-        DetectSectionInRoi(roi, patternKind.Value);
+        var patternKind = ResolveDetectionPatternKind(roi);
+        _log.Info(
+            $"ROI section detection auto-routed: pattern={patternKind}, roi={roi.X:0},{roi.Y:0},{roi.Width:0}x{roi.Height:0}");
+        DetectSectionInRoi(roi, patternKind);
     }
 
     private void EndDebugDetectionRoiSelection()
@@ -1656,22 +1678,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private QuickslotSectionPatternKind? ChooseDetectionPatternKind()
-    {
-        var result = MessageBox.Show(
-            this,
-            $"{L.T("Choose the quickslot section type.")}\n\n{L.T("Yes: Top grouped 4x2 x3")}\n{L.T("No: Vertical 2x8")}\n{L.T("Cancel: cancel detection")}",
-            L.T("Section Type"),
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
-
-        return result switch
-        {
-            MessageBoxResult.Yes => QuickslotSectionPatternKind.TopGrouped,
-            MessageBoxResult.No => QuickslotSectionPatternKind.Vertical,
-            _ => null
-        };
-    }
+    private static QuickslotSectionPatternKind ResolveDetectionPatternKind(Rect roi) =>
+        roi.Width >= roi.Height
+            ? QuickslotSectionPatternKind.TopGrouped
+            : QuickslotSectionPatternKind.Vertical;
 
     private DebugDetectionExpectation? ChooseDebugDetectionExpectation()
     {
