@@ -194,11 +194,11 @@
         </Border>
 
         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Width="104" Height="34" Content="Default Pos" loc:Localize.ContentKey="Default Pos" Click="DefaultPositionButton_Click"/>
-            <Button Width="132" Height="34" Margin="8,0,0,0" Content="Screen Preview" loc:Localize.ContentKey="Screen Preview" Click="ScreenPreviewButton_Click"/>
-            <Button Width="122" Height="34" Margin="8,0,0,0" Content="Delete Selected" loc:Localize.ContentKey="Delete Selected" Click="DeleteSelectedButton_Click"/>
-            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ApplyButton_Click"/>
-            <Button Width="96" Height="34" Margin="8,0,0,0" Content="Close" loc:Localize.ContentKey="Close" Click="CloseButton_Click"/>
+            <Button MinWidth="104" Height="34" Padding="14,0" Content="Default Pos" loc:Localize.ContentKey="Default Pos" Click="DefaultPositionButton_Click"/>
+            <Button MinWidth="132" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Screen Preview" loc:Localize.ContentKey="Screen Preview" Click="ScreenPreviewButton_Click"/>
+            <Button MinWidth="122" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Delete Selected" loc:Localize.ContentKey="Delete Selected" Click="DeleteSelectedButton_Click"/>
+            <Button MinWidth="96" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ApplyButton_Click"/>
+            <Button MinWidth="96" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Close" loc:Localize.ContentKey="Close" Click="CloseButton_Click"/>
         </WrapPanel>
     </Grid>
 </Window>

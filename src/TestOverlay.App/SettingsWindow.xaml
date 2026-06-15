@@ -36,6 +36,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -53,8 +54,8 @@
                                     <ColumnDefinition Width="86"/>
                                 </Grid.ColumnDefinitions>
                                 <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="40"/>
-                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveProfileButton_Click"/>
-                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Load" loc:Localize.ContentKey="Load" Click="LoadProfileButton_Click"/>
+                                <Button Grid.Column="1" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveProfileButton_Click"/>
+                                <Button Grid.Column="2" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Load" loc:Localize.ContentKey="Load" Click="LoadProfileButton_Click"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -69,13 +70,20 @@
                                     <ColumnDefinition Width="86"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="ProfileDirectoryBox" Grid.Column="0" Height="40"/>
-                                <Button Grid.Column="1" Height="40" Margin="8,0,0,0" Content="Browse" loc:Localize.ContentKey="Browse" Click="BrowseButton_Click"/>
-                                <Button Grid.Column="2" Height="40" Margin="8,0,0,0" Content="Default" loc:Localize.ContentKey="Default" Click="DefaultButton_Click"/>
+                                <Button Grid.Column="1" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Browse" loc:Localize.ContentKey="Browse" Click="BrowseButton_Click"/>
+                                <Button Grid.Column="2" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Default" loc:Localize.ContentKey="Default" Click="DefaultButton_Click"/>
                             </Grid>
                             <TextBlock Margin="0,8,0,0"
                                        Text="Portable builds default to a save folder next to the executable."
                                        loc:Localize.TextKey="Portable builds default to a save folder next to the executable."
                                        Style="{StaticResource MutedTextStyle}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Language" loc:Localize.TextKey="Language" Style="{StaticResource PanelTitleStyle}"/>
+                            <ComboBox x:Name="LanguageCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -84,7 +92,6 @@
             <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -117,22 +124,15 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Language" loc:Localize.TextKey="Language" Style="{StaticResource PanelTitleStyle}"/>
-                            <ComboBox x:Name="LanguageCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="4" Margin="14,0,14,14" MinHeight="150" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="150" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
                             <TextBlock Text="Benchmark" loc:Localize.TextKey="Benchmark" Style="{StaticResource PanelTitleStyle}"/>
                             <TextBlock Margin="0,6,0,10"
                                        Text="Open a controlled stress test window to compare renderer cost."
                                        loc:Localize.TextKey="Open a controlled stress test window to compare renderer cost."
                                        Style="{StaticResource MutedTextStyle}"/>
-                            <Button Height="34" Content="Open benchmark" loc:Localize.ContentKey="Open benchmark" Click="BenchmarkButton_Click"/>
-                            <Button Height="34" Margin="0,8,0,0" Content="Log" loc:Localize.ContentKey="Log" Click="LogButton_Click"/>
+                            <Button MinWidth="120" Height="34" Padding="12,0" HorizontalAlignment="Left" Content="Open benchmark" loc:Localize.ContentKey="Open benchmark" Click="BenchmarkButton_Click"/>
+                            <Button MinWidth="70" Height="34" Padding="12,0" HorizontalAlignment="Left" Margin="0,8,0,0" Content="Log" loc:Localize.ContentKey="Log" Click="LogButton_Click"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -140,8 +140,8 @@
         </Grid>
 
         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Width="88" Height="34" Content="OK" loc:Localize.ContentKey="OK" Click="OkButton_Click"/>
-            <Button Width="88" Height="34" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" IsCancel="True"/>
+            <Button MinWidth="88" Height="34" Padding="14,0" Content="OK" loc:Localize.ContentKey="OK" Click="OkButton_Click"/>
+            <Button MinWidth="88" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" IsCancel="True"/>
         </WrapPanel>
     </Grid>
 </Window>

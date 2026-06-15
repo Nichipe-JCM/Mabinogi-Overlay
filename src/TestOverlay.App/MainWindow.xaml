@@ -133,12 +133,12 @@
                 </StackPanel>
 
                 <WrapPanel Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button x:Name="RefreshWindowsButton" Width="92" Height="36" Margin="6,0,0,0" Content="Refresh" loc:Localize.ContentKey="Refresh" Click="RefreshWindowsButton_Click"/>
-                    <Button x:Name="AutoCaptureButton" Width="112" Height="36" Margin="6,0,0,0" Content="Auto capture" loc:Localize.ContentKey="Auto capture" Click="AutoCaptureButton_Click"/>
-                    <Button x:Name="ManualCaptureButton" Width="124" Height="36" Margin="6,0,0,0" Content="Manual capture" loc:Localize.ContentKey="Manual capture" Click="ManualCaptureButton_Click"/>
-                    <Button x:Name="DetectButton" Width="150" Height="36" Margin="6,0,0,0" Content="Auto detect section" loc:Localize.ContentKey="Auto detect section" Click="DetectButton_Click"/>
-                    <Button x:Name="DebugDetectButton" Width="116" Height="36" Margin="6,0,0,0" Content="Debug detect" loc:Localize.ContentKey="Debug detect" Click="DebugDetectButton_Click"/>
-                    <Button x:Name="SettingsButton" Width="112" Height="36" Margin="6,0,0,0" Content="Settings" loc:Localize.ContentKey="Settings" Click="SettingsButton_Click"/>
+                    <Button x:Name="RefreshWindowsButton" MinWidth="92" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Refresh" loc:Localize.ContentKey="Refresh" Click="RefreshWindowsButton_Click"/>
+                    <Button x:Name="AutoCaptureButton" MinWidth="112" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Auto capture" loc:Localize.ContentKey="Auto capture" Click="AutoCaptureButton_Click"/>
+                    <Button x:Name="ManualCaptureButton" MinWidth="124" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Manual capture" loc:Localize.ContentKey="Manual capture" Click="ManualCaptureButton_Click"/>
+                    <Button x:Name="DetectButton" MinWidth="150" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Auto detect section" loc:Localize.ContentKey="Auto detect section" Click="DetectButton_Click"/>
+                    <Button x:Name="DebugDetectButton" MinWidth="116" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Debug detect" loc:Localize.ContentKey="Debug detect" Click="DebugDetectButton_Click"/>
+                    <Button x:Name="SettingsButton" MinWidth="112" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Settings" loc:Localize.ContentKey="Settings" Click="SettingsButton_Click"/>
                 </WrapPanel>
             </Grid>
         </Border>
@@ -285,7 +285,7 @@
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
-                    <Grid>
+                    <Grid x:Name="CandidatePanelGrid">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -297,67 +297,82 @@
                             <TextBlock Text="Slot Candidates" loc:Localize.TextKey="Slot Candidates" Style="{StaticResource SectionTitleStyle}"/>
                         </Border>
 
-                        <Expander Grid.Row="1" Header="Create manual section" loc:Localize.HeaderKey="Create manual section" IsExpanded="False" Margin="14,12,14,10">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="10"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="10"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="8"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="12"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                        <ToggleButton x:Name="ManualSectionToggle"
+                                      Grid.Row="1"
+                                      Margin="14,12,14,10"
+                                      Height="38"
+                                      HorizontalContentAlignment="Left"
+                                      Content="Create manual section"
+                                      loc:Localize.ContentKey="Create manual section"/>
+                        <Popup PlacementTarget="{Binding ElementName=ManualSectionToggle}"
+                               Placement="Bottom"
+                               IsOpen="{Binding ElementName=ManualSectionToggle, Path=IsChecked, Mode=TwoWay}"
+                               StaysOpen="False"
+                               AllowsTransparency="True">
+                            <Border Width="{Binding ElementName=CandidatePanelGrid, Path=ActualWidth}"
+                                    MaxWidth="720"
+                                    Margin="14,0,14,0"
+                                    Style="{StaticResource GlassCardStyle}">
+                                <Grid Margin="14">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="12"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="12"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="10"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="14"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
-                                    <TextBlock Text="Slot size" loc:Localize.TextKey="Slot size" Style="{StaticResource PanelTitleStyle}"/>
-                                    <WrapPanel Margin="0,6,0,0">
-                                        <TextBlock Text="W" loc:Localize.TextKey="W" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
-                                        <TextBox x:Name="SlotWidthBox" Width="64" Height="28" Margin="6,0,14,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
-                                        <TextBlock Text="H" loc:Localize.TextKey="H" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
-                                        <TextBox x:Name="SlotHeightBox" Width="64" Height="28" Margin="6,0,0,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
-                                        <Button x:Name="ApplySlotSizeButton" Width="70" Height="28" Margin="10,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ApplySlotSizeButton_Click"/>
-                                    </WrapPanel>
-                                    <TextBlock x:Name="SlotSizeText" Margin="0,4,0,0" Style="{StaticResource MutedTextStyle}"/>
-                                </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+                                        <TextBlock Text="Slot size" loc:Localize.TextKey="Slot size" Style="{StaticResource PanelTitleStyle}"/>
+                                        <WrapPanel Margin="0,8,0,0">
+                                            <TextBlock Text="W" loc:Localize.TextKey="W" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
+                                            <TextBox x:Name="SlotWidthBox" Width="74" Height="34" Margin="6,0,14,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
+                                            <TextBlock Text="H" loc:Localize.TextKey="H" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
+                                            <TextBox x:Name="SlotHeightBox" Width="74" Height="34" Margin="6,0,0,0" Text="29" TextChanged="SlotSizeBox_TextChanged"/>
+                                            <Button x:Name="ApplySlotSizeButton" MinWidth="70" Height="34" Padding="12,0" Margin="10,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ApplySlotSizeButton_Click"/>
+                                        </WrapPanel>
+                                        <TextBlock x:Name="SlotSizeText" Margin="0,6,0,0" Style="{StaticResource MutedTextStyle}"/>
+                                    </StackPanel>
 
-                                <StackPanel Grid.Row="2" Grid.Column="0">
-                                    <TextBlock Text="Section pattern" loc:Localize.TextKey="Section pattern" Style="{StaticResource PanelTitleStyle}"/>
-                                    <ComboBox x:Name="SectionPatternCombo" Height="30" Margin="0,6,0,0" SelectedIndex="0">
-                                        <ComboBoxItem Content="Top grouped 4x2 x3" loc:Localize.ContentKey="Top grouped 4x2 x3"/>
-                                        <ComboBoxItem Content="Vertical 2x8" loc:Localize.ContentKey="Vertical 2x8"/>
-                                    </ComboBox>
-                                </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="0">
+                                        <TextBlock Text="Section pattern" loc:Localize.TextKey="Section pattern" Style="{StaticResource PanelTitleStyle}"/>
+                                        <ComboBox x:Name="SectionPatternCombo" Height="38" Margin="0,8,0,0" SelectedIndex="0">
+                                            <ComboBoxItem Content="Top grouped 4x2 x3" loc:Localize.ContentKey="Top grouped 4x2 x3"/>
+                                            <ComboBoxItem Content="Vertical 2x8" loc:Localize.ContentKey="Vertical 2x8"/>
+                                        </ComboBox>
+                                    </StackPanel>
 
-                                <StackPanel Grid.Row="2" Grid.Column="2">
-                                    <TextBlock Text="Section" loc:Localize.TextKey="Section" Style="{StaticResource PanelTitleStyle}"/>
-                                    <ComboBox x:Name="SectionCombo" Height="30" Margin="0,6,0,0" DisplayMemberPath="Label" SelectionChanged="SectionCombo_SelectionChanged"/>
-                                    <WrapPanel Margin="0,6,0,0">
-                                        <Button x:Name="AddSectionFromSelectedButton" Width="112" Height="28" Content="Add Section" loc:Localize.ContentKey="Add Section" Click="AddSectionFromSelectedButton_Click"/>
-                                        <Button x:Name="DeleteSectionButton" Width="76" Height="28" Margin="6,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="DeleteSectionButton_Click"/>
-                                    </WrapPanel>
-                                </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="2">
+                                        <TextBlock Text="Section" loc:Localize.TextKey="Section" Style="{StaticResource PanelTitleStyle}"/>
+                                        <ComboBox x:Name="SectionCombo" Height="38" Margin="0,8,0,0" DisplayMemberPath="Label" SelectionChanged="SectionCombo_SelectionChanged"/>
+                                        <WrapPanel Margin="0,8,0,0">
+                                            <Button x:Name="AddSectionFromSelectedButton" MinWidth="112" Height="34" Padding="12,0" Content="Add Section" loc:Localize.ContentKey="Add Section" Click="AddSectionFromSelectedButton_Click"/>
+                                            <Button x:Name="DeleteSectionButton" MinWidth="76" Height="34" Padding="12,0" Margin="6,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="DeleteSectionButton_Click"/>
+                                        </WrapPanel>
+                                    </StackPanel>
 
-                                <StackPanel Grid.Row="4" Grid.Column="0">
-                                    <TextBlock x:Name="SmallGapXText" Style="{StaticResource MutedTextStyle}"/>
-                                    <Slider x:Name="SmallGapXSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="4" Grid.Column="2">
-                                    <TextBlock x:Name="SmallGapYText" Style="{StaticResource MutedTextStyle}"/>
-                                    <Slider x:Name="SmallGapYSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
-                                    <TextBlock x:Name="LargeGapText" Style="{StaticResource MutedTextStyle}"/>
-                                    <Slider x:Name="LargeGapSlider" Minimum="2" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                                </StackPanel>
-                            </Grid>
-                        </Expander>
-
+                                    <StackPanel Grid.Row="4" Grid.Column="0">
+                                        <TextBlock x:Name="SmallGapXText" Style="{StaticResource MutedTextStyle}"/>
+                                        <Slider x:Name="SmallGapXSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="4" Grid.Column="2">
+                                        <TextBlock x:Name="SmallGapYText" Style="{StaticResource MutedTextStyle}"/>
+                                        <Slider x:Name="SmallGapYSlider" Minimum="2" Maximum="30" Value="2" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
+                                        <TextBlock x:Name="LargeGapText" Style="{StaticResource MutedTextStyle}"/>
+                                        <Slider x:Name="LargeGapSlider" Minimum="2" Maximum="60" Value="16" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Popup>
                         <ListBox Grid.Row="2"
                                  x:Name="CandidateList"
                                  Margin="14,0"
@@ -389,12 +404,12 @@
                         </ListBox>
 
                         <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="14,12,14,14">
-                            <Button x:Name="SelectAllCandidatesButton" Width="96" Height="32" Margin="4,0,0,0" Content="Select all" loc:Localize.ContentKey="Select all" Click="SelectAllCandidatesButton_Click"/>
-                            <Button x:Name="DeselectAllCandidatesButton" Width="108" Height="32" Margin="4,0,0,0" Content="Select none" loc:Localize.ContentKey="Select none" Click="DeselectAllCandidatesButton_Click"/>
-                            <Button x:Name="AddManualCandidateButton" Width="72" Height="32" Margin="4,0,0,0" Content="Add" loc:Localize.ContentKey="Add" Click="AddManualCandidateButton_Click"/>
-                            <Button x:Name="DeleteSelectedCandidatesButton" Width="82" Height="32" Margin="4,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
-                            <Button x:Name="AddToOverlayButton" Width="118" Height="32" Margin="4,0,0,0" Content="Add to overlay" loc:Localize.ContentKey="Add to overlay" Click="AddToOverlayButton_Click"/>
-                            <Button x:Name="ClearCandidatesButton" Width="72" Height="32" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearCandidatesButton_Click"/>
+                            <Button x:Name="SelectAllCandidatesButton" MinWidth="96" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Select all" loc:Localize.ContentKey="Select all" Click="SelectAllCandidatesButton_Click"/>
+                            <Button x:Name="DeselectAllCandidatesButton" MinWidth="108" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Select none" loc:Localize.ContentKey="Select none" Click="DeselectAllCandidatesButton_Click"/>
+                            <Button x:Name="AddManualCandidateButton" MinWidth="72" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Add" loc:Localize.ContentKey="Add" Click="AddManualCandidateButton_Click"/>
+                            <Button x:Name="DeleteSelectedCandidatesButton" MinWidth="82" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
+                            <Button x:Name="AddToOverlayButton" MinWidth="118" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Add to overlay" loc:Localize.ContentKey="Add to overlay" Click="AddToOverlayButton_Click"/>
+                            <Button x:Name="ClearCandidatesButton" MinWidth="72" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearCandidatesButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>
@@ -422,10 +437,10 @@
                         </Border>
 
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,14">
-                            <Button x:Name="OpenLayoutEditorButton" Width="126" Height="34" Margin="4,0,0,0" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
-                            <Button x:Name="ClearLayoutButton" Width="66" Height="34" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearLayoutButton_Click"/>
-                            <Button x:Name="StartOverlayButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay start" loc:Localize.ContentKey="Overlay start" Click="StartOverlayButton_Click"/>
-                            <Button x:Name="StopOverlayLayoutButton" Width="112" Height="34" Margin="4,0,0,0" Content="Overlay stop" loc:Localize.ContentKey="Overlay stop" Click="StopOverlayButton_Click"/>
+                            <Button x:Name="OpenLayoutEditorButton" MinWidth="126" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
+                            <Button x:Name="ClearLayoutButton" MinWidth="66" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearLayoutButton_Click"/>
+                            <Button x:Name="StartOverlayButton" MinWidth="112" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Overlay start" loc:Localize.ContentKey="Overlay start" Click="StartOverlayButton_Click"/>
+                            <Button x:Name="StopOverlayLayoutButton" MinWidth="112" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Overlay stop" loc:Localize.ContentKey="Overlay stop" Click="StopOverlayButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>

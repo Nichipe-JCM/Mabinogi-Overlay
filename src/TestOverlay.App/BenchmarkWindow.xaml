@@ -68,7 +68,7 @@
                     <TextBlock Text="Slot multipliers" loc:Localize.TextKey="Slot multipliers" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}"/>
                     <TextBox x:Name="MultipliersBox" Height="30" Text="1,5,10,20"/>
                     <TextBlock Text="comma-separated" loc:Localize.TextKey="comma-separated" Margin="0,4,0,0" Style="{StaticResource MutedTextStyle}"/>
-                    <Button x:Name="StartButton" Height="34" Margin="0,12,0,0" Content="Start benchmark" loc:Localize.ContentKey="Start benchmark" Click="StartButton_Click"/>
+                    <Button x:Name="StartButton" MinWidth="132" Height="34" Padding="14,0" HorizontalAlignment="Left" Margin="0,12,0,0" Content="Start benchmark" loc:Localize.ContentKey="Start benchmark" Click="StartButton_Click"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0">
@@ -114,7 +114,7 @@
                  BorderBrush="{StaticResource OverlayBorderBrush}"/>
 
         <WrapPanel Grid.Row="4" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button x:Name="CloseButton" Width="88" Height="34" Content="Close" loc:Localize.ContentKey="Close" Click="CloseButton_Click"/>
+            <Button x:Name="CloseButton" MinWidth="88" Height="34" Padding="14,0" Content="Close" loc:Localize.ContentKey="Close" Click="CloseButton_Click"/>
         </WrapPanel>
     </Grid>
 </Window>

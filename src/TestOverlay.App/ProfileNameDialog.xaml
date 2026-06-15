@@ -26,8 +26,8 @@
             <TextBlock Grid.Row="2" x:Name="ErrorText" Margin="0,8,0,0" Style="{StaticResource DangerTextStyle}"/>
 
             <WrapPanel Grid.Row="3" HorizontalAlignment="Right">
-                <Button Width="84" Height="34" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelButton_Click"/>
-                <Button Width="84" Height="34" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveButton_Click"/>
+                <Button MinWidth="84" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelButton_Click"/>
+                <Button MinWidth="84" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveButton_Click"/>
             </WrapPanel>
         </Grid>
     </Border>
