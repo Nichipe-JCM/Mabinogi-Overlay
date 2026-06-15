@@ -136,7 +136,6 @@ public partial class MainWindow : Window
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
         CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         ApplySectionSettingsToControls(_currentSectionIndex);
-        InitializeCaptureBackendOptions();
         UpdateSizeLabels();
         CaptureZoomText.Text = "100%";
         UpdateSectionGapLabels();
@@ -150,35 +149,7 @@ public partial class MainWindow : Window
         _log.Info("Application loaded.");
     }
 
-    private void InitializeCaptureBackendOptions()
-    {
-        var options = new List<CaptureBackendOption>
-        {
-            new(CaptureBackend.Wgc, "WGC window"),
-            new(CaptureBackend.DxgiDesktopDuplication, "DXGI monitor"),
-            new(CaptureBackend.GdiBitBlt, "GDI BitBlt")
-        };
-        CaptureBackendCombo.ItemsSource = options;
-        CaptureBackendCombo.SelectedItem = options.FirstOrDefault(option => option.Backend == _appSettings.CaptureBackend) ?? options[0];
-    }
-
-    private CaptureBackend CurrentCaptureBackend =>
-        CaptureBackendCombo?.SelectedItem is CaptureBackendOption option
-            ? option.Backend
-            : _appSettings.CaptureBackend;
-
-    private void CaptureBackendCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (CaptureBackendCombo.SelectedItem is not CaptureBackendOption option)
-        {
-            return;
-        }
-
-        _appSettings.CaptureBackend = option.Backend;
-        _settingsStore.Save(_appSettings);
-        SetWindowStatusText(BuildWindowStatusText());
-        SetStatus($"Capture method selected: {option.Label}.");
-    }
+    private CaptureBackend CurrentCaptureBackend => _appSettings.CaptureBackend;
 
     private void WindowCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -804,6 +775,7 @@ public partial class MainWindow : Window
             _profileNames,
             ReadSelectedProfileName(),
             _appSettings.OverlayRenderMode,
+            _appSettings.CaptureBackend,
             _log.LogPath,
             _log.SessionStartedAt)
         {
@@ -821,10 +793,12 @@ public partial class MainWindow : Window
             System.IO.Directory.CreateDirectory(directory);
             _appSettings.ProfileDirectory = directory;
             _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
+            _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
             RefreshProfileList(dialog.SelectedProfileName);
-            _log.Info($"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}");
+            SetWindowStatusText(BuildWindowStatusText());
+            _log.Info($"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}, captureBackend={_appSettings.CaptureBackend}");
         }
         catch (Exception exception)
         {
@@ -842,7 +816,7 @@ public partial class MainWindow : Window
                 LoadSelectedProfile();
                 break;
             default:
-                SetStatus($"Settings saved: {_profileStore.ProfileDirectory}, renderer={RenderModeLabel(_appSettings.OverlayRenderMode)}");
+                SetStatus($"Settings saved: {_profileStore.ProfileDirectory}, renderer={RenderModeLabel(_appSettings.OverlayRenderMode)}, capture={CaptureBackendLabel(_appSettings.CaptureBackend)}");
                 break;
         }
     }
@@ -3009,8 +2983,6 @@ public partial class MainWindow : Window
         {
         }
     }
-
-    private sealed record CaptureBackendOption(CaptureBackend Backend, string Label);
 
     private sealed record SectionSettings(double SmallGapX, double SmallGapY, double LargeGap);
 

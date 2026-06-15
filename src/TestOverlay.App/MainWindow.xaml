@@ -121,23 +121,10 @@
                 </Grid>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="210"/>
-                            <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CaptureBackendCombo"
-                                  Grid.Column="0"
-                                  Height="36"
-                                  DisplayMemberPath="Label"
-                                  SelectionChanged="CaptureBackendCombo_SelectionChanged"/>
-                        <ComboBox x:Name="WindowCombo"
-                                  Grid.Column="2"
-                                  Height="36"
-                                  DisplayMemberPath="DisplayName"
-                                  SelectionChanged="WindowCombo_SelectionChanged"/>
-                    </Grid>
+                    <ComboBox x:Name="WindowCombo"
+                              Height="36"
+                              DisplayMemberPath="DisplayName"
+                              SelectionChanged="WindowCombo_SelectionChanged"/>
                     <TextBlock x:Name="WindowStatusText" Margin="0,6,0,0" Style="{StaticResource MutedTextStyle}" Visibility="Collapsed"/>
                 </StackPanel>
 

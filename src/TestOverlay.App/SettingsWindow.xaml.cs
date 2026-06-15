@@ -17,6 +17,7 @@ public partial class SettingsWindow : Window
         IReadOnlyList<string> profileNames,
         string selectedProfileName,
         OverlayRenderMode selectedRenderMode,
+        CaptureBackend selectedCaptureBackend,
         string logPath,
         DateTimeOffset logSessionStartedAt)
     {
@@ -49,6 +50,16 @@ public partial class SettingsWindow : Window
         RenderModeCombo.ItemsSource = renderModes;
         RenderModeCombo.SelectedItem = renderModes.FirstOrDefault(option => option.Mode == selectedRenderMode)
                                        ?? renderModes[0];
+
+        var captureBackends = new List<CaptureBackendOption>
+        {
+            new(CaptureBackend.Wgc, "WGC window"),
+            new(CaptureBackend.DxgiDesktopDuplication, "DXGI monitor"),
+            new(CaptureBackend.GdiBitBlt, "GDI BitBlt")
+        };
+        CaptureBackendCombo.ItemsSource = captureBackends;
+        CaptureBackendCombo.SelectedItem = captureBackends.FirstOrDefault(option => option.Backend == selectedCaptureBackend)
+                                           ?? captureBackends[0];
     }
 
     public string ProfileDirectory { get; private set; }
@@ -56,6 +67,8 @@ public partial class SettingsWindow : Window
     public string SelectedProfileName { get; private set; }
 
     public OverlayRenderMode SelectedRenderMode { get; private set; }
+
+    public CaptureBackend SelectedCaptureBackend { get; private set; }
 
     public SettingsProfileAction RequestedProfileAction { get; private set; } = SettingsProfileAction.None;
 
@@ -130,6 +143,9 @@ public partial class SettingsWindow : Window
             SelectedRenderMode = RenderModeCombo.SelectedItem is RenderModeOption option
                 ? option.Mode
                 : OverlayRenderMode.CpuWpf;
+            SelectedCaptureBackend = CaptureBackendCombo.SelectedItem is CaptureBackendOption captureOption
+                ? captureOption.Backend
+                : CaptureBackend.Wgc;
             RequestedProfileAction = action;
             DialogResult = true;
         }
@@ -145,6 +161,8 @@ public partial class SettingsWindow : Window
     }
 
     private sealed record RenderModeOption(OverlayRenderMode Mode, string Label);
+
+    private sealed record CaptureBackendOption(CaptureBackend Backend, string Label);
 }
 
 public enum SettingsProfileAction

@@ -17,7 +17,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,14">
             <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
-            <TextBlock Text="Profiles, storage path, renderer mode, and benchmark tools." Style="{StaticResource MutedTextStyle}"/>
+            <TextBlock Text="Profiles, storage path, capture method, renderer mode, and benchmark tools." Style="{StaticResource MutedTextStyle}"/>
         </StackPanel>
 
         <Grid Grid.Row="1">
@@ -95,6 +95,16 @@
                                    Text="Renderer mode is saved in settings.json and applies when the overlay starts."
                                    Style="{StaticResource MutedTextStyle}"/>
                     </StackPanel>
+
+                    <Border Grid.Row="2" Margin="14,0,14,0" Style="{StaticResource InsetPanelStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Capture method" Style="{StaticResource PanelTitleStyle}"/>
+                            <ComboBox x:Name="CaptureBackendCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
+                            <TextBlock Margin="0,8,0,0"
+                                       Text="WGC captures the game window for preview. DXGI and GDI are available for overlay runtime comparison."
+                                       Style="{StaticResource MutedTextStyle}"/>
+                        </StackPanel>
+                    </Border>
 
                     <Border Grid.Row="3" Margin="14" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
