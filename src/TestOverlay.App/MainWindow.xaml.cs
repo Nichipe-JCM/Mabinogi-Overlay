@@ -91,7 +91,6 @@ public partial class MainWindow : Window
     private double _layoutSlotScale = 1.5;
     private double _layoutGridSnapSize = 10;
     private string _lastStatusMessage = string.Empty;
-    private bool _manualSectionWasOpenOnMouseDown;
 
     public MainWindow()
     {
@@ -188,56 +187,6 @@ public partial class MainWindow : Window
         {
             StatusText.Text = L.T(_lastStatusMessage);
         }
-    }
-
-    private void ManualSectionToggle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        _manualSectionWasOpenOnMouseDown = ManualSectionPopup.IsOpen;
-    }
-
-    private void ManualSectionToggle_Click(object sender, RoutedEventArgs e)
-    {
-        if (_manualSectionWasOpenOnMouseDown)
-        {
-            CloseManualSectionPopup();
-        }
-        else
-        {
-            OpenManualSectionPopup();
-        }
-
-        e.Handled = true;
-        _manualSectionWasOpenOnMouseDown = false;
-    }
-
-    private void ManualSectionPopup_Closed(object? sender, EventArgs e)
-    {
-        if (ManualSectionToggle is not null)
-        {
-            ManualSectionToggle.IsChecked = false;
-        }
-    }
-
-    private void OpenManualSectionPopup()
-    {
-        if (ManualSectionPopup is null || ManualSectionToggle is null)
-        {
-            return;
-        }
-
-        ManualSectionPopup.IsOpen = true;
-        ManualSectionToggle.IsChecked = true;
-    }
-
-    private void CloseManualSectionPopup()
-    {
-        if (ManualSectionPopup is null || ManualSectionToggle is null)
-        {
-            return;
-        }
-
-        ManualSectionPopup.IsOpen = false;
-        ManualSectionToggle.IsChecked = false;
     }
 
     private CaptureBackend CurrentCaptureBackend => _appSettings.CaptureBackend;
