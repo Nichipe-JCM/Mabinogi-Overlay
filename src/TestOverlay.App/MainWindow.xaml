@@ -304,7 +304,9 @@
                                       Content="Create manual section"
                                       loc:Localize.ContentKey="Create manual section"
                                       Style="{StaticResource ManualSectionToggleStyle}"
-                                      PreviewMouseLeftButtonDown="ManualSectionToggle_PreviewMouseLeftButtonDown"/>
+                                      PreviewMouseLeftButtonDown="ManualSectionToggle_PreviewMouseLeftButtonDown"
+                                      PreviewMouseLeftButtonUp="ManualSectionToggle_PreviewMouseLeftButtonUp"
+                                      Click="ManualSectionToggle_Click"/>
                         <Popup x:Name="ManualSectionPopup"
                                PlacementTarget="{Binding ElementName=ManualSectionToggle}"
                                Placement="Bottom"

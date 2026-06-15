@@ -91,6 +91,7 @@ public partial class MainWindow : Window
     private double _layoutSlotScale = 1.5;
     private double _layoutGridSnapSize = 10;
     private string _lastStatusMessage = string.Empty;
+    private bool _suppressManualSectionReopen;
 
     public MainWindow()
     {
@@ -196,9 +197,39 @@ public partial class MainWindow : Window
             return;
         }
 
+        _suppressManualSectionReopen = true;
         ManualSectionPopup.IsOpen = false;
         ManualSectionToggle.IsChecked = false;
         e.Handled = true;
+    }
+
+    private void ManualSectionToggle_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_suppressManualSectionReopen)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        Dispatcher.BeginInvoke(CloseManualSectionPopupAfterToggle, DispatcherPriority.Input);
+    }
+
+    private void ManualSectionToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_suppressManualSectionReopen)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        Dispatcher.BeginInvoke(CloseManualSectionPopupAfterToggle, DispatcherPriority.Input);
+    }
+
+    private void CloseManualSectionPopupAfterToggle()
+    {
+        ManualSectionPopup.IsOpen = false;
+        ManualSectionToggle.IsChecked = false;
+        _suppressManualSectionReopen = false;
     }
 
     private CaptureBackend CurrentCaptureBackend => _appSettings.CaptureBackend;
