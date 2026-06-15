@@ -296,6 +296,7 @@ public partial class MainWindow : Window
     private void ApplyCapturedPreview(BitmapSource image, string status)
     {
         CaptureImage.Source = image;
+        CapturePlaceholder.Visibility = Visibility.Collapsed;
         CaptureCanvas.Width = image.PixelWidth;
         CaptureCanvas.Height = image.PixelHeight;
         CaptureInfoText.Text = $"{image.PixelWidth}x{image.PixelHeight}";

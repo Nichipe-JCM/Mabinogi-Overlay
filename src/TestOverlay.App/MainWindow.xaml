@@ -194,25 +194,74 @@
                         </DockPanel>
                     </Border>
 
-                    <ScrollViewer x:Name="PreviewScrollViewer"
-                                  Grid.Row="1"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  Background="{StaticResource OverlayBgBrush}"
-                                  PreviewKeyDown="PreviewScrollViewer_PreviewKeyDown"
-                                  PreviewMouseWheel="PreviewScrollViewer_PreviewMouseWheel">
-                        <Canvas x:Name="CaptureCanvas"
-                                Focusable="True"
-                                Background="{StaticResource OverlayBgBrush}"
-                                MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
-                                MouseMove="CaptureCanvas_MouseMove"
-                                MouseLeftButtonUp="CaptureCanvas_MouseLeftButtonUp">
-                            <Canvas.LayoutTransform>
-                                <ScaleTransform ScaleX="{Binding ElementName=CaptureZoomSlider, Path=Value}" ScaleY="{Binding ElementName=CaptureZoomSlider, Path=Value}"/>
-                            </Canvas.LayoutTransform>
-                            <Image x:Name="CaptureImage" Stretch="None"/>
-                        </Canvas>
-                    </ScrollViewer>
+                    <Grid Grid.Row="1" Background="{StaticResource OverlayBgBrush}">
+                        <ScrollViewer x:Name="PreviewScrollViewer"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Background="{StaticResource OverlayBgBrush}"
+                                      PreviewKeyDown="PreviewScrollViewer_PreviewKeyDown"
+                                      PreviewMouseWheel="PreviewScrollViewer_PreviewMouseWheel">
+                            <Canvas x:Name="CaptureCanvas"
+                                    Focusable="True"
+                                    Background="{StaticResource OverlayBgBrush}"
+                                    MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
+                                    MouseMove="CaptureCanvas_MouseMove"
+                                    MouseLeftButtonUp="CaptureCanvas_MouseLeftButtonUp">
+                                <Canvas.LayoutTransform>
+                                    <ScaleTransform ScaleX="{Binding ElementName=CaptureZoomSlider, Path=Value}" ScaleY="{Binding ElementName=CaptureZoomSlider, Path=Value}"/>
+                                </Canvas.LayoutTransform>
+                                <Image x:Name="CaptureImage" Stretch="None"/>
+                            </Canvas>
+                        </ScrollViewer>
+
+                        <Border x:Name="CapturePlaceholder"
+                                IsHitTestVisible="False"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                BorderBrush="#36434648"
+                                BorderThickness="1"
+                                Background="#221A1C1E">
+                            <Grid>
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="32"
+                                            Opacity="0.72">
+                                    <Viewbox Width="40" Height="40" HorizontalAlignment="Center">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Stroke="{StaticResource OverlayAccentBrush}"
+                                                  StrokeThickness="1.7"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Fill="Transparent"
+                                                  Data="M4,7 L8,7 L9.6,5 L14.4,5 L16,7 L20,7 C21.1,7 22,7.9 22,9 L22,18 C22,19.1 21.1,20 20,20 L4,20 C2.9,20 2,19.1 2,18 L2,9 C2,7.9 2.9,7 4,7 Z"/>
+                                            <Ellipse Canvas.Left="8"
+                                                     Canvas.Top="10"
+                                                     Width="8"
+                                                     Height="8"
+                                                     Stroke="{StaticResource OverlayAccentBrush}"
+                                                     StrokeThickness="1.7"
+                                                     Fill="Transparent"/>
+                                            <Ellipse Canvas.Left="17"
+                                                     Canvas.Top="9"
+                                                     Width="1.8"
+                                                     Height="1.8"
+                                                     Fill="{StaticResource OverlayAccentBrush}"/>
+                                        </Canvas>
+                                    </Viewbox>
+                                    <TextBlock Margin="0,14,0,0"
+                                               HorizontalAlignment="Center"
+                                               FontWeight="SemiBold"
+                                               Foreground="#B9C0C4"
+                                               Text="대기 중... (Waiting for capture)"/>
+                                    <TextBlock Margin="0,6,0,0"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{StaticResource OverlayMutedBrush}"
+                                               Text="Auto capture 또는 Manual capture를 실행하세요."/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
 
                     <Border Grid.Row="2" Padding="12,8" Background="#55101010" BorderBrush="#44343638" BorderThickness="0,1,0,0">
                         <TextBlock Text="Drag to select slots or sections. Use Ctrl/Shift for multi-select and mouse wheel for zoom." Style="{StaticResource MutedTextStyle}"/>
