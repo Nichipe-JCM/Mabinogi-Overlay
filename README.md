@@ -10,6 +10,8 @@ Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed b
 
 Current version: `0.0.2-beta`
 
+This program was developed with assistance from OpenAI Codex and ChatGPT.
+
 ## What It Does
 
 - Captures the Mabinogi client window.
