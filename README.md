@@ -6,7 +6,7 @@ It is designed for players who want clearer cooldown visibility without modifyin
 
 ## Disclaimer
 
-Mabinogi Overlay is an unofficial fan-made utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
+Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
 
 Current version: `0.0.2-beta`
 
@@ -58,7 +58,7 @@ Current version: `0.0.2-beta`
 
 ## Notes
 
-This is a beta tool. Detection quality can vary depending on map brightness, resolution, DPI, UI scale, and quickslot arrangement. Detection is meant to speed up setup, not replace manual correction.
+This app is a beta version. Some features may still contain bugs. Please report bugs through GitHub Issues.
 
 WGC capture may show the Windows capture border depending on system behavior. DXGI and GDI are available for comparison, but WGC is still the most reliable option for capturing the selected game window during setup.
 
@@ -72,6 +72,7 @@ Mabinogi Overlay intentionally avoids:
 - game renderer hooks
 - gameplay input automation
 - anti-cheat bypass or hiding behavior
+- packet sniffing or traffic interception
 
 It uses Windows capture APIs and a separate transparent overlay window.
 
