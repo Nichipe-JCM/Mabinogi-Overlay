@@ -5,7 +5,7 @@ Use this checklist on the target Windows machine with Mabinogi running in window
 ## Build
 
 ```powershell
-dotnet build TestOverlayProj.sln
+dotnet build MabinogiOverlay.sln
 ```
 
 Expected result:
