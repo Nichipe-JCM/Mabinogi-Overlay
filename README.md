@@ -1,181 +1,90 @@
 # Mabinogi Overlay
 
-Mabinogi Overlay is a Windows desktop utility for duplicating selected Mabinogi quickslot cells into a configurable, click-through overlay. It is intended to improve cooldown visibility without reading game memory, injecting code, hooking the renderer, or automating input.
+Mabinogi Overlay is a portable Windows utility that mirrors selected Mabinogi quickslot cells into a small always-on-top overlay.
 
-Current version: `0.0.1`
+It is designed for players who want clearer cooldown visibility without modifying the game client. The app does not read game memory, inject code, hook the renderer, or automate input.
 
-## Project Status
+## Disclaimer
 
-This is an early portable Windows build. The core workflow is implemented, but detection accuracy and layout ergonomics are still being tuned against real Mabinogi UI layouts, resolutions, DPI settings, and quickslot configurations.
+Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
 
-## Core Features
+Current version: `0.0.2-beta`
 
-- Select a running Mabinogi `Client.exe` window.
-- Verify and use Windows Graphics Capture.
-- Capture the game window into an editable preview.
-- Auto-detect quickslot sections from a user-drawn ROI.
-- Support top grouped quickslot sections and vertical quickslot sections.
-- Review, multi-select, move, resize, add, and delete slot candidates.
-- Add selected candidates to an overlay layout without replacing the existing layout.
-- Edit overlay placement, canvas size, per-slot opacity, per-slot scale, grid snap, max FPS, and stop hotkey.
-- Preview overlay placement on the real screen before running.
-- Run a topmost click-through overlay that should not consume game mouse input.
-- Save and load portable JSON profiles, including all slot candidates, sections, overlay slots, and layout settings.
+This program was developed with assistance from OpenAI Codex and ChatGPT.
+
+## What It Does
+
+- Captures the Mabinogi client window.
+- Detects quickslot sections from a selected screen area.
+- Lets you correct detected slots manually when needed.
+- Adds selected slots to a separate overlay layout.
+- Shows the overlay above the game while mouse clicks pass through to the game.
+- Saves layouts and candidates as portable profiles.
+- Supports English and Korean UI.
+
+## Basic Workflow
+
+1. Start Mabinogi and open the quickslots you want to mirror.
+2. Run Mabinogi Overlay.
+3. Use Auto capture or Manual capture to load the game image into the preview.
+4. Use Auto detect section and drag over a quickslot section.
+5. Select the slots you want and add them to the overlay.
+6. Open Manage Layout to position, scale, and arrange the overlay.
+7. Start the overlay.
+
+## Main Features
+
+- Auto capture for the detected Mabinogi `Client.exe` window.
+- Manual WGC capture when explicit window selection is needed.
+- Capture backend options: WGC, DXGI, and GDI.
+- Renderer options: GPU/DXGI, improved CPU/composited, and existing CPU/WPF.
+- ROI-based quickslot section detection.
+- Automatic horizontal/vertical section routing based on ROI shape.
+- Manual candidate creation, movement, resize, deletion, and multi-selection.
+- Per-slot scale and opacity overrides.
+- Global opacity, global slot scale, grid snap, max FPS, and stop hotkey settings.
+- Screen preview window for positioning the overlay on the real monitor.
+- Session log viewer for troubleshooting.
+- Portable profile storage with selectable save folder.
 
 ## Technology Stack
 
-### Runtime and UI
-
 - **Language:** C#
 - **Runtime:** .NET 8
-- **Target framework:** `net8.0-windows10.0.19041.0`
-- **UI framework:** WPF
-- **Platform:** Windows only
+- **UI:** WPF with WPF-UI
+- **Platform:** Windows
+- **Capture:** Windows Graphics Capture, DXGI Desktop Duplication, GDI BitBlt
+- **Graphics interop:** Direct3D 11, DXGI, Direct2D, DirectComposition
+- **Native integration:** Win32 window styles, global hotkey registration, click-through overlay behavior
+- **Storage:** JSON profiles and settings via `System.Text.Json`
 
-WPF was chosen because the first version needs a practical Windows desktop calibration tool more than a cross-platform UI. The app depends on Windows capture and overlay behavior, so a Windows-native stack keeps the implementation direct.
+## License
 
-### Capture
+Mabinogi Overlay is licensed under the [MIT License](LICENSE).
 
-- **Primary capture API:** Windows Graphics Capture
-- **Interop:** WinRT `Windows.Graphics.Capture`
-- **Graphics bridge:** Direct3D 11 interop
-- **Frame handling:** persistent live capture session with `Direct3D11CaptureFramePool`
-- **Static capture:** one-shot WGC capture for preview and calibration
+Third-party dependencies remain under their own licenses. The current primary NuGet dependencies, WPF-UI and Vortice packages, are also MIT-licensed.
 
-The live overlay path keeps a WGC capture session open and processes arriving frames, instead of repeatedly creating and destroying capture sessions. This is more performance-friendly and reduces capture flicker and overhead.
+## Notes
 
-### Overlay Window
+This app is a beta version. Some features may still contain bugs. Please report bugs through GitHub Issues.
 
-- **Windowing:** WPF overlay window
-- **Native behavior:** Win32 extended window styles
-- **Click-through flags:** `WS_EX_TRANSPARENT`, `WS_EX_LAYERED`, `WS_EX_NOACTIVATE`, `WS_EX_TOOLWINDOW`
-- **Topmost behavior:** Win32 topmost positioning
-- **Hotkey:** Win32 global hotkey registration
-
-The overlay is designed to be visible above the game while allowing mouse input to pass through to the game window.
-
-### Detection and Calibration
-
-- **Detection style:** ROI-based quickslot section detection
-- **Anchor strategy:** bottom-right border anchored scanning
-- **Pattern scoring:** full-section scoring after candidate anchor generation
-- **Supported patterns:**
-  - `Top grouped 4x2 x3`
-  - `Vertical 2x8`
-- **Manual correction:** candidate drag, box selection, Ctrl/Shift multi-select, keyboard nudge, undo/redo
-
-Detection is treated as an assistant, not as an absolute source of truth. The user can correct all detected slot rectangles before adding them to the overlay.
-
-### Profile Storage
-
-- **Format:** JSON
-- **Serializer:** `System.Text.Json`
-- **Default portable path:** `save` folder next to the executable
-- **Settings file:** `settings.json` next to the executable
-
-Profiles store:
-
-- all slot candidates
-- quickslot sections
-- overlay slots
-- canvas size
-- screen position
-- opacity
-- slot scale
-- max FPS
-- stop hotkey
-- grid snap size
-- manual section settings
-
-## Repository Layout
-
-```text
-src/
-  TestOverlay.App/
-    MainWindow.xaml(.cs)                  Main calibration and control UI
-    LayoutEditorWindow.xaml(.cs)          Overlay layout editor
-    OverlayWindow.xaml(.cs)               Runtime click-through overlay
-    OverlayPlacementPreviewWindow.xaml(.cs)
-    Models/                               App state and profile models
-    Native/                               Win32 and Direct3D interop
-    Services/                             Capture, detection, profile, hotkey services
-tools/
-  TestOverlay.DetectionProbe/             Detection test/probe utility
-docs/
-  PLANNING.md
-  MVP_MANUAL_TEST.md
-  NEXT_SESSION_HANDOFF.md
-```
-
-## Build
-
-Requirements:
-
-- Windows 10 2004 or later
-- .NET 8 SDK
-
-Build the app:
-
-```powershell
-dotnet build G:\gpt\git\testoverlayproj\src\TestOverlay.App\TestOverlay.App.csproj
-```
-
-## Portable Publish
-
-Recommended publish command:
-
-```powershell
-dotnet publish G:\gpt\git\testoverlayproj\src\TestOverlay.App\TestOverlay.App.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained true `
-  /p:PublishSingleFile=true `
-  /p:PublishReadyToRun=true `
-  /p:PublishTrimmed=false `
-  -o G:\gpt\git\testoverlayproj\artifacts\MabinogiOverlay-0.0.1
-```
-
-Recommended package layout:
-
-```text
-MabinogiOverlay-0.0.1/
-  Mabinogi Overlay.exe
-  README.md
-  save/
-```
-
-Run the app from a writable folder. Avoid `Program Files` for portable builds unless you are prepared to handle restricted write permissions.
-
-## Manual Test Checklist
-
-Before packaging a public build:
-
-- Confirm `Client.exe` is prioritized in the window list.
-- Run `Verify WGC`.
-- Capture the game window and confirm the preview image is correct.
-- Auto-detect each required quickslot section.
-- Add selected slots to the overlay.
-- Open Layout Editor and arrange the overlay.
-- Use Screen Preview to align the overlay with the game screen.
-- Start the overlay.
-- Confirm the overlay stays visible above the game.
-- Confirm the overlay does not steal focus or consume mouse clicks.
-- Confirm Stop button and stop hotkey work.
-- Save and reload a profile from the portable `save` folder.
+WGC capture may show the Windows capture border depending on system behavior. DXGI and GDI are available for comparison, but WGC is still the most reliable option for capturing the selected game window during setup.
 
 ## Safety Boundary
 
-This project intentionally avoids:
+Mabinogi Overlay intentionally avoids:
 
 - game memory reads
 - process injection
 - DLL injection
-- DirectX/OpenGL render hooks into the game
+- game renderer hooks
 - gameplay input automation
-- anti-cheat bypass behavior
+- anti-cheat bypass or hiding behavior
+- packet sniffing or traffic interception
 
-It uses official Windows capture APIs and a separate transparent overlay window.
+It uses Windows capture APIs and a separate transparent overlay window.
 
-## Korean Documentation
+## Korean
 
 Korean documentation is available at [docs/README.ko.md](docs/README.ko.md).
+ 

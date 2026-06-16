@@ -31,6 +31,7 @@ internal static partial class Win32Methods
     public const uint ModShift = 0x0004;
     public const uint ModWin = 0x0008;
     public const int Srccopy = 0x00CC0020;
+    public const uint MonitorDefaultToNearest = 0x00000002;
 
     public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
 
@@ -55,6 +56,13 @@ internal static partial class Win32Methods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ClientToScreen(nint hWnd, ref PointNative lpPoint);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint MonitorFromWindow(nint hwnd, uint dwFlags);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetMonitorInfo(nint hMonitor, ref MonitorInfo lpmi);
 
     [LibraryImport("user32.dll")]
     public static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
@@ -190,5 +198,14 @@ internal static partial class Win32Methods
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MonitorInfo
+    {
+        public int Size;
+        public RectNative Monitor;
+        public RectNative WorkArea;
+        public uint Flags;
     }
 }

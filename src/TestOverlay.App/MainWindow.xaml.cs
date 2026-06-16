@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -17,18 +18,24 @@ public partial class MainWindow : Window
     private const int CandidateBorderPixels = 1;
     private const int CandidateVisualPaddingPixels = 1;
     private const int DebugDetectRuns = 100;
+    private const double MinimumOverlaySlotSize = 1;
+    private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
+    private readonly DxgiDesktopDuplicationCaptureService _dxgiCaptureService = new();
     private readonly WgcCaptureService _wgcCaptureService = new();
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
+    private readonly CpuCompositedOverlayRenderer _cpuCompositedRenderer = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly ProfileStore _profileStore;
     private AppSettings _appSettings;
     private readonly AppLog _log = new();
+    private readonly object _detectLogSync = new();
+    private readonly string _detectSessionLogPath;
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly ObservableCollection<QuickslotSection> _sections = new();
@@ -48,6 +55,7 @@ public partial class MainWindow : Window
     private GameWindowInfo? _selectedWindow;
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
+    private GpuLiveOverlayService? _gpuLiveOverlayService;
     private SlotCandidate? _draggingCandidate;
     private Point _candidateDragStartPosition;
     private Dictionary<SlotCandidate, Point> _candidateDragOrigins = new();
@@ -64,6 +72,15 @@ public partial class MainWindow : Window
     private bool _isLiveRefreshInProgress;
     private bool _isUpdatingSectionControls;
     private bool _isUpdatingSectionSelection;
+    private bool _isReleasingCaptureIntentionally;
+    private readonly Stopwatch _cpuRenderClock = new();
+    private OverlayRenderMode _activeRenderMode = OverlayRenderMode.CpuWpf;
+    private long _cpuStatsLastLogTicks;
+    private long _cpuStatsTicks;
+    private long _cpuStatsMaxTicks;
+    private int _cpuStatsFrames;
+    private int _cpuStatsSkippedBusy;
+    private int _cpuStatsErrors;
     private int _currentSectionIndex;
     private int _nextSectionId = 1;
     private double _layoutCanvasWidth = 360;
@@ -75,12 +92,18 @@ public partial class MainWindow : Window
     private int _refreshFps = 30;
     private double _layoutSlotScale = 1.5;
     private double _layoutGridSnapSize = 10;
+    private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
     {
         _appSettings = _settingsStore.Load();
+        LocalizationService.Instance.SetLanguage(_appSettings.Language);
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
+        _detectSessionLogPath = System.IO.Path.Combine(
+            _log.LogDirectory,
+            $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         InitializeComponent();
+        LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
         DataContext = new { Candidates = _candidates };
         SectionCombo.ItemsSource = _sections;
         SectionPatternCombo.SelectionChanged += (_, _) =>
@@ -114,7 +137,13 @@ public partial class MainWindow : Window
         };
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         Loaded += MainWindow_Loaded;
-        Closed += (_, _) => StopOverlay(setStatus: false);
+        Closed += (_, _) =>
+        {
+            LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
+            StopOverlay(setStatus: false);
+        };
+        Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
+        CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         ApplySectionSettingsToControls(_currentSectionIndex);
         UpdateSizeLabels();
         CaptureZoomText.Text = "100%";
@@ -127,6 +156,49 @@ public partial class MainWindow : Window
         RefreshWindows();
         RefreshProfileList();
         _log.Info("Application loaded.");
+    }
+
+    private void LocalizationService_LanguageChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => LocalizationService_LanguageChanged(sender, e));
+            return;
+        }
+
+        UpdateSizeLabels();
+        UpdateSectionGapLabels();
+        UpdateLayoutSummary();
+
+        if (WindowStatusText is not null)
+        {
+            SetWindowStatusText(BuildWindowStatusText());
+        }
+
+        if (DetectButton is not null)
+        {
+            DetectButton.Content = _isAwaitingDetectionRoi ? L.T("Drag ROI...") : L.T("Auto detect section");
+        }
+
+        if (DebugDetectButton is not null)
+        {
+            DebugDetectButton.Content = _isAwaitingDebugDetectionRoi ? L.T("Drag debug ROI...") : L.T("Debug detect");
+        }
+
+        if (!string.IsNullOrEmpty(_lastStatusMessage) && StatusText is not null)
+        {
+            StatusText.Text = L.T(_lastStatusMessage);
+        }
+    }
+
+    private CaptureBackend CurrentCaptureBackend => _appSettings.CaptureBackend;
+
+    private void WindowCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (WindowStatusText is not null)
+        {
+            SetWindowStatusText(BuildWindowStatusText());
+        }
     }
 
     private void CaptureZoomSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -159,70 +231,129 @@ public partial class MainWindow : Window
 
     private void RefreshWindowsButton_Click(object sender, RoutedEventArgs e) => RefreshWindows();
 
-    private async void VerifyWgcButton_Click(object sender, RoutedEventArgs e)
+    private async void AutoCaptureButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
+            AutoCaptureButton.IsEnabled = false;
+            var window = FindAutoMabinogiWindow();
+            if (window is null)
+            {
+                SetStatus("Auto capture failed: Mabinogi Client.exe window was not found.");
+                _log.Info("Auto WGC capture failed: Mabinogi Client.exe window was not found.");
+                return;
+            }
+
+            var selection = _wgcWindowSelection.CreateForWindow(window);
+            if (selection is null)
+            {
+                SetStatus("Auto capture failed: WGC is not supported.");
+                _log.Info("Auto WGC capture failed: WGC is not supported.");
+                return;
+            }
+
+            _wgcSelection = selection;
+            _selectedWindow = window;
+            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(selection.Item, TimeSpan.FromSeconds(3));
+            ApplyCapturedPreview(_capturedImage, L.F("Auto captured WGC Mabinogi window: {0}", window.DisplayName));
+            _log.Info($"Auto WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, window={window.DisplayName}");
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Auto WGC capture failed.", ex);
+            SetStatus(L.F("Auto capture failed: {0}", ex.Message));
+        }
+        finally
+        {
+            AutoCaptureButton.IsEnabled = true;
+        }
+    }
+
+    private async void ManualCaptureButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ManualCaptureButton.IsEnabled = false;
             var result = await _wgcWindowSelection.PickWindowAsync(this);
             if (result is null)
             {
-                SetStatus("WGC window selection was canceled or WGC is not supported.");
-                _log.Info("WGC window selection returned null.");
+                SetStatus("Manual capture canceled or WGC is not supported.");
+                _log.Info("Manual WGC capture picker returned null.");
+                return;
+            }
+
+            if (!result.LooksLikeMabinogi)
+            {
+                SetStatus(L.F("Manual capture rejected: selected window is not recognized as Mabinogi ({0}).", result.DisplayName));
+                _log.Info($"Manual WGC capture rejected: {result.DisplayName}");
                 return;
             }
 
             _wgcSelection = result;
-            _log.Info($"WGC selection: {result.DisplayName}, {result.Width}x{result.Height}, looksLikeMabinogi={result.LooksLikeMabinogi}");
-            SetStatus(result.LooksLikeMabinogi
-                ? $"WGC verified Mabinogi window: {result.DisplayName} ({result.Width}x{result.Height})"
-                : $"WGC selected window is not recognized as Mabinogi: {result.DisplayName} ({result.Width}x{result.Height})");
+            _selectedWindow = MatchPickedMabinogiWindow(result);
+            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(result.Item, TimeSpan.FromSeconds(3));
+            ApplyCapturedPreview(_capturedImage, L.F("Manual captured WGC Mabinogi window: {0}", result.DisplayName));
+            _log.Info($"Manual WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, item={result.DisplayName}");
         }
         catch (Exception ex)
         {
-            _log.Error("WGC verification failed.", ex);
-            SetStatus($"WGC verification failed: {ex.Message}");
-        }
-    }
-
-    private async void CaptureButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_wgcSelection is null)
-        {
-            SetStatus("Verify the Mabinogi window with WGC before capture.");
-            return;
-        }
-
-        if (!_wgcSelection.LooksLikeMabinogi)
-        {
-            SetStatus("WGC verification selected a non-Mabinogi window. Verify WGC again or refresh the window list.");
-            return;
-        }
-
-        try
-        {
-            CaptureButton.IsEnabled = false;
-            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(_wgcSelection.Item, TimeSpan.FromSeconds(3));
-            _selectedWindow = WindowCombo.SelectedItem as GameWindowInfo;
-            _log.Info($"WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, item={_wgcSelection.DisplayName}");
-            CaptureImage.Source = _capturedImage;
-            CaptureCanvas.Width = _capturedImage.PixelWidth;
-            CaptureCanvas.Height = _capturedImage.PixelHeight;
-            CaptureInfoText.Text = $"{_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}";
-            _candidates.Clear();
-            ClearCandidateRects();
-            ClearSections();
-            SetStatus("Captured the verified Mabinogi window with WGC. Run slot detection next.");
-        }
-        catch (Exception ex)
-        {
-            _log.Error("Capture failed.", ex);
-            SetStatus($"Capture failed: {ex.Message}");
+            _log.Error("Manual WGC capture failed.", ex);
+            SetStatus(L.F("Manual capture failed: {0}", ex.Message));
         }
         finally
         {
-            CaptureButton.IsEnabled = true;
+            ManualCaptureButton.IsEnabled = true;
         }
     }
+
+    private void ApplyCapturedPreview(BitmapSource image, string status)
+    {
+        CaptureImage.Source = image;
+        CapturePlaceholder.Visibility = Visibility.Collapsed;
+        CaptureCanvas.Width = image.PixelWidth;
+        CaptureCanvas.Height = image.PixelHeight;
+        CaptureInfoText.Text = $"{image.PixelWidth}x{image.PixelHeight}";
+        _candidates.Clear();
+        ClearCandidateRects();
+        ClearSections();
+        SetStatus(L.F("{0}. Run slot detection next.", status));
+    }
+
+    private GameWindowInfo? FindAutoMabinogiWindow()
+    {
+        var windows = _windowDiscovery.GetVisibleWindows();
+        var window = windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
+                     ?? windows.FirstOrDefault(item => item.IsExactClientExecutable && item.LooksLikeMabinogi)
+                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
+        if (window is not null)
+        {
+            WindowCombo.ItemsSource = windows;
+            WindowCombo.SelectedItem = window;
+        }
+
+        return window;
+    }
+
+    private GameWindowInfo? MatchPickedMabinogiWindow(WgcSelectionResult result)
+    {
+        var windows = _windowDiscovery.GetVisibleWindows();
+        WindowCombo.ItemsSource = windows;
+        var window = windows.FirstOrDefault(item => item.IsPreferredMabinogiClient && MatchesWgcDisplayName(item, result.DisplayName))
+                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi && MatchesWgcDisplayName(item, result.DisplayName))
+                     ?? windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
+                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
+        if (window is not null)
+        {
+            WindowCombo.SelectedItem = window;
+        }
+
+        return window;
+    }
+
+    private static bool MatchesWgcDisplayName(GameWindowInfo window, string displayName) =>
+        string.Equals(window.Title, displayName, StringComparison.OrdinalIgnoreCase)
+        || displayName.Contains(window.Title, StringComparison.OrdinalIgnoreCase)
+        || window.Title.Contains(displayName, StringComparison.OrdinalIgnoreCase);
 
     private void DetectButton_Click(object sender, RoutedEventArgs e)
     {
@@ -253,7 +384,7 @@ public partial class MainWindow : Window
 
         _debugDetectionExpectation = expectation;
         SetDebugDetectionMode(active: true);
-        SetStatus($"Debug detect: drag one {expectation.Label} ROI. It will run 100 simulations and save a log.");
+        SetStatus(L.F("Debug detect: drag one {0} ROI. It will run 100 simulations and save a log.", expectation.Label));
     }
 
     private void AddToOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -300,8 +431,8 @@ public partial class MainWindow : Window
         foreach (var candidate in selected)
         {
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
-            var width = Math.Max(16, candidate.SourceRect.Width * ReadLayoutSlotScale());
-            var height = Math.Max(16, candidate.SourceRect.Height * ReadLayoutSlotScale());
+            var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * ReadLayoutSlotScale());
+            var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * ReadLayoutSlotScale());
             if (cursorX + width > _layoutCanvasWidth - 8)
             {
                 cursorX = 8;
@@ -326,8 +457,8 @@ public partial class MainWindow : Window
         UpdateLayoutSummary();
         _log.Info($"Placed overlay slots: added={selected.Count}, total={_overlaySlots.Count}, clearExisting={clearExisting}, canvas={_layoutCanvasWidth}x{_layoutCanvasHeight}");
         SetStatus(clearExisting
-            ? $"Placed {_overlaySlots.Count} slots. Open Manage Layout to arrange them."
-            : $"Added {selected.Count} slot(s) to overlay. Total {_overlaySlots.Count}.");
+            ? L.F("Placed {0} slots. Open Manage Layout to arrange them.", _overlaySlots.Count)
+            : L.F("Added {0} slot(s) to overlay. Total {1}.", selected.Count, _overlaySlots.Count));
     }
 
     private void SelectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -337,7 +468,7 @@ public partial class MainWindow : Window
             candidate.IsSelected = true;
         }
 
-        SetStatus($"Selected all {_candidates.Count} candidates.");
+        SetStatus(L.F("Selected all {0} candidates.", _candidates.Count));
     }
 
     private void DeselectAllCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -347,7 +478,7 @@ public partial class MainWindow : Window
             candidate.IsSelected = false;
         }
 
-        SetStatus($"Deselected all {_candidates.Count} candidates.");
+        SetStatus(L.F("Deselected all {0} candidates.", _candidates.Count));
     }
 
     private void AddManualCandidateButton_Click(object sender, RoutedEventArgs e)
@@ -416,13 +547,13 @@ public partial class MainWindow : Window
         foreach (var slot in _overlaySlots.Where(slot => ReferenceEquals(slot.Source, candidate)))
         {
             slot.Preview = _captureService.Crop(_capturedImage, candidate.SourceRect);
-            var overlayWidth = Math.Max(16, slot.OverlayRect.Width * width / oldWidth);
-            var overlayHeight = Math.Max(16, slot.OverlayRect.Height * height / oldHeight);
+            var overlayWidth = Math.Max(MinimumOverlaySlotSize, slot.OverlayRect.Width * width / oldWidth);
+            var overlayHeight = Math.Max(MinimumOverlaySlotSize, slot.OverlayRect.Height * height / oldHeight);
             slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, overlayWidth, overlayHeight);
         }
 
         PushUndoIfChanged(before);
-        SetStatus($"Applied candidate size {width}x{height} to #{candidate.Id:000}.");
+        SetStatus(L.F("Applied candidate size {0}x{1} to #{2}.", width, height, candidate.Id.ToString("000")));
     }
 
     private void AddSectionFromSelectedButton_Click(object sender, RoutedEventArgs e)
@@ -447,7 +578,7 @@ public partial class MainWindow : Window
         var added = AddSectionCandidates(seed, pattern, Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1), settings);
         PushUndoIfChanged(before);
         _log.Info($"Quickslot section generated: pattern={pattern.Name}, seed={seed.Id}, added={added}");
-        SetStatus($"Generated {pattern.Name} from #{seed.Id:000}. Adjust small/large gap sliders to align the section.");
+        SetStatus(L.F("Generated {0} from #{1}. Adjust small/large gap sliders to align the section.", L.T(pattern.Name), seed.Id.ToString("000")));
     }
 
     private void DeleteSectionButton_Click(object sender, RoutedEventArgs e)
@@ -478,7 +609,7 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
-        SetStatus($"Deleted section and {candidates.Count} candidate(s).");
+        SetStatus(L.F("Deleted section and {0} candidate(s).", candidates.Count));
     }
 
     private void SectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -496,7 +627,7 @@ public partial class MainWindow : Window
 
         SelectSectionCandidates(_selectedSection);
         LoadSectionControls(_selectedSection);
-        SetStatus($"Selected section {_selectedSection.Label}.");
+        SetStatus(L.F("Selected section {0}.", _selectedSection.Label));
     }
 
     private void DeleteSelectedCandidatesButton_Click(object sender, RoutedEventArgs e)
@@ -596,7 +727,7 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
-        SetStatus($"Deleted {selected.Count} selected candidates.");
+        SetStatus(L.F("Deleted {0} selected candidates.", selected.Count));
     }
 
     private List<SlotCandidate> GetCandidatesToDelete()
@@ -625,6 +756,18 @@ public partial class MainWindow : Window
 
     private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_overlayWindow is not null)
+        {
+            MessageBox.Show(
+                this,
+                L.T("Stop the overlay before opening Manage Layout."),
+                L.T("Overlay is running"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            SetStatus("Stop the overlay before opening Manage Layout.");
+            return;
+        }
+
         if (_overlaySlots.Count == 0)
         {
             SetStatus("No overlay slots are placed.");
@@ -672,13 +815,18 @@ public partial class MainWindow : Window
             _profileStore.ProfileDirectory,
             _settingsStore.DefaultProfileDirectory,
             _profileNames,
-            ReadSelectedProfileName())
+            ReadSelectedProfileName(),
+            _appSettings.OverlayRenderMode,
+            _appSettings.CaptureBackend,
+            _appSettings.Language,
+            _log.LogPath,
+            _log.SessionStartedAt)
         {
             Owner = this
         };
         if (dialog.ShowDialog() != true)
         {
-            SetStatus("Profile settings canceled.");
+            SetStatus("Settings canceled.");
             return;
         }
 
@@ -687,15 +835,20 @@ public partial class MainWindow : Window
             var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
             System.IO.Directory.CreateDirectory(directory);
             _appSettings.ProfileDirectory = directory;
+            _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
+            _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
+            _appSettings.Language = LocalizationService.NormalizeLanguage(dialog.SelectedLanguage);
+            LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
             RefreshProfileList(dialog.SelectedProfileName);
-            _log.Info($"Settings saved: profileDirectory={directory}");
+            SetWindowStatusText(BuildWindowStatusText());
+            _log.Info($"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}, captureBackend={_appSettings.CaptureBackend}");
         }
         catch (Exception exception)
         {
             _log.Error("Failed to save settings.", exception);
-            SetStatus($"Profile settings save failed: {exception.Message}");
+            SetStatus(L.F("Settings save failed: {0}", exception.Message));
             return;
         }
 
@@ -708,7 +861,11 @@ public partial class MainWindow : Window
                 LoadSelectedProfile();
                 break;
             default:
-                SetStatus($"Profile settings saved: {_profileStore.ProfileDirectory}");
+                SetStatus(L.F(
+                    "Settings saved: {0}, renderer={1}, capture={2}",
+                    _profileStore.ProfileDirectory,
+                    L.T(RenderModeLabel(_appSettings.OverlayRenderMode)),
+                    L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
                 break;
         }
     }
@@ -788,6 +945,7 @@ public partial class MainWindow : Window
                 OverlayWidth = slot.OverlayRect.Width,
                 OverlayHeight = slot.OverlayRect.Height,
                 Opacity = slot.Opacity,
+                HasOpacityOverride = slot.HasOpacityOverride,
                 Scale = slot.Scale
             }).ToList()
         };
@@ -795,7 +953,7 @@ public partial class MainWindow : Window
         var path = _profileStore.Save(profile, profileName);
         RefreshProfileList(System.IO.Path.GetFileNameWithoutExtension(path));
         _log.Info($"Profile saved: {path}, candidates={profile.Candidates.Count}, slots={profile.Slots.Count}");
-        SetStatus($"Profile saved: {path}");
+        SetStatus(L.F("Profile saved: {0}", path));
     }
 
     private void LoadProfileButton_Click(object sender, RoutedEventArgs e) => LoadSelectedProfile();
@@ -812,7 +970,7 @@ public partial class MainWindow : Window
         var profile = _profileStore.Load(profileName);
         if (profile is null)
         {
-            SetStatus($"No saved profile exists: {_profileStore.GetProfilePath(profileName)}");
+            SetStatus(L.F("No saved profile exists: {0}", _profileStore.GetProfilePath(profileName)));
             return;
         }
 
@@ -821,12 +979,12 @@ public partial class MainWindow : Window
         _layoutCanvasHeight = Math.Max(80, profile.CanvasHeight);
         _overlayLeft = profile.ScreenLeft;
         _overlayTop = profile.ScreenTop;
-        _overlayOpacity = Math.Clamp(profile.Opacity, 0.2, 1);
+        _overlayOpacity = Math.Clamp(profile.Opacity, 0, 1);
         _stopHotkey = profile.StopHotkey;
         _refreshFps = CoerceRefreshFps(profile.RefreshFps > 0
             ? profile.RefreshFps
             : FpsFromInterval(profile.RefreshIntervalMs));
-        _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 1, 3);
+        _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 0.1, 10);
         _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
@@ -900,12 +1058,14 @@ public partial class MainWindow : Window
             }
 
             var crop = _captureService.Crop(_capturedImage, candidate.SourceRect);
+            var hasOpacityOverride = savedSlot.HasOpacityOverride || Math.Abs(savedSlot.Opacity - 1) > 0.001;
             var slot = new OverlaySlot(
                 candidate,
                 new Rect(savedSlot.OverlayX, savedSlot.OverlayY, savedSlot.OverlayWidth, savedSlot.OverlayHeight),
                 crop,
                 savedSlot.Opacity > 0 ? savedSlot.Opacity : 1,
-                savedSlot.Scale > 0 ? savedSlot.Scale : InferSlotScale(savedSlot));
+                savedSlot.Scale > 0 ? savedSlot.Scale : InferSlotScale(savedSlot),
+                hasOpacityOverride);
             _overlaySlots.Add(slot);
         }
 
@@ -914,7 +1074,7 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
-        SetStatus($"Profile loaded: {_profileStore.GetProfilePath(profileName)} ({_candidates.Count} candidates, {profile.Slots.Count} slots).");
+        SetStatus(L.F("Profile loaded: {0} ({1} candidates, {2} slots).", _profileStore.GetProfilePath(profileName), _candidates.Count, profile.Slots.Count));
     }
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -931,12 +1091,6 @@ public partial class MainWindow : Window
             if (!RegisterStopHotkey())
             {
                 return;
-            }
-
-            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
-            if (_wgcSelection is not null)
-            {
-                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
             }
 
             _overlayWindow = new OverlayWindow(_layoutCanvasWidth, _layoutCanvasHeight, _overlayOpacity, _overlaySlots)
@@ -969,8 +1123,58 @@ public partial class MainWindow : Window
                 _wgcCaptureService.StopLiveCapture();
                 _liveOverlayTimer.Stop();
 
-                SetStatus($"Overlay click-through configuration failed: {detail}");
+                SetStatus(L.F("Overlay click-through configuration failed: {0}", detail));
                 return;
+            }
+
+            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
+            _activeRenderMode = _appSettings.OverlayRenderMode;
+            var captureBackend = CurrentCaptureBackend;
+            if (captureBackend != CaptureBackend.Wgc && _selectedWindow is null)
+            {
+                StopOverlay(setStatus: false);
+                SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
+                return;
+            }
+
+            ResetCpuRenderStats();
+            var rendererMode = RenderModeLabel(_activeRenderMode);
+            if (_activeRenderMode == OverlayRenderMode.GpuDxgi && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
+            {
+                try
+                {
+                    _gpuLiveOverlayService = new GpuLiveOverlayService(
+                        new WindowInteropHelper(_overlayWindow).Handle,
+                        (int)Math.Ceiling(_layoutCanvasWidth),
+                        (int)Math.Ceiling(_layoutCanvasHeight),
+                        _wgcSelection.Item,
+                        _overlaySlots,
+                        _overlayOpacity,
+                        _refreshFps,
+                        _log);
+                    _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
+                    _gpuLiveOverlayService.Start();
+                    rendererMode = RenderModeLabel(OverlayRenderMode.GpuDxgi);
+                }
+                catch (Exception gpuEx)
+                {
+                    _gpuLiveOverlayService?.Dispose();
+                    _gpuLiveOverlayService = null;
+                    _log.Error("GPU live overlay renderer initialization failed. Falling back to CPU renderer.", gpuEx);
+                    _activeRenderMode = OverlayRenderMode.CpuWpf;
+                    rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
+                    _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
+                }
+            }
+            else if (_activeRenderMode == OverlayRenderMode.GpuDxgi)
+            {
+                _activeRenderMode = OverlayRenderMode.CpuWpf;
+                rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
+                _log.Info($"GPU/DXGI renderer requested with captureBackend={captureBackend}. Falling back to CPU/WPF renderer.");
+            }
+            else if (captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
+            {
+                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
             }
 
             _liveOverlayTimer.Start();
@@ -979,23 +1183,92 @@ public partial class MainWindow : Window
                 $"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, " +
                 $"left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, " +
                 $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, " +
+                $"captureBackend={CaptureBackendLabel(captureBackend)}, renderer={rendererMode}, " +
                 $"refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, " +
+                $"logPath={_log.LogPath}, " +
                 $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
                 $"clickThrough={_overlayWindow.IsClickThroughConfigured}, " +
                 $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
                 $"topmost={_overlayWindow.IsTopmostConfigured}, " +
                 $"inputHook={_overlayWindow.IsInputHookConfigured}");
-            SetStatus($"Overlay started ({clickThroughStatus}). Stop hotkey: {_stopHotkey}");
+            SetStatus(L.F("Overlay started ({0}, {1}, {2}). Stop hotkey: {3}", L.T(clickThroughStatus), L.T(CaptureBackendLabel(captureBackend)), L.T(rendererMode), _stopHotkey));
         }
         catch (Exception ex)
         {
             _log.Error("Overlay start failed.", ex);
             StopOverlay(setStatus: false);
-            SetStatus($"Overlay start failed: {ex.Message}");
+            SetStatus(L.F("Overlay start failed: {0}", ex.Message));
         }
     }
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
+
+    private void TitleBarArea_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (FindVisualAncestor<Button>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        if (e.ClickCount == 2)
+        {
+            ToggleMainWindowMaximize();
+            e.Handled = true;
+            return;
+        }
+
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            // DragMove can throw if the mouse state changes while the drag starts.
+        }
+    }
+
+    private void CandidateLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: SlotCandidate candidate })
+        {
+            return;
+        }
+
+        CandidateList.SelectedItem = candidate;
+        if (e.ClickCount != 2)
+        {
+            return;
+        }
+
+        candidate.IsSelected = !candidate.IsSelected;
+        e.Handled = true;
+    }
+
+    private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState.Minimized;
+
+    private void MaximizeWindowButton_Click(object sender, RoutedEventArgs e) =>
+        ToggleMainWindowMaximize();
+
+    private void CloseWindowButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Window_StateChanged(object? sender, EventArgs e) => UpdateMainWindowStateButton();
+
+    private void ToggleMainWindowMaximize() =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void UpdateMainWindowStateButton()
+    {
+        if (MaximizeWindowIcon is not null)
+        {
+            MaximizeWindowIcon.Text = WindowState == WindowState.Maximized ? char.ConvertFromUtf32(0x1F5D7) : char.ConvertFromUtf32(0x1F5D6);
+        }
+    }
 
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -1081,7 +1354,7 @@ public partial class MainWindow : Window
 
         if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var rect))
         {
-            rect.ReleaseMouseCapture();
+            ReleaseCaptureSafely(rect);
         }
 
         if (_candidateDragSnapshotBefore is not null)
@@ -1094,15 +1367,40 @@ public partial class MainWindow : Window
         _candidateDragSnapshotBefore = null;
     }
 
+    private void CaptureCanvas_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (CancelCapturePreviewInteraction(cancelAwaitingModes: true, restoreDragSnapshot: true))
+        {
+            e.Handled = true;
+        }
+    }
+
     private void RefreshWindows()
     {
         var windows = _windowDiscovery.GetVisibleWindows();
         WindowCombo.ItemsSource = windows;
         WindowCombo.SelectedItem = windows.FirstOrDefault(window => window.LooksLikeMabinogi) ?? windows.FirstOrDefault();
-        var captureStatus = _wgcSupport.IsSupported() ? "WGC supported" : "WGC unavailable";
-        WindowStatusText.Text = WindowCombo.SelectedItem is GameWindowInfo selected
+        SetWindowStatusText(BuildWindowStatusText());
+    }
+
+    private void SetWindowStatusText(string text)
+    {
+        WindowStatusText.Text = text;
+        WindowStatusText.Visibility = string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private string BuildWindowStatusText()
+    {
+        var captureStatus = CurrentCaptureBackend switch
+        {
+            CaptureBackend.Wgc => _wgcSupport.IsSupported() ? "WGC supported" : "WGC unavailable",
+            CaptureBackend.DxgiDesktopDuplication => "DXGI uses selected window monitor",
+            CaptureBackend.GdiBitBlt => "GDI captures selected client area",
+            _ => "Capture backend unknown"
+        };
+        return WindowCombo.SelectedItem is GameWindowInfo selected
             ? selected.LooksLikeMabinogi
-                ? $"Mabinogi window recognized. ({captureStatus})"
+                ? string.Empty
                 : $"Selected window is not recognized as Mabinogi. ({captureStatus})"
             : "No selectable window found.";
     }
@@ -1124,6 +1422,7 @@ public partial class MainWindow : Window
             SelectCandidateInList(candidate);
             args.Handled = true;
         };
+        rect.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         _candidateRects[candidate] = rect;
         CaptureCanvas.Children.Add(rect);
         var visualRect = GetCandidateVisualRect(candidate);
@@ -1160,16 +1459,109 @@ public partial class MainWindow : Window
         rect.CaptureMouse();
     }
 
+    private void CancelInterruptedCaptureInteraction()
+    {
+        if (_isReleasingCaptureIntentionally)
+        {
+            return;
+        }
+
+        CancelCapturePreviewInteraction(cancelAwaitingModes: false, restoreDragSnapshot: false);
+    }
+
+    private bool CancelCapturePreviewInteraction(bool cancelAwaitingModes, bool restoreDragSnapshot)
+    {
+        var hadDetection = _isSelectingDetectionRoi || (cancelAwaitingModes && _isAwaitingDetectionRoi);
+        var hadDebugDetection = _isSelectingDebugDetectionRoi || (cancelAwaitingModes && _isAwaitingDebugDetectionRoi);
+        var hadSelection = _selectionRect is not null ||
+                           _isSelectingCandidates ||
+                           _isSelectingDetectionRoi ||
+                           _isSelectingDebugDetectionRoi;
+        var hadDrag = _draggingCandidate is not null;
+        if (!hadSelection && !hadDrag && !hadDetection && !hadDebugDetection)
+        {
+            return false;
+        }
+
+        var dragSnapshot = restoreDragSnapshot ? _candidateDragSnapshotBefore : null;
+
+        RemoveSelectionRectangle();
+        if (hadDetection)
+        {
+            _isSelectingDetectionRoi = false;
+            SetDetectionMode(active: false);
+        }
+
+        if (hadDebugDetection)
+        {
+            _isSelectingDebugDetectionRoi = false;
+            SetDebugDetectionMode(active: false);
+        }
+
+        _isSelectingCandidates = false;
+        if (_draggingCandidate is not null && _candidateRects.TryGetValue(_draggingCandidate, out var draggingRect))
+        {
+            ReleaseCaptureSafely(draggingRect);
+        }
+
+        if (dragSnapshot is not null)
+        {
+            RestoreCandidateSnapshot(dragSnapshot);
+        }
+        else if (_candidateDragSnapshotBefore is not null)
+        {
+            PushUndoIfChanged(_candidateDragSnapshotBefore);
+        }
+
+        _draggingCandidate = null;
+        _candidateDragOrigins.Clear();
+        _candidateDragSnapshotBefore = null;
+        ReleaseCaptureSafely(CaptureCanvas);
+        SetStatus(hadDebugDetection
+            ? "Debug detect canceled."
+            : hadDetection
+                ? "Section detection canceled."
+                : "Interrupted preview drag was canceled.");
+        return true;
+    }
+
+    private void RemoveSelectionRectangle()
+    {
+        if (_selectionRect is null)
+        {
+            return;
+        }
+
+        CaptureCanvas.Children.Remove(_selectionRect);
+        _selectionRect = null;
+    }
+
+    private void ReleaseCaptureSafely(UIElement element)
+    {
+        try
+        {
+            _isReleasingCaptureIntentionally = true;
+            if (element.IsMouseCaptured)
+            {
+                element.ReleaseMouseCapture();
+            }
+        }
+        finally
+        {
+            _isReleasingCaptureIntentionally = false;
+        }
+    }
+
     private void BeginDetectionRoiSelection(Point position)
     {
         _isSelectingDetectionRoi = true;
         _selectionStartPosition = position;
         _selectionRect = new Rectangle
         {
-            Stroke = Brushes.Gold,
+            Stroke = CreateProjectAccentBrush(),
             StrokeThickness = 2,
             StrokeDashArray = new DoubleCollection { 6, 3 },
-            Fill = new SolidColorBrush(Color.FromArgb(30, 255, 215, 0)),
+            Fill = CreateProjectAccentBrush(30),
             IsHitTestVisible = false
         };
         CaptureCanvas.Children.Add(_selectionRect);
@@ -1184,10 +1576,10 @@ public partial class MainWindow : Window
         _selectionStartPosition = position;
         _selectionRect = new Rectangle
         {
-            Stroke = Brushes.Magenta,
+            Stroke = CreateProjectAccentBrush(),
             StrokeThickness = 2,
             StrokeDashArray = new DoubleCollection { 4, 2 },
-            Fill = new SolidColorBrush(Color.FromArgb(26, 255, 0, 255)),
+            Fill = CreateProjectAccentBrush(26),
             IsHitTestVisible = false
         };
         CaptureCanvas.Children.Add(_selectionRect);
@@ -1208,12 +1600,11 @@ public partial class MainWindow : Window
                 Canvas.GetTop(_selectionRect),
                 _selectionRect.Width,
                 _selectionRect.Height);
-            CaptureCanvas.Children.Remove(_selectionRect);
-            _selectionRect = null;
+            RemoveSelectionRectangle();
         }
 
-        CaptureCanvas.ReleaseMouseCapture();
         _isSelectingDetectionRoi = false;
+        ReleaseCaptureSafely(CaptureCanvas);
         SetDetectionMode(active: false);
 
         if (roi.Width < 24 || roi.Height < 24)
@@ -1222,14 +1613,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var patternKind = ChooseDetectionPatternKind();
-        if (patternKind is null)
-        {
-            SetStatus("Section detection canceled.");
-            return;
-        }
-
-        DetectSectionInRoi(roi, patternKind.Value);
+        var patternKind = ResolveDetectionPatternKind(roi);
+        _log.Info(
+            $"ROI section detection auto-routed: pattern={patternKind}, roi={roi.X:0},{roi.Y:0},{roi.Width:0}x{roi.Height:0}");
+        DetectSectionInRoi(roi, patternKind);
     }
 
     private void EndDebugDetectionRoiSelection()
@@ -1242,12 +1629,11 @@ public partial class MainWindow : Window
                 Canvas.GetTop(_selectionRect),
                 _selectionRect.Width,
                 _selectionRect.Height);
-            CaptureCanvas.Children.Remove(_selectionRect);
-            _selectionRect = null;
+            RemoveSelectionRectangle();
         }
 
-        CaptureCanvas.ReleaseMouseCapture();
         _isSelectingDebugDetectionRoi = false;
+        ReleaseCaptureSafely(CaptureCanvas);
         SetDebugDetectionMode(active: false);
 
         if (roi.Width < 24 || roi.Height < 24)
@@ -1274,8 +1660,8 @@ public partial class MainWindow : Window
 
         if (DetectButton is not null)
         {
-            DetectButton.Content = active ? "Drag ROI..." : "Auto detect section";
-            DetectButton.Background = active ? Brushes.Gold : SystemColors.ControlBrush;
+            DetectButton.Content = active ? L.T("Drag ROI...") : L.T("Auto detect section");
+            ApplyDetectModeButtonStyle(DetectButton, active);
         }
     }
 
@@ -1289,34 +1675,38 @@ public partial class MainWindow : Window
         _isAwaitingDebugDetectionRoi = active;
         if (DebugDetectButton is not null)
         {
-            DebugDetectButton.Content = active ? "Drag debug ROI..." : "Debug detect";
-            DebugDetectButton.Background = active ? Brushes.Magenta : SystemColors.ControlBrush;
+            DebugDetectButton.Content = active ? L.T("Drag debug ROI...") : L.T("Debug detect");
+            ApplyDetectModeButtonStyle(DebugDetectButton, active);
         }
     }
 
-    private QuickslotSectionPatternKind? ChooseDetectionPatternKind()
-    {
-        var result = MessageBox.Show(
-            this,
-            "Choose the quickslot section type.\n\nYes: Top grouped 4x2 x3\nNo: Vertical 2x8\nCancel: cancel detection",
-            "Section Type",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+    private static SolidColorBrush CreateProjectAccentBrush(byte alpha = 255) =>
+        new(Color.FromArgb(alpha, ProjectAccentColor.R, ProjectAccentColor.G, ProjectAccentColor.B));
 
-        return result switch
+    private static void ApplyDetectModeButtonStyle(Button button, bool active)
+    {
+        if (!active)
         {
-            MessageBoxResult.Yes => QuickslotSectionPatternKind.TopGrouped,
-            MessageBoxResult.No => QuickslotSectionPatternKind.Vertical,
-            _ => null
-        };
+            button.ClearValue(Control.BackgroundProperty);
+            button.ClearValue(Control.BorderBrushProperty);
+            return;
+        }
+
+        button.Background = CreateProjectAccentBrush(52);
+        button.BorderBrush = CreateProjectAccentBrush();
     }
+
+    private static QuickslotSectionPatternKind ResolveDetectionPatternKind(Rect roi) =>
+        roi.Width >= roi.Height
+            ? QuickslotSectionPatternKind.TopGrouped
+            : QuickslotSectionPatternKind.Vertical;
 
     private DebugDetectionExpectation? ChooseDebugDetectionExpectation()
     {
         var sectionResult = MessageBox.Show(
             this,
-            "Choose the debug detect target.\n\nYes: Top grouped 4x2 x3\nNo: Vertical 2x8\nCancel: cancel debug detection",
-            "Debug Detect Target",
+            $"{L.T("Choose the debug detect target.")}\n\n{L.T("Yes: Top grouped 4x2 x3")}\n{L.T("No: Vertical 2x8")}\n{L.T("Cancel: cancel debug detection")}",
+            L.T("Debug Detect Target"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
 
@@ -1332,8 +1722,8 @@ public partial class MainWindow : Window
 
         var topResult = MessageBox.Show(
             this,
-            "Choose the top grouped debug target.\n\nYes: Top grouped 1 (x=7, y=18)\nNo: Top grouped 2 (x=627, y=18)\nCancel: cancel debug detection",
-            "Top Grouped Debug Target",
+            $"{L.T("Choose the top grouped debug target.")}\n\nYes: Top grouped 1 (x=7, y=18)\nNo: Top grouped 2 (x=627, y=18)\n{L.T("Cancel: cancel debug detection")}",
+            L.T("Top Grouped Debug Target"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
 
@@ -1354,14 +1744,18 @@ public partial class MainWindow : Window
         }
 
         var before = CaptureCandidateSnapshot();
+        var diagnostics = new List<string>();
         var result = _roiSectionDetection.Detect(
             _capturedImage,
             roi,
-            patternKind);
+            patternKind,
+            diagnostics);
+        var logPath = SaveDetectLog(roi, patternKind, result, diagnostics);
 
         if (result is null)
         {
-            SetStatus("No matching quickslot section pattern was found in the selected area.");
+            _log.Info($"ROI section detection failed. Log: {logPath}");
+            SetStatus(L.F("No matching quickslot section pattern was found in the selected area. Log: {0}", logPath));
             return;
         }
 
@@ -1370,11 +1764,17 @@ public partial class MainWindow : Window
 
         _log.Info(
             $"ROI section detection completed: pattern={patternKind}, roi={roi.X:0},{roi.Y:0},{roi.Width:0}x{roi.Height:0}, " +
-            $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}");
-        SetStatus(
-            $"Added {GetSectionPatternName(PatternIndexFromKind(patternKind))}: " +
-            $"{result.Slots.Count} slots, slot {result.Slots[0].Width:0}x{result.Slots[0].Height:0}px, " +
-            $"gap X {result.SmallGapX:0}px, gap Y {result.SmallGapY:0}px, large gap {result.LargeGap:0}px.");
+            $"slots={result.Slots.Count}, gapX={result.SmallGapX:0}, gapY={result.SmallGapY:0}, largeGap={result.LargeGap:0}, score={result.Score:0.00}, log={logPath}");
+        SetStatus(L.F(
+            "Added {0}: {1} slots, slot {2}x{3}px, gap X {4}px, gap Y {5}px, large gap {6}px. Log: {7}",
+            L.T(GetSectionPatternName(PatternIndexFromKind(patternKind))),
+            result.Slots.Count,
+            result.Slots[0].Width.ToString("0"),
+            result.Slots[0].Height.ToString("0"),
+            result.SmallGapX.ToString("0"),
+            result.SmallGapY.ToString("0"),
+            result.LargeGap.ToString("0"),
+            logPath));
     }
 
     private void RunDebugDetection(Rect roi, DebugDetectionExpectation expected)
@@ -1451,7 +1851,13 @@ public partial class MainWindow : Window
         lines.Insert(4, $"summary exact={exactMatches}/{DebugDetectRuns}, detected={detections}/{DebugDetectRuns}, failed={DebugDetectRuns - detections}");
         var logPath = SaveDebugDetectLog(lines);
         _log.Info($"Debug detect log saved: {logPath}");
-        SetStatus($"Debug detect finished: exact {exactMatches}/{DebugDetectRuns}, detected {detections}/{DebugDetectRuns}. Log: {logPath}");
+        SetStatus(L.F(
+            "Debug detect finished: exact {0}/{1}, detected {2}/{3}. Log: {4}",
+            exactMatches,
+            DebugDetectRuns,
+            detections,
+            DebugDetectRuns,
+            logPath));
     }
 
     private sealed record DebugDetectionExpectation(
@@ -1484,6 +1890,58 @@ public partial class MainWindow : Window
         return path;
     }
 
+    private string SaveDetectLog(
+        Rect roi,
+        QuickslotSectionPatternKind patternKind,
+        SectionDetectionResult? result,
+        IReadOnlyCollection<string> diagnostics)
+    {
+        var lines = new List<string>
+        {
+            $"Detect ROI started {DateTimeOffset.Now:O}",
+            $"pattern={patternKind}",
+            $"roi absolute x={roi.X:0.###}, y={roi.Y:0.###}, w={roi.Width:0.###}, h={roi.Height:0.###}"
+        };
+
+        if (_capturedImage is not null)
+        {
+            lines.Add($"capture image {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}");
+        }
+
+        if (result is null)
+        {
+            lines.Add("result=FAIL no matching quickslot section pattern");
+        }
+        else
+        {
+            var first = result.Slots[0];
+            lines.Add(
+                $"result=OK slots={result.Slots.Count}, first x={first.X:0.###}, y={first.Y:0.###}, w={first.Width:0.###}, h={first.Height:0.###}, " +
+                $"gapX={result.SmallGapX:0.###}, gapY={result.SmallGapY:0.###}, large={result.LargeGap:0.###}, score={result.Score:0.000}");
+        }
+
+        lines.AddRange(diagnostics.Select(line => $"  {line}"));
+        lines.Add(string.Empty);
+
+        lock (_detectLogSync)
+        {
+            System.IO.Directory.CreateDirectory(_log.LogDirectory);
+            var isNewLog = !System.IO.File.Exists(_detectSessionLogPath);
+            var output = new List<string>();
+            if (isNewLog)
+            {
+                output.Add($"Detect session log started {DateTimeOffset.Now:O}");
+                output.Add(string.Empty);
+            }
+
+            output.Add("----");
+            output.AddRange(lines);
+            System.IO.File.AppendAllLines(_detectSessionLogPath, output);
+        }
+
+        return _detectSessionLogPath;
+    }
+
     private void BeginCandidateBoxSelection(Point position)
     {
         _isSelectingCandidates = true;
@@ -1498,9 +1956,9 @@ public partial class MainWindow : Window
 
         _selectionRect = new Rectangle
         {
-            Stroke = Brushes.DeepSkyBlue,
+            Stroke = CreateProjectAccentBrush(),
             StrokeThickness = 1,
-            Fill = new SolidColorBrush(Color.FromArgb(35, 0, 191, 255)),
+            Fill = CreateProjectAccentBrush(35),
             IsHitTestVisible = false
         };
         CaptureCanvas.Children.Add(_selectionRect);
@@ -1548,12 +2006,11 @@ public partial class MainWindow : Window
                 }
             }
 
-            CaptureCanvas.Children.Remove(_selectionRect);
-            _selectionRect = null;
+            RemoveSelectionRectangle();
         }
 
-        CaptureCanvas.ReleaseMouseCapture();
         _isSelectingCandidates = false;
+        ReleaseCaptureSafely(CaptureCanvas);
     }
 
     private void MoveSelectedCandidates(Point position)
@@ -1788,7 +2245,12 @@ public partial class MainWindow : Window
         }
 
         RefreshSectionLabels();
-        SetStatus($"Adjusted {_selectedSection.Label}: gap X {ReadSmallGapX():0}px, gap Y {ReadSmallGapY():0}px, large gap {ReadLargeGap():0}px.");
+        SetStatus(L.F(
+            "Adjusted {0}: gap X {1}px, gap Y {2}px, large gap {3}px.",
+            _selectedSection.Label,
+            ReadSmallGapX().ToString("0"),
+            ReadSmallGapY().ToString("0"),
+            ReadLargeGap().ToString("0")));
     }
 
     private bool TryNudgeSelectedCandidates(Key key)
@@ -1829,7 +2291,7 @@ public partial class MainWindow : Window
         }
         PushUndoIfChanged(before);
 
-        SetStatus($"Nudged {selected.Count} candidate(s) by 1px.");
+        SetStatus(L.F("Nudged {0} candidate(s) by 1px.", selected.Count));
         return true;
     }
 
@@ -2197,6 +2659,9 @@ public partial class MainWindow : Window
     private void StopOverlay(bool setStatus = true)
     {
         _liveOverlayTimer.Stop();
+        LogCpuRenderStats(final: true);
+        _gpuLiveOverlayService?.Dispose();
+        _gpuLiveOverlayService = null;
         _wgcCaptureService.StopLiveCapture();
         _overlayWindow?.Close();
         _overlayWindow = null;
@@ -2209,21 +2674,83 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ResetCpuRenderStats()
+    {
+        _cpuRenderClock.Reset();
+        _cpuStatsLastLogTicks = Stopwatch.GetTimestamp();
+        _cpuStatsTicks = 0;
+        _cpuStatsMaxTicks = 0;
+        _cpuStatsFrames = 0;
+        _cpuStatsSkippedBusy = 0;
+        _cpuStatsErrors = 0;
+    }
+
+    private void RecordCpuRenderFrame(OverlayRenderMode mode, long elapsedTicks)
+    {
+        if (mode == OverlayRenderMode.GpuDxgi)
+        {
+            return;
+        }
+
+        _cpuStatsFrames++;
+        _cpuStatsTicks += elapsedTicks;
+        _cpuStatsMaxTicks = Math.Max(_cpuStatsMaxTicks, elapsedTicks);
+
+        var now = Stopwatch.GetTimestamp();
+        if ((now - _cpuStatsLastLogTicks) / (double)Stopwatch.Frequency >= 5)
+        {
+            LogCpuRenderStats(final: false);
+            _cpuStatsLastLogTicks = now;
+        }
+    }
+
+    private void LogCpuRenderStats(bool final)
+    {
+        if (_activeRenderMode == OverlayRenderMode.GpuDxgi || _cpuStatsFrames == 0)
+        {
+            return;
+        }
+
+        var averageMs = _cpuStatsTicks * 1000.0 / Stopwatch.Frequency / _cpuStatsFrames;
+        var maxMs = _cpuStatsMaxTicks * 1000.0 / Stopwatch.Frequency;
+        _log.Info(
+            $"CPU renderer stats{(final ? " final" : string.Empty)}: mode={RenderModeLabel(_activeRenderMode)}, " +
+            $"frames={_cpuStatsFrames}, avgMs={averageMs:0.00}, maxMs={maxMs:0.00}, " +
+            $"skippedBusy={_cpuStatsSkippedBusy}, errors={_cpuStatsErrors}, slots={_overlaySlots.Count}");
+    }
+
     private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
     {
-        if ((_wgcSelection is null && _selectedWindow is null) ||
+        if (!HasLiveCaptureSource() ||
             _overlayWindow is null ||
             _overlaySlots.Count == 0 ||
             _isLiveRefreshInProgress)
         {
+            if (_isLiveRefreshInProgress)
+            {
+                _cpuStatsSkippedBusy++;
+            }
+
             return;
         }
 
         try
         {
             _isLiveRefreshInProgress = true;
+            _cpuRenderClock.Restart();
+            if (_gpuLiveOverlayService is not null)
+            {
+                if (_gpuLiveOverlayService.LastException is not null)
+                {
+                    throw new InvalidOperationException("GPU live overlay renderer failed.", _gpuLiveOverlayService.LastException);
+                }
+
+                return;
+            }
+
             BitmapSource liveCapture;
-            if (_wgcSelection is not null)
+            var captureBackend = CurrentCaptureBackend;
+            if (captureBackend == CaptureBackend.Wgc)
             {
                 if (_wgcCaptureService.LastLiveCaptureException is not null)
                 {
@@ -2237,29 +2764,53 @@ public partial class MainWindow : Window
 
                 liveCapture = latestFrame;
             }
+            else if (captureBackend == CaptureBackend.DxgiDesktopDuplication)
+            {
+                liveCapture = _dxgiCaptureService.CaptureClientArea(_selectedWindow!);
+            }
             else
             {
                 liveCapture = _captureService.CaptureClientArea(_selectedWindow!);
             }
 
-            foreach (var slot in _overlaySlots)
+            if (_activeRenderMode == OverlayRenderMode.CpuComposited)
             {
-                slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
+                var compositedFrame = _cpuCompositedRenderer.Render(
+                    liveCapture,
+                    _overlaySlots,
+                    (int)Math.Ceiling(_layoutCanvasWidth),
+                    (int)Math.Ceiling(_layoutCanvasHeight),
+                    _overlayOpacity);
+                _overlayWindow.RenderCompositedFrame(compositedFrame);
             }
+            else
+            {
+                foreach (var slot in _overlaySlots)
+                {
+                    slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
+                }
 
-            _overlayWindow.RenderSlots(_overlaySlots);
+                _overlayWindow.RenderSlots(_overlaySlots);
+            }
+            RecordCpuRenderFrame(_activeRenderMode, _cpuRenderClock.ElapsedTicks);
         }
         catch (Exception ex)
         {
+            _cpuStatsErrors++;
             _log.Error("Live overlay refresh failed.", ex);
             StopOverlay(setStatus: false);
-            SetStatus($"Live overlay refresh failed: {ex.Message}");
+            SetStatus(L.F("Live overlay refresh failed: {0}", ex.Message));
         }
         finally
         {
             _isLiveRefreshInProgress = false;
         }
     }
+
+    private bool HasLiveCaptureSource() =>
+        CurrentCaptureBackend == CaptureBackend.Wgc
+            ? _wgcSelection is not null
+            : _selectedWindow is not null;
 
     private bool RegisterStopHotkey()
     {
@@ -2274,7 +2825,7 @@ public partial class MainWindow : Window
         if (!registered)
         {
             _log.Info($"Stop hotkey registration failed: {hotkey.DisplayText}");
-            SetStatus($"Stop hotkey registration failed: {hotkey.DisplayText}");
+            SetStatus(L.F("Stop hotkey registration failed: {0}", hotkey.DisplayText));
         }
         else
         {
@@ -2300,7 +2851,23 @@ public partial class MainWindow : Window
 
     private int ReadCandidateBoxHeight() => ReadSlotInnerHeight() + CandidateBorderPixels * 2;
 
-    private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 1, 3);
+    private double ReadLayoutSlotScale() => Math.Clamp(_layoutSlotScale, 0.1, 10);
+
+    private static T? FindVisualAncestor<T>(DependencyObject? current)
+        where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
+    }
 
     private static double InferSlotScale(OverlayProfileSlot slot)
     {
@@ -2338,6 +2905,22 @@ public partial class MainWindow : Window
     private static int RefreshIntervalFromFps(int fps) =>
         (int)Math.Max(1, Math.Round(1000.0 / CoerceRefreshFps(fps)));
 
+    private static string RenderModeLabel(OverlayRenderMode mode) =>
+        mode switch
+        {
+            OverlayRenderMode.GpuDxgi => "GPU/DXGI",
+            OverlayRenderMode.CpuComposited => "CPU/Composited",
+            _ => "CPU/WPF"
+        };
+
+    private static string CaptureBackendLabel(CaptureBackend backend) =>
+        backend switch
+        {
+            CaptureBackend.DxgiDesktopDuplication => "DXGI Desktop Duplication",
+            CaptureBackend.GdiBitBlt => "GDI BitBlt",
+            _ => "WGC"
+        };
+
     private static int FpsFromInterval(int intervalMs) =>
         intervalMs <= 0 ? 60 : (int)Math.Round(1000.0 / intervalMs);
 
@@ -2345,18 +2928,23 @@ public partial class MainWindow : Window
     {
         if (SlotSizeText is not null)
         {
-            SlotSizeText.Text = $"inside {ReadSlotInnerWidth()}x{ReadSlotInnerHeight()}px, box {ReadCandidateBoxWidth()}x{ReadCandidateBoxHeight()}px";
+            SlotSizeText.Text = L.F(
+                "inside {0}x{1}px, box {2}x{3}px",
+                ReadSlotInnerWidth(),
+                ReadSlotInnerHeight(),
+                ReadCandidateBoxWidth(),
+                ReadCandidateBoxHeight());
         }
     }
 
     private void UpdateSectionGapLabels()
     {
         var usesLargeGap = SectionPatternCombo.SelectedIndex == 0;
-        SmallGapXText.Text = $"Small gap X {ReadSmallGapX():0}px";
-        SmallGapYText.Text = $"Small gap Y {ReadSmallGapY():0}px";
+        SmallGapXText.Text = L.F("Small gap X {0}px", ReadSmallGapX().ToString("0"));
+        SmallGapYText.Text = L.F("Small gap Y {0}px", ReadSmallGapY().ToString("0"));
         LargeGapText.Text = usesLargeGap
-            ? $"Large gap {ReadLargeGap():0}px"
-            : "Large gap unused";
+            ? L.F("Large gap {0}px", ReadLargeGap().ToString("0"))
+            : L.T("Large gap unused");
         LargeGapSlider.IsEnabled = usesLargeGap;
     }
 
@@ -2453,15 +3041,22 @@ public partial class MainWindow : Window
 
     private void UpdateLayoutSummary()
     {
-        LayoutSummaryText.Text =
-            $"Slots: {_overlaySlots.Count} | Canvas: {_layoutCanvasWidth:0}x{_layoutCanvasHeight:0} | " +
-            $"Screen: {_overlayLeft:0}, {_overlayTop:0} | Opacity: {_overlayOpacity:0.00} | " +
-            $"Scale: {_layoutSlotScale:0.0}x | Grid: {_layoutGridSnapSize:0}px | Hotkey: {_stopHotkey} | Max FPS: {_refreshFps}";
+        LayoutSummaryText.Text = string.Join(
+            " | ",
+            L.F("Slots: {0}", _overlaySlots.Count),
+            L.F("Canvas: {0}x{1}", _layoutCanvasWidth.ToString("0"), _layoutCanvasHeight.ToString("0")),
+            L.F("Screen: {0}, {1}", _overlayLeft.ToString("0"), _overlayTop.ToString("0")),
+            L.F("Opacity {0}%", (_overlayOpacity * 100).ToString("0")),
+            L.F("Scale: {0}x", _layoutSlotScale.ToString("0.0")),
+            L.F("Grid: {0}px", _layoutGridSnapSize.ToString("0")),
+            L.F("Hotkey: {0}", _stopHotkey),
+            L.F("Max FPS: {0}", _refreshFps));
     }
 
     private void SetStatus(string message)
     {
-        StatusText.Text = message;
+        _lastStatusMessage = message;
+        StatusText.Text = L.T(message);
         _log.Info($"Status: {message}");
     }
 
