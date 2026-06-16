@@ -45,6 +45,17 @@ Current version: `0.0.2-beta`
 - Session log viewer for troubleshooting.
 - Portable profile storage with selectable save folder.
 
+## Technology Stack
+
+- **Language:** C#
+- **Runtime:** .NET 8
+- **UI:** WPF with WPF-UI
+- **Platform:** Windows
+- **Capture:** Windows Graphics Capture, DXGI Desktop Duplication, GDI BitBlt
+- **Graphics interop:** Direct3D 11, DXGI, Direct2D, DirectComposition
+- **Native integration:** Win32 window styles, global hotkey registration, click-through overlay behavior
+- **Storage:** JSON profiles and settings via `System.Text.Json`
+
 ## Notes
 
 This is a beta tool. Detection quality can vary depending on map brightness, resolution, DPI, UI scale, and quickslot arrangement. Detection is meant to speed up setup, not replace manual correction.

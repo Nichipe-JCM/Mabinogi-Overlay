@@ -45,6 +45,17 @@ Mabinogi Overlay는 비공식 팬 제작 유틸리티이며 Nexon과 제휴, 승
 - 문제 확인용 세션 로그 뷰어
 - 저장 위치를 지정할 수 있는 portable 프로필
 
+## 기술 스택
+
+- **언어:** C#
+- **런타임:** .NET 8
+- **UI:** WPF, WPF-UI
+- **플랫폼:** Windows
+- **캡쳐:** Windows Graphics Capture, DXGI Desktop Duplication, GDI BitBlt
+- **그래픽 interop:** Direct3D 11, DXGI, Direct2D, DirectComposition
+- **Native 연동:** Win32 window styles, global hotkey registration, click-through overlay behavior
+- **저장:** `System.Text.Json` 기반 JSON 프로필과 설정
+
 ## 참고 사항
 
 이 앱은 beta 도구입니다. 맵 밝기, 해상도, DPI, UI 배율, 퀵슬롯 배치에 따라 감지 정확도가 달라질 수 있습니다. 감지는 설정을 빠르게 하기 위한 보조 기능이며, 최종 슬롯 위치는 사용자가 직접 보정할 수 있습니다.
