@@ -23,4 +23,8 @@
     <Resource Include="..\..\Image\AppIcon.ico" Link="Image\AppIcon.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Localization\*.lang" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
