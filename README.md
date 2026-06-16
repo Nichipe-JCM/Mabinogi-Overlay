@@ -4,6 +4,10 @@ Mabinogi Overlay is a portable Windows utility that mirrors selected Mabinogi qu
 
 It is designed for players who want clearer cooldown visibility without modifying the game client. The app does not read game memory, inject code, hook the renderer, or automate input.
 
+## Korean
+
+Korean documentation is available at [docs/README.ko.md](docs/README.ko.md).
+
 ## Disclaimer
 
 Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
@@ -84,7 +88,4 @@ Mabinogi Overlay intentionally avoids:
 
 It uses Windows capture APIs and a separate transparent overlay window.
 
-## Korean
-
-Korean documentation is available at [docs/README.ko.md](docs/README.ko.md).
  
