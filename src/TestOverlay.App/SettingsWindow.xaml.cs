@@ -65,8 +65,8 @@ public partial class SettingsWindow : Window
 
         var languages = new List<LanguageOption>
         {
-            new(LocalizationService.English, "English"),
-            new(LocalizationService.Korean, "\uD55C\uAD6D\uC5B4")
+            new(LocalizationService.English, L.T("language.english")),
+            new(LocalizationService.Korean, L.T("language.korean"))
         };
         LanguageCombo.ItemsSource = languages;
         LanguageCombo.SelectedItem = languages.FirstOrDefault(option =>

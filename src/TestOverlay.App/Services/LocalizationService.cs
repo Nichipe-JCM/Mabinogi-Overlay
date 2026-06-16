@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -9,8 +10,13 @@ public sealed partial class LocalizationService
 {
     public const string English = "en-US";
     public const string Korean = "ko-KR";
+    private const string LocalizationDirectoryName = "Localization";
+    private const char KeyValueSeparator = '=';
 
     public static LocalizationService Instance { get; } = new();
+
+    private readonly object _sync = new();
+    private readonly Dictionary<string, IReadOnlyDictionary<string, string>> _languageCache = new(StringComparer.OrdinalIgnoreCase);
 
     private LocalizationService()
     {
@@ -40,9 +46,23 @@ public sealed partial class LocalizationService
             return string.Empty;
         }
 
-        return CurrentLanguage == Korean && KoreanStrings.TryGetValue(key, out var translated)
-            ? translated
-            : key;
+        var normalizedKey = NormalizeKey(key);
+        var currentStrings = GetLanguageStrings(CurrentLanguage);
+        if (currentStrings.TryGetValue(normalizedKey, out var translated))
+        {
+            return translated;
+        }
+
+        if (!string.Equals(CurrentLanguage, English, StringComparison.OrdinalIgnoreCase))
+        {
+            var englishStrings = GetLanguageStrings(English);
+            if (englishStrings.TryGetValue(normalizedKey, out var english))
+            {
+                return english;
+            }
+        }
+
+        return key;
     }
 
     public string Format(string key, params object?[] args) =>
@@ -53,6 +73,64 @@ public sealed partial class LocalizationService
         language.Trim().StartsWith("ko", StringComparison.OrdinalIgnoreCase)
             ? Korean
             : English;
+
+    private static string NormalizeKey(string key) =>
+        KeyAliases.TryGetValue(key, out var alias)
+            ? alias
+            : key;
+
+    private IReadOnlyDictionary<string, string> GetLanguageStrings(string language)
+    {
+        var normalized = NormalizeLanguage(language);
+        lock (_sync)
+        {
+            if (_languageCache.TryGetValue(normalized, out var strings))
+            {
+                return strings;
+            }
+
+            strings = LoadLanguageFile(normalized);
+            _languageCache[normalized] = strings;
+            return strings;
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string> LoadLanguageFile(string language)
+    {
+        var path = GetLanguageFilePath(language);
+        var strings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!File.Exists(path))
+        {
+            return strings;
+        }
+
+        foreach (var rawLine in File.ReadLines(path, System.Text.Encoding.UTF8))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            var separatorIndex = line.IndexOf(KeyValueSeparator);
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            var key = line[..separatorIndex].Trim();
+            var value = line[(separatorIndex + 1)..].Trim();
+            if (key.Length > 0)
+            {
+                strings[key] = value;
+            }
+        }
+
+        return strings;
+    }
+
+    private static string GetLanguageFilePath(string language) =>
+        Path.Combine(AppContext.BaseDirectory, LocalizationDirectoryName, $"{NormalizeLanguage(language)}.lang");
 }
 
 public static class L
