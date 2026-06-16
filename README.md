@@ -87,3 +87,4 @@ It uses Windows capture APIs and a separate transparent overlay window.
 ## Korean
 
 Korean documentation is available at [docs/README.ko.md](docs/README.ko.md).
+ 
