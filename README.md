@@ -58,6 +58,12 @@ This program was developed with assistance from OpenAI Codex and ChatGPT.
 - **Native integration:** Win32 window styles, global hotkey registration, click-through overlay behavior
 - **Storage:** JSON profiles and settings via `System.Text.Json`
 
+## License
+
+Mabinogi Overlay is licensed under the [MIT License](LICENSE).
+
+Third-party dependencies remain under their own licenses. The current primary NuGet dependencies, WPF-UI and Vortice packages, are also MIT-licensed.
+
 ## Notes
 
 This app is a beta version. Some features may still contain bugs. Please report bugs through GitHub Issues.
