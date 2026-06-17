@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using Microsoft.Win32;
 using TestOverlay.App.Models;
@@ -55,13 +55,13 @@ public partial class SettingsWindow : Window
 
         var captureBackends = new List<CaptureBackendOption>
         {
-            new(CaptureBackend.Wgc, L.T("WGC window")),
             new(CaptureBackend.DxgiDesktopDuplication, L.T("DXGI monitor")),
+            new(CaptureBackend.Wgc, L.T("WGC window")),
             new(CaptureBackend.GdiBitBlt, L.T("GDI BitBlt"))
         };
         CaptureBackendCombo.ItemsSource = captureBackends;
         CaptureBackendCombo.SelectedItem = captureBackends.FirstOrDefault(option => option.Backend == selectedCaptureBackend)
-                                           ?? captureBackends[0];
+                                           ?? captureBackends.First(option => option.Backend == CaptureBackend.DxgiDesktopDuplication);
 
         var languages = new List<LanguageOption>
         {
@@ -158,7 +158,7 @@ public partial class SettingsWindow : Window
                 : OverlayRenderMode.CpuWpf;
             SelectedCaptureBackend = CaptureBackendCombo.SelectedItem is CaptureBackendOption captureOption
                 ? captureOption.Backend
-                : CaptureBackend.Wgc;
+                : CaptureBackend.DxgiDesktopDuplication;
             SelectedLanguage = LanguageCombo.SelectedItem is LanguageOption languageOption
                 ? languageOption.Language
                 : LocalizationService.English;
@@ -189,3 +189,4 @@ public enum SettingsProfileAction
     Save,
     Load
 }
+

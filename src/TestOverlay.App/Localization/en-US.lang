@@ -234,3 +234,4 @@ settings.load = Settings.Load
 benchmark.load = Benchmark.Load
 settings.default = Settings.Default
 layout.close = Layout.Close
+capture.method.description = Choose how the running overlay refreshes its slot images. DXGI captures the monitor and is the default low-friction option. GDI is a compatibility fallback. WGC captures the selected game window more directly, but Windows may show a yellow capture border while it is active.

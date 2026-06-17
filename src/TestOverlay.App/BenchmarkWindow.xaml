@@ -1,18 +1,28 @@
-<Window x:Class="TestOverlay.App.BenchmarkWindow"
+﻿<Window x:Class="TestOverlay.App.BenchmarkWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:TestOverlay.App.Services"
+        xmlns:controls="clr-namespace:TestOverlay.App.Controls"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Benchmark"
         loc:Localize.TitleKey="Benchmark"
         Icon="/Image/AppIcon.ico"
         Width="820"
-        Height="560"
+        Height="620"
         MinWidth="680"
-        MinHeight="460"
+        MinHeight="520"
         Background="{StaticResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
-    <Grid Margin="18" Style="{StaticResource AppWindowRootStyle}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="7"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+    <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -20,12 +30,15 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+        <controls:AppTitleBar Grid.Row="0"/>
+
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,14">
             <TextBlock Text="Benchmark / Stress Test" loc:Localize.TextKey="Benchmark / Stress Test" FontSize="22" FontWeight="Bold"/>
             <TextBlock Text="Run controlled renderer stress tests and write benchmark logs." loc:Localize.TextKey="Run controlled renderer stress tests and write benchmark logs." Style="{StaticResource MutedTextStyle}"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Margin="0,0,0,14" Style="{StaticResource GlassCardStyle}">
+        <Border Grid.Row="2" Margin="0,0,0,14" Style="{StaticResource GlassCardStyle}">
             <Grid Margin="14">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -50,13 +63,13 @@
                 <StackPanel Grid.Row="0" Grid.Column="2">
                     <TextBlock Text="Stress" loc:Localize.TextKey="Stress" Style="{StaticResource PanelTitleStyle}"/>
                     <TextBlock Text="Duration seconds" loc:Localize.TextKey="Duration seconds" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}"/>
-                    <ComboBox x:Name="DurationCombo" Height="30" SelectedIndex="1">
+                    <ComboBox x:Name="DurationCombo" Height="38" SelectedIndex="1">
                         <ComboBoxItem Content="10"/>
                         <ComboBoxItem Content="30"/>
                         <ComboBoxItem Content="60"/>
                     </ComboBox>
                     <TextBlock Text="Iterations fallback" loc:Localize.TextKey="Iterations fallback" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}"/>
-                    <ComboBox x:Name="IterationsCombo" Height="30" SelectedIndex="1">
+                    <ComboBox x:Name="IterationsCombo" Height="38" SelectedIndex="1">
                         <ComboBoxItem Content="60"/>
                         <ComboBoxItem Content="180"/>
                         <ComboBoxItem Content="600"/>
@@ -66,14 +79,14 @@
                 <StackPanel Grid.Row="0" Grid.Column="4">
                     <TextBlock Text="Load" loc:Localize.TextKey="Benchmark.Load" Style="{StaticResource PanelTitleStyle}"/>
                     <TextBlock Text="Slot multipliers" loc:Localize.TextKey="Slot multipliers" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}"/>
-                    <TextBox x:Name="MultipliersBox" Height="30" Text="1,5,10,20"/>
+                    <TextBox x:Name="MultipliersBox" Height="38" Text="1,5,10,20"/>
                     <TextBlock Text="comma-separated" loc:Localize.TextKey="comma-separated" Margin="0,4,0,0" Style="{StaticResource MutedTextStyle}"/>
-                    <Button x:Name="StartButton" MinWidth="132" Height="34" Padding="14,0" HorizontalAlignment="Left" Margin="0,12,0,0" Content="Start benchmark" loc:Localize.ContentKey="Start benchmark" Click="StartButton_Click"/>
+                    <Button x:Name="StartButton" MinWidth="132" Height="38" Padding="14,0" HorizontalAlignment="Left" Margin="0,12,0,0" Content="Start benchmark" loc:Localize.ContentKey="Start benchmark" Click="StartButton_Click"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0">
                     <TextBlock Text="Source size" loc:Localize.TextKey="Source size" Style="{StaticResource MutedTextStyle}"/>
-                    <ComboBox x:Name="SourceSizeCombo" Height="30" Margin="0,6,0,0" SelectedIndex="0">
+                    <ComboBox x:Name="SourceSizeCombo" Height="38" Margin="0,6,0,0" SelectedIndex="0">
                         <ComboBoxItem Content="1920x1080"/>
                         <ComboBoxItem Content="2560x1440"/>
                         <ComboBoxItem Content="3840x2160"/>
@@ -82,7 +95,7 @@
 
                 <StackPanel Grid.Row="2" Grid.Column="2">
                     <TextBlock Text="Overlay size" loc:Localize.TextKey="Overlay size" Style="{StaticResource MutedTextStyle}"/>
-                    <ComboBox x:Name="OverlaySizeCombo" Height="30" Margin="0,6,0,0" SelectedIndex="0">
+                    <ComboBox x:Name="OverlaySizeCombo" Height="38" Margin="0,6,0,0" SelectedIndex="0">
                         <ComboBoxItem Content="960x540"/>
                         <ComboBoxItem Content="1280x720"/>
                     </ComboBox>
@@ -96,12 +109,12 @@
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="2" Margin="0,0,0,14">
+        <StackPanel Grid.Row="3" Margin="0,0,0,14">
             <TextBlock x:Name="StatusText" Style="{StaticResource MutedTextStyle}"/>
             <ProgressBar x:Name="BenchmarkProgress" Height="12" Margin="0,8,0,0" Minimum="0" Maximum="1"/>
         </StackPanel>
 
-        <TextBox Grid.Row="3"
+        <TextBox Grid.Row="4"
                  x:Name="OutputBox"
                  IsReadOnly="True"
                  TextWrapping="NoWrap"
@@ -113,8 +126,8 @@
                  Foreground="{StaticResource OverlayTextBrush}"
                  BorderBrush="{StaticResource OverlayBorderBrush}"/>
 
-        <WrapPanel Grid.Row="4" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button x:Name="CloseButton" MinWidth="88" Height="34" Padding="14,0" Content="Close" loc:Localize.ContentKey="Close" Click="CloseButton_Click"/>
+        <WrapPanel Grid.Row="5" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="CloseButton" MinWidth="88" Height="38" Padding="14,0" Content="Close" loc:Localize.ContentKey="Close" Click="CloseButton_Click"/>
         </WrapPanel>
     </Grid>
 </Window>
