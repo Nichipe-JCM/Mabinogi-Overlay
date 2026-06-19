@@ -6,10 +6,7 @@ public sealed class AppLog
 {
     private readonly object _sync = new();
 
-    public string LogDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MabinogiOverlay",
-        "Logs");
+    public string LogDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "Logs");
 
     public string LogPath => Path.Combine(LogDirectory, "app.log");
 
