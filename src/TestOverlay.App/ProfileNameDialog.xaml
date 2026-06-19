@@ -4,8 +4,8 @@
         xmlns:loc="clr-namespace:TestOverlay.App.Services"
         xmlns:controls="clr-namespace:TestOverlay.App.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Save Profile"
-        loc:Localize.TitleKey="Save Profile"
+        Title="Create Profile"
+        loc:Localize.TitleKey="Create Profile"
         Icon="/Image/AppIcon.ico"
         Width="390"
         Height="238"
@@ -44,7 +44,7 @@
 
                 <WrapPanel Grid.Row="3" HorizontalAlignment="Right">
                     <Button MinWidth="84" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelButton_Click"/>
-                    <Button MinWidth="84" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveButton_Click"/>
+                    <Button MinWidth="84" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Create" loc:Localize.ContentKey="profile.create" Click="SaveButton_Click"/>
                 </WrapPanel>
             </Grid>
         </Border>
