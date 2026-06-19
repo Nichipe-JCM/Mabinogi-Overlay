@@ -244,6 +244,7 @@ profile.created.arg = 프로필 생성됨: {0}
 profile.save.failed.arg = 프로필 저장 실패: {0}
 candidate.list.is.already.empty = 슬롯 목록이 이미 비어 있습니다.
 overlay.layout.is.already.empty = 오버레이 레이아웃이 이미 비어 있습니다.
+overlay.controls = 오버레이 조작
 benchmark.load = 부하량
 settings.default = 기본값
 layout.close = 닫기

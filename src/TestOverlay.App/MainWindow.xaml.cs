@@ -616,7 +616,7 @@ public partial class MainWindow : Window
             _candidates.Remove(candidate);
         }
 
-        _overlaySlots.RemoveAll(slot => candidates.Contains(slot.Source));
+        RemoveOverlaySlotsForCandidates(candidates);
         _sections.Remove(_selectedSection);
         _selectedSection = null;
         SectionCombo.SelectedItem = null;
@@ -736,7 +736,7 @@ public partial class MainWindow : Window
             _candidates.Remove(candidate);
         }
 
-        _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
+        RemoveOverlaySlotsForCandidates(selected);
         RemoveSectionsContaining(selected);
 
         UpdateCandidateOverlayFlags();
@@ -762,7 +762,7 @@ public partial class MainWindow : Window
     {
         if (_candidates.Count == 0)
         {
-            SetStatus("Candidate list is already empty.");
+            SetStatus("candidate.list.is.already.empty");
             return;
         }
 
@@ -773,12 +773,13 @@ public partial class MainWindow : Window
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
         {
-            SetStatus("Clear canceled.");
+            SetStatus("clear.canceled");
             return;
         }
 
         var before = CaptureCandidateSnapshot();
         _candidates.Clear();
+        _overlaySlots.Clear();
         ClearCandidateRects();
         ClearSections();
         UpdateCandidateOverlayFlags();
@@ -851,7 +852,7 @@ public partial class MainWindow : Window
     {
         if (_overlaySlots.Count == 0)
         {
-            SetStatus("Overlay layout is already empty.");
+            SetStatus("overlay.layout.is.already.empty");
             return;
         }
 
@@ -862,7 +863,7 @@ public partial class MainWindow : Window
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
         {
-            SetStatus("Clear canceled.");
+            SetStatus("clear.canceled");
             return;
         }
 
@@ -2462,11 +2463,20 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
     }
 
+    private int RemoveOverlaySlotsForCandidates(IEnumerable<SlotCandidate> candidates)
+    {
+        var candidateSet = candidates.ToHashSet();
+        var candidateIds = candidateSet.Select(candidate => candidate.Id).ToHashSet();
+        return _overlaySlots.RemoveAll(slot =>
+            candidateSet.Contains(slot.Source) || candidateIds.Contains(slot.Source.Id));
+    }
+
     private void UpdateCandidateOverlayFlags()
     {
+        var overlayCandidateIds = _overlaySlots.Select(slot => slot.Source.Id).ToHashSet();
         foreach (var candidate in _candidates)
         {
-            candidate.IsInOverlay = _overlaySlots.Any(slot => ReferenceEquals(slot.Source, candidate));
+            candidate.IsInOverlay = overlayCandidateIds.Contains(candidate.Id);
         }
     }
 

@@ -6,9 +6,9 @@
         Title="Mabinogi Overlay"
         loc:Localize.TitleKey="Mabinogi Overlay"
         Icon="/Image/AppIcon.ico"
-        Height="920"
+        Height="1000"
         Width="1660"
-        MinHeight="760"
+        MinHeight="840"
         MinWidth="1360"
         Background="{StaticResource OverlayBgBrush}"
         PreviewKeyDown="Window_PreviewKeyDown"
@@ -23,6 +23,7 @@
     </shell:WindowChrome.WindowChrome>
     <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -143,7 +144,56 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="2" Margin="0,16,0,16">
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource GlassCardStyle}">
+                <Grid Margin="16,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Margin="0,0,18,0"
+                               VerticalAlignment="Center"
+                               Text="Profile"
+                               loc:Localize.TextKey="Profile"
+                               Style="{StaticResource SectionTitleStyle}"/>
+                    <ComboBox x:Name="ProfileCombo"
+                              Grid.Column="1"
+                              MinWidth="180"
+                              Height="36"
+                              SelectionChanged="ProfileCombo_SelectionChanged"/>
+                    <Button x:Name="CreateProfileButton" Grid.Column="2" MinWidth="92" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Create" loc:Localize.ContentKey="profile.create" Click="CreateProfileButton_Click"/>
+                    <Button x:Name="LoadProfileButton" Grid.Column="3" MinWidth="92" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Load" loc:Localize.ContentKey="Load" Click="LoadProfileButton_Click"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
+                <Grid Margin="16,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               VerticalAlignment="Center"
+                               Text="Overlay controls"
+                               loc:Localize.TextKey="overlay.controls"
+                               Style="{StaticResource SectionTitleStyle}"/>
+                    <Button x:Name="StartOverlayButton" Grid.Column="1" MinWidth="132" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Overlay start" loc:Localize.ContentKey="Overlay start" Click="StartOverlayButton_Click"/>
+                    <Button x:Name="StopOverlayLayoutButton" Grid.Column="2" MinWidth="132" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Overlay stop" loc:Localize.ContentKey="Overlay stop" Click="StopOverlayButton_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,14,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" MinWidth="520"/>
                 <ColumnDefinition Width="14"/>
@@ -291,7 +341,6 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
@@ -426,7 +475,6 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
@@ -443,27 +491,16 @@
                             </StackPanel>
                         </Border>
 
-                        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,8">
-                            <ComboBox x:Name="ProfileCombo"
-                                      Width="150"
-                                      Height="34"
-                                      Margin="4,0,0,0"
-                                      SelectionChanged="ProfileCombo_SelectionChanged"/>
-                            <Button x:Name="CreateProfileButton" MinWidth="82" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Create" loc:Localize.ContentKey="profile.create" Click="CreateProfileButton_Click"/>
-                            <Button x:Name="LoadProfileButton" MinWidth="76" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Load" loc:Localize.ContentKey="Load" Click="LoadProfileButton_Click"/>
+                        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,14">
                             <Button x:Name="OpenLayoutEditorButton" MinWidth="126" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
                             <Button x:Name="ClearLayoutButton" MinWidth="66" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearLayoutButton_Click"/>
-                        </WrapPanel>
-                        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="14,0,14,14">
-                            <Button x:Name="StartOverlayButton" MinWidth="112" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Overlay start" loc:Localize.ContentKey="Overlay start" Click="StartOverlayButton_Click"/>
-                            <Button x:Name="StopOverlayLayoutButton" MinWidth="112" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Overlay stop" loc:Localize.ContentKey="Overlay stop" Click="StopOverlayButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>
             </Grid>
         </Grid>
 
-        <Border Grid.Row="3" Padding="12,8" Style="{StaticResource GlassCardStyle}">
+        <Border Grid.Row="4" Padding="12,8" Style="{StaticResource GlassCardStyle}">
             <TextBlock x:Name="StatusText"
                        Style="{StaticResource MutedTextStyle}"
                        Text="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."

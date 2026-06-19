@@ -248,3 +248,4 @@ profile.created.arg = Profile created: {0}
 profile.save.failed.arg = Profile save failed: {0}
 candidate.list.is.already.empty = Candidate list is already empty.
 overlay.layout.is.already.empty = Overlay layout is already empty.
+overlay.controls = Overlay controls
