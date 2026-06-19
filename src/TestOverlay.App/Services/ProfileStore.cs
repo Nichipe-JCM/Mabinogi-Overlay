@@ -25,6 +25,8 @@ public sealed class ProfileStore
     public string GetProfilePath(string? profileName) =>
         Path.Combine(ProfileDirectory, $"{NormalizeProfileName(profileName)}.json");
 
+    public bool Exists(string? profileName) => File.Exists(GetProfilePath(profileName));
+
     public string Save(OverlayProfile profile, string? profileName)
     {
         Directory.CreateDirectory(ProfileDirectory);

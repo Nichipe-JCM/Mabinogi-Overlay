@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private readonly object _detectLogSync = new();
     private readonly string _detectSessionLogPath;
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly ObservableCollection<QuickslotSection> _sections = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
@@ -50,6 +51,9 @@ public partial class MainWindow : Window
     private readonly Stack<CandidateEditSnapshot> _redoStack = new();
     private IReadOnlyList<string> _profileNames = ["default"];
     private string _selectedProfileName = "default";
+    private bool _isUpdatingProfileSelection;
+    private bool _isLoadingProfile;
+    private bool _isProfileDirty;
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
@@ -116,27 +120,33 @@ public partial class MainWindow : Window
             SaveCurrentSectionSettings();
             _currentSectionIndex = Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1);
             UpdateSectionGapLabels();
+            ScheduleProfileAutoSave();
         };
         SmallGapXSlider.ValueChanged += (_, _) =>
         {
             SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
             RebuildSelectedSection();
+            ScheduleProfileAutoSave();
         };
         SmallGapYSlider.ValueChanged += (_, _) =>
         {
             SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
             RebuildSelectedSection();
+            ScheduleProfileAutoSave();
         };
         LargeGapSlider.ValueChanged += (_, _) =>
         {
             SaveCurrentSectionSettings();
             UpdateSectionGapLabels();
             RebuildSelectedSection();
+            ScheduleProfileAutoSave();
         };
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
+        _profileAutoSaveTimer.Tick += (_, _) => FlushProfileAutoSave();
         Loaded += MainWindow_Loaded;
+        Closing += (_, _) => FlushProfileAutoSave();
         Closed += (_, _) =>
         {
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
@@ -215,7 +225,11 @@ public partial class MainWindow : Window
     private void ZoomOutButton_Click(object sender, RoutedEventArgs e) =>
         CaptureZoomSlider.Value = Math.Max(CaptureZoomSlider.Minimum, CaptureZoomSlider.Value - 0.25);
 
-    private void SlotSizeBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateSizeLabels();
+    private void SlotSizeBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateSizeLabels();
+        ScheduleProfileAutoSave();
+    }
 
     private void PreviewScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -455,6 +469,7 @@ public partial class MainWindow : Window
 
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
+        ScheduleProfileAutoSave();
         _log.Info($"Placed overlay slots: added={selected.Count}, total={_overlaySlots.Count}, clearExisting={clearExisting}, canvas={_layoutCanvasWidth}x{_layoutCanvasHeight}");
         SetStatus(clearExisting
             ? L.F("Placed {0} slots. Open Manage Layout to arrange them.", _overlaySlots.Count)
@@ -601,7 +616,7 @@ public partial class MainWindow : Window
             _candidates.Remove(candidate);
         }
 
-        _overlaySlots.RemoveAll(slot => candidates.Contains(slot.Source));
+        RemoveOverlaySlotsForCandidates(candidates);
         _sections.Remove(_selectedSection);
         _selectedSection = null;
         SectionCombo.SelectedItem = null;
@@ -721,7 +736,7 @@ public partial class MainWindow : Window
             _candidates.Remove(candidate);
         }
 
-        _overlaySlots.RemoveAll(slot => selected.Contains(slot.Source));
+        RemoveOverlaySlotsForCandidates(selected);
         RemoveSectionsContaining(selected);
 
         UpdateCandidateOverlayFlags();
@@ -745,8 +760,26 @@ public partial class MainWindow : Window
 
     private void ClearCandidatesButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_candidates.Count == 0)
+        {
+            SetStatus("candidate.list.is.already.empty");
+            return;
+        }
+
+        if (MessageBox.Show(
+                this,
+                L.T("clear.candidates.confirm"),
+                L.T("confirm.clear"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            SetStatus("clear.canceled");
+            return;
+        }
+
         var before = CaptureCandidateSnapshot();
         _candidates.Clear();
+        _overlaySlots.Clear();
         ClearCandidateRects();
         ClearSections();
         UpdateCandidateOverlayFlags();
@@ -788,24 +821,54 @@ public partial class MainWindow : Window
         {
             Owner = this
         };
+        void ApplyEditorState()
+        {
+            _layoutCanvasWidth = editor.CanvasWidth;
+            _layoutCanvasHeight = editor.CanvasHeight;
+            _overlayLeft = editor.ScreenLeft;
+            _overlayTop = editor.ScreenTop;
+            _overlayOpacity = editor.OverlayOpacity;
+            _stopHotkey = editor.StopHotkey;
+            _refreshFps = editor.RefreshFps;
+            _layoutSlotScale = editor.SlotScale;
+            _layoutGridSnapSize = editor.GridSnapSize;
+            UpdateCandidateOverlayFlags();
+            UpdateLayoutSummary();
+        }
+
+        editor.Applied += (_, _) =>
+        {
+            ApplyEditorState();
+            ScheduleProfileAutoSave();
+            FlushProfileAutoSave();
+        };
         editor.ShowDialog();
-        _layoutCanvasWidth = editor.CanvasWidth;
-        _layoutCanvasHeight = editor.CanvasHeight;
-        _overlayLeft = editor.ScreenLeft;
-        _overlayTop = editor.ScreenTop;
-        _overlayOpacity = editor.OverlayOpacity;
-        _stopHotkey = editor.StopHotkey;
-        _refreshFps = editor.RefreshFps;
-        _layoutSlotScale = editor.SlotScale;
-        _layoutGridSnapSize = editor.GridSnapSize;
-        UpdateCandidateOverlayFlags();
-        UpdateLayoutSummary();
+        ApplyEditorState();
+        ScheduleProfileAutoSave();
         SetStatus("Layout editor closed. Overlay settings updated.");
     }
 
     private void ClearLayoutButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_overlaySlots.Count == 0)
+        {
+            SetStatus("overlay.layout.is.already.empty");
+            return;
+        }
+
+        if (MessageBox.Show(
+                this,
+                L.T("clear.layout.confirm"),
+                L.T("confirm.clear"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            SetStatus("clear.canceled");
+            return;
+        }
+
         ClearLayout();
+        ScheduleProfileAutoSave();
         SetStatus("Overlay layout cleared.");
     }
 
@@ -814,8 +877,6 @@ public partial class MainWindow : Window
         var dialog = new SettingsWindow(
             _profileStore.ProfileDirectory,
             _settingsStore.DefaultProfileDirectory,
-            _profileNames,
-            ReadSelectedProfileName(),
             _appSettings.OverlayRenderMode,
             _appSettings.CaptureBackend,
             _appSettings.Language,
@@ -832,6 +893,7 @@ public partial class MainWindow : Window
 
         try
         {
+            FlushProfileAutoSave();
             var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
             System.IO.Directory.CreateDirectory(directory);
             _appSettings.ProfileDirectory = directory;
@@ -841,7 +903,7 @@ public partial class MainWindow : Window
             LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
-            RefreshProfileList(dialog.SelectedProfileName);
+            RefreshProfileList(ReadSelectedProfileName());
             SetWindowStatusText(BuildWindowStatusText());
             _log.Info($"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}, captureBackend={_appSettings.CaptureBackend}");
         }
@@ -852,41 +914,55 @@ public partial class MainWindow : Window
             return;
         }
 
-        switch (dialog.RequestedProfileAction)
-        {
-            case SettingsProfileAction.Save:
-                SaveCurrentProfile();
-                break;
-            case SettingsProfileAction.Load:
-                LoadSelectedProfile();
-                break;
-            default:
-                SetStatus(L.F(
-                    "Settings saved: {0}, renderer={1}, capture={2}",
-                    _profileStore.ProfileDirectory,
-                    L.T(RenderModeLabel(_appSettings.OverlayRenderMode)),
-                    L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
-                break;
-        }
+        ScheduleProfileAutoSave();
+        SetStatus(L.F(
+            "Settings saved: {0}, renderer={1}, capture={2}",
+            _profileStore.ProfileDirectory,
+            L.T(RenderModeLabel(_appSettings.OverlayRenderMode)),
+            L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
     }
 
-    private void SaveProfileButton_Click(object sender, RoutedEventArgs e) => SaveCurrentProfile();
-
-    private void SaveCurrentProfile()
+    private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        SaveCurrentSectionSettings();
-        var dialog = new ProfileNameDialog(ReadSelectedProfileName())
+        if (_isUpdatingProfileSelection || ProfileCombo.SelectedItem is not string)
         {
-            Owner = this
-        };
+            return;
+        }
+
+        FlushProfileAutoSave();
+    }
+
+    private void CreateProfileButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlushProfileAutoSave();
+        var dialog = new ProfileNameDialog(string.Empty) { Owner = this };
         if (dialog.ShowDialog() != true)
         {
-            SetStatus("Profile save canceled.");
+            SetStatus("Profile creation canceled.");
             return;
         }
 
         var profileName = dialog.ProfileName;
-        var profile = new OverlayProfile
+        if (_profileStore.Exists(profileName) && MessageBox.Show(
+                this,
+                L.F("profile.exists.confirm", profileName),
+                L.T("confirm.replace"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            SetStatus("Profile creation canceled.");
+            return;
+        }
+
+        _selectedProfileName = profileName;
+        SaveActiveProfile(showStatus: true);
+        RefreshProfileList(profileName);
+    }
+
+    private OverlayProfile BuildCurrentProfile(string profileName)
+    {
+        SaveCurrentSectionSettings();
+        return new OverlayProfile
         {
             Name = profileName,
             CanvasWidth = _layoutCanvasWidth,
@@ -949,11 +1025,51 @@ public partial class MainWindow : Window
                 Scale = slot.Scale
             }).ToList()
         };
+    }
 
-        var path = _profileStore.Save(profile, profileName);
-        RefreshProfileList(System.IO.Path.GetFileNameWithoutExtension(path));
-        _log.Info($"Profile saved: {path}, candidates={profile.Candidates.Count}, slots={profile.Slots.Count}");
-        SetStatus(L.F("Profile saved: {0}", path));
+    private void ScheduleProfileAutoSave()
+    {
+        if (_isLoadingProfile || !IsLoaded)
+        {
+            return;
+        }
+
+        _isProfileDirty = true;
+        _profileAutoSaveTimer.Stop();
+        _profileAutoSaveTimer.Start();
+    }
+
+    private void FlushProfileAutoSave()
+    {
+        _profileAutoSaveTimer.Stop();
+        if (!_isLoadingProfile && IsLoaded && _isProfileDirty)
+        {
+            _isProfileDirty = false;
+            SaveActiveProfile(showStatus: false);
+        }
+    }
+
+    private void SaveActiveProfile(bool showStatus)
+    {
+        try
+        {
+            var profileName = ReadSelectedProfileName();
+            var profile = BuildCurrentProfile(profileName);
+            var path = _profileStore.Save(profile, profileName);
+            _selectedProfileName = System.IO.Path.GetFileNameWithoutExtension(path);
+            _isProfileDirty = false;
+            if (showStatus)
+            {
+                _log.Info($"Profile created: {path}, candidates={profile.Candidates.Count}, slots={profile.Slots.Count}");
+                SetStatus(L.F("Profile created: {0}", path));
+            }
+        }
+        catch (Exception exception)
+        {
+            _isProfileDirty = true;
+            _log.Error("Profile auto-save failed.", exception);
+            SetStatus(L.F("Profile save failed: {0}", exception.Message));
+        }
     }
 
     private void LoadProfileButton_Click(object sender, RoutedEventArgs e) => LoadSelectedProfile();
@@ -966,7 +1082,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var profileName = ReadSelectedProfileName();
+        FlushProfileAutoSave();
+        var profileName = ReadProfileComboName();
         var profile = _profileStore.Load(profileName);
         if (profile is null)
         {
@@ -974,8 +1091,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        RefreshProfileList(profileName);
-        _layoutCanvasWidth = Math.Max(120, profile.CanvasWidth);
+        _isLoadingProfile = true;
+        try
+        {
+            RefreshProfileList(profileName);
+            _layoutCanvasWidth = Math.Max(120, profile.CanvasWidth);
         _layoutCanvasHeight = Math.Max(80, profile.CanvasHeight);
         _overlayLeft = profile.ScreenLeft;
         _overlayTop = profile.ScreenTop;
@@ -1069,12 +1189,19 @@ public partial class MainWindow : Window
             _overlaySlots.Add(slot);
         }
 
-        _nextSectionId = _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1;
-        RefreshSectionLabels();
-        UpdateCandidateOverlayFlags();
-        UpdateLayoutSummary();
-        _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
-        SetStatus(L.F("Profile loaded: {0} ({1} candidates, {2} slots).", _profileStore.GetProfilePath(profileName), _candidates.Count, profile.Slots.Count));
+            _nextSectionId = _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1;
+            RefreshSectionLabels();
+            UpdateCandidateOverlayFlags();
+            UpdateLayoutSummary();
+            _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
+            SetStatus(L.F("Profile loaded: {0} ({1} candidates, {2} slots).", _profileStore.GetProfilePath(profileName), _candidates.Count, profile.Slots.Count));
+        }
+        finally
+        {
+            _profileAutoSaveTimer.Stop();
+            _isProfileDirty = false;
+            _isLoadingProfile = false;
+        }
     }
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
@@ -2303,6 +2430,7 @@ public partial class MainWindow : Window
             if (args.PropertyName == nameof(SlotCandidate.IsSelected))
             {
                 UpdateCandidateVisual(candidate);
+                ScheduleProfileAutoSave();
             }
         };
         AddCandidateVisual(candidate);
@@ -2335,11 +2463,20 @@ public partial class MainWindow : Window
         UpdateCandidateOverlayFlags();
     }
 
+    private int RemoveOverlaySlotsForCandidates(IEnumerable<SlotCandidate> candidates)
+    {
+        var candidateSet = candidates.ToHashSet();
+        var candidateIds = candidateSet.Select(candidate => candidate.Id).ToHashSet();
+        return _overlaySlots.RemoveAll(slot =>
+            candidateSet.Contains(slot.Source) || candidateIds.Contains(slot.Source.Id));
+    }
+
     private void UpdateCandidateOverlayFlags()
     {
+        var overlayCandidateIds = _overlaySlots.Select(slot => slot.Source.Id).ToHashSet();
         foreach (var candidate in _candidates)
         {
-            candidate.IsInOverlay = _overlaySlots.Any(slot => ReferenceEquals(slot.Source, candidate));
+            candidate.IsInOverlay = overlayCandidateIds.Contains(candidate.Id);
         }
     }
 
@@ -2512,6 +2649,7 @@ public partial class MainWindow : Window
 
         _undoStack.Push(before);
         _redoStack.Clear();
+        ScheduleProfileAutoSave();
     }
 
     private void UndoCandidateEdit()
@@ -2526,6 +2664,7 @@ public partial class MainWindow : Window
         var previous = _undoStack.Pop();
         _redoStack.Push(current);
         RestoreCandidateSnapshot(previous);
+        ScheduleProfileAutoSave();
         SetStatus("Candidate edit undone.");
     }
 
@@ -2541,6 +2680,7 @@ public partial class MainWindow : Window
         var next = _redoStack.Pop();
         _undoStack.Push(current);
         RestoreCandidateSnapshot(next);
+        ScheduleProfileAutoSave();
         SetStatus("Candidate edit redone.");
     }
 
@@ -3013,6 +3153,11 @@ public partial class MainWindow : Window
     private string ReadSelectedProfileName() =>
         string.IsNullOrWhiteSpace(_selectedProfileName) ? "default" : _selectedProfileName;
 
+    private string ReadProfileComboName() =>
+        ProfileCombo.SelectedItem is string selected && !string.IsNullOrWhiteSpace(selected)
+            ? selected.Trim()
+            : ReadSelectedProfileName();
+
     private void RefreshProfileList(string? selectedProfileName = null)
     {
         var names = _profileStore.ListProfileNames().ToList();
@@ -3034,6 +3179,17 @@ public partial class MainWindow : Window
         _selectedProfileName = names.FirstOrDefault(name => string.Equals(name, selected, StringComparison.OrdinalIgnoreCase))
                                ?? names.FirstOrDefault()
                                ?? "default";
+        _isUpdatingProfileSelection = true;
+        try
+        {
+            ProfileCombo.ItemsSource = null;
+            ProfileCombo.ItemsSource = _profileNames;
+            ProfileCombo.SelectedItem = _selectedProfileName;
+        }
+        finally
+        {
+            _isUpdatingProfileSelection = false;
+        }
     }
 
     private static string GetSectionPatternName(int index) =>

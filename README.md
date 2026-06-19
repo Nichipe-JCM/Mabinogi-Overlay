@@ -12,7 +12,7 @@ Korean documentation is available at [docs/README.ko.md](docs/README.ko.md).
 
 Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
 
-Current version: `0.0.2-beta`
+Current version: `0.0.3-beta`
 
 This program was developed with assistance from OpenAI Codex and ChatGPT.
 
@@ -50,6 +50,8 @@ This program was developed with assistance from OpenAI Codex and ChatGPT.
 - Screen preview window for positioning the overlay on the real monitor.
 - Session log viewer for troubleshooting.
 - Portable profile storage with selectable save folder.
+- Profile creation, explicit loading, and automatic saving after layout changes.
+- Dedicated profile and overlay control sections in the main window.
 
 ## Technology Stack
 
