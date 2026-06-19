@@ -426,6 +426,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
@@ -442,9 +443,18 @@
                             </StackPanel>
                         </Border>
 
-                        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,14">
+                        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,8">
+                            <ComboBox x:Name="ProfileCombo"
+                                      Width="150"
+                                      Height="34"
+                                      Margin="4,0,0,0"
+                                      SelectionChanged="ProfileCombo_SelectionChanged"/>
+                            <Button x:Name="CreateProfileButton" MinWidth="82" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Create" loc:Localize.ContentKey="profile.create" Click="CreateProfileButton_Click"/>
+                            <Button x:Name="LoadProfileButton" MinWidth="76" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Load" loc:Localize.ContentKey="Load" Click="LoadProfileButton_Click"/>
                             <Button x:Name="OpenLayoutEditorButton" MinWidth="126" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
                             <Button x:Name="ClearLayoutButton" MinWidth="66" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearLayoutButton_Click"/>
+                        </WrapPanel>
+                        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="14,0,14,14">
                             <Button x:Name="StartOverlayButton" MinWidth="112" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Overlay start" loc:Localize.ContentKey="Overlay start" Click="StartOverlayButton_Click"/>
                             <Button x:Name="StopOverlayLayoutButton" MinWidth="112" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Overlay stop" loc:Localize.ContentKey="Overlay stop" Click="StopOverlayButton_Click"/>
                         </WrapPanel>

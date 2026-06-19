@@ -49,7 +49,6 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -57,23 +56,7 @@
                         <TextBlock Text="Profile" loc:Localize.TextKey="Profile" Style="{StaticResource SectionTitleStyle}"/>
                     </Border>
 
-                    <Border Grid.Row="1" Margin="14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Active profile" loc:Localize.TextKey="Active profile" Style="{StaticResource PanelTitleStyle}"/>
-                            <Grid Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="86"/>
-                                    <ColumnDefinition Width="86"/>
-                                </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="ProfileCombo" Grid.Column="0" Height="40"/>
-                                <Button Grid.Column="1" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Save" loc:Localize.ContentKey="Save" Click="SaveProfileButton_Click"/>
-                                <Button Grid.Column="2" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Load" loc:Localize.ContentKey="Load" Click="LoadProfileButton_Click"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="118" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="1" Margin="14" MinHeight="118" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
                             <TextBlock Text="Profile save folder" loc:Localize.TextKey="Profile save folder" Style="{StaticResource PanelTitleStyle}"/>
                             <Grid Margin="0,8,0,0">
@@ -93,7 +76,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
                             <TextBlock Text="Language" loc:Localize.TextKey="Language" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="LanguageCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>

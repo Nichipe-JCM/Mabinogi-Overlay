@@ -139,6 +139,8 @@ public partial class LayoutEditorWindow : Window
 
     public double GridSnapSize { get; private set; } = 10;
 
+    public event EventHandler? Applied;
+
     private void PopulateControls()
     {
         _isPopulatingControls = true;
@@ -299,6 +301,7 @@ public partial class LayoutEditorWindow : Window
         ApplySettingsFromControls();
         ClampSlotsToCanvas();
         RenderSlots();
+        Applied?.Invoke(this, EventArgs.Empty);
     }
 
     private void DeleteSelectedButton_Click(object sender, RoutedEventArgs e)

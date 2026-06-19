@@ -9,7 +9,7 @@ public partial class ProfileNameDialog : Window
     public ProfileNameDialog(string initialName)
     {
         InitializeComponent();
-        ProfileName = string.IsNullOrWhiteSpace(initialName) ? "default" : initialName.Trim();
+        ProfileName = initialName?.Trim() ?? string.Empty;
         ProfileNameBox.Text = ProfileName;
         ProfileNameBox.SelectAll();
         Loaded += (_, _) => ProfileNameBox.Focus();

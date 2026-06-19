@@ -15,8 +15,6 @@ public partial class SettingsWindow : Window
     public SettingsWindow(
         string profileDirectory,
         string defaultProfileDirectory,
-        IReadOnlyList<string> profileNames,
-        string selectedProfileName,
         OverlayRenderMode selectedRenderMode,
         CaptureBackend selectedCaptureBackend,
         string selectedLanguage,
@@ -29,19 +27,6 @@ public partial class SettingsWindow : Window
         _logSessionStartedAt = logSessionStartedAt;
         ProfileDirectory = profileDirectory;
         ProfileDirectoryBox.Text = profileDirectory;
-        SelectedProfileName = string.IsNullOrWhiteSpace(selectedProfileName) ? "default" : selectedProfileName.Trim();
-        var names = profileNames.Count == 0
-            ? new List<string> { "default" }
-            : profileNames.ToList();
-        if (!names.Contains(SelectedProfileName, StringComparer.OrdinalIgnoreCase))
-        {
-            names.Add(SelectedProfileName);
-            names = names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
-        }
-
-        ProfileCombo.ItemsSource = names;
-        ProfileCombo.SelectedItem = names.FirstOrDefault(name => string.Equals(name, SelectedProfileName, StringComparison.OrdinalIgnoreCase))
-                                    ?? names.FirstOrDefault();
 
         var renderModes = new List<RenderModeOption>
         {
@@ -75,15 +60,11 @@ public partial class SettingsWindow : Window
 
     public string ProfileDirectory { get; private set; }
 
-    public string SelectedProfileName { get; private set; }
-
     public OverlayRenderMode SelectedRenderMode { get; private set; }
 
     public CaptureBackend SelectedCaptureBackend { get; private set; }
 
     public string SelectedLanguage { get; private set; } = LocalizationService.English;
-
-    public SettingsProfileAction RequestedProfileAction { get; private set; } = SettingsProfileAction.None;
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
@@ -108,17 +89,7 @@ public partial class SettingsWindow : Window
 
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
-        Commit(SettingsProfileAction.None);
-    }
-
-    private void SaveProfileButton_Click(object sender, RoutedEventArgs e)
-    {
-        Commit(SettingsProfileAction.Save);
-    }
-
-    private void LoadProfileButton_Click(object sender, RoutedEventArgs e)
-    {
-        Commit(SettingsProfileAction.Load);
+        Commit();
     }
 
     private void BenchmarkButton_Click(object sender, RoutedEventArgs e)
@@ -139,7 +110,7 @@ public partial class SettingsWindow : Window
         window.ShowDialog();
     }
 
-    private void Commit(SettingsProfileAction action)
+    private void Commit()
     {
         var directory = ProfileDirectoryBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(directory))
@@ -150,9 +121,6 @@ public partial class SettingsWindow : Window
         try
         {
             ProfileDirectory = Path.GetFullPath(Environment.ExpandEnvironmentVariables(directory));
-            SelectedProfileName = ProfileCombo.SelectedItem is string selected && !string.IsNullOrWhiteSpace(selected)
-                ? selected.Trim()
-                : "default";
             SelectedRenderMode = RenderModeCombo.SelectedItem is RenderModeOption option
                 ? option.Mode
                 : OverlayRenderMode.CpuWpf;
@@ -162,7 +130,6 @@ public partial class SettingsWindow : Window
             SelectedLanguage = LanguageCombo.SelectedItem is LanguageOption languageOption
                 ? languageOption.Language
                 : LocalizationService.English;
-            RequestedProfileAction = action;
             DialogResult = true;
         }
         catch (Exception exception)
@@ -181,12 +148,5 @@ public partial class SettingsWindow : Window
     private sealed record CaptureBackendOption(CaptureBackend Backend, string Label);
 
     private sealed record LanguageOption(string Language, string Label);
-}
-
-public enum SettingsProfileAction
-{
-    None,
-    Save,
-    Load
 }
 
