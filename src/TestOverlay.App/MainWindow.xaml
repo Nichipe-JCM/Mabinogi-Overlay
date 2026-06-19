@@ -121,7 +121,7 @@
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
-                        <TextBlock Text="v0.0.2-beta" Style="{StaticResource MutedTextStyle}"/>
+                        <TextBlock Text="v0.0.3-beta" Style="{StaticResource MutedTextStyle}"/>
                     </StackPanel>
                 </Grid>
 
