@@ -115,7 +115,8 @@ public sealed class DxgiDesktopDuplicationCaptureService
                 Marshal.Copy(nint.Add(mapped.DataPointer, y * (int)mapped.RowPitch), pixels, y * stride, stride);
             }
 
-            var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+            // Desktop Duplication does not guarantee meaningful alpha; treat captured pixels as opaque RGB.
+            var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr32, null, pixels, stride);
             bitmap.Freeze();
             return bitmap;
         }
