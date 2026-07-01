@@ -24,6 +24,10 @@ public sealed class OverlayProfile
 
     public double GridSnapSize { get; set; } = 10;
 
+    public bool BuffMonitorEnabled { get; set; }
+
+    public bool TuarimMonitorEnabled { get; set; }
+
     public int SlotInnerSize { get; set; } = 29;
 
     public int SlotInnerWidth { get; set; } = 29;

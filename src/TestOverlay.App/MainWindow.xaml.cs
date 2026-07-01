@@ -38,9 +38,11 @@ public partial class MainWindow : Window
     private readonly string _detectSessionLogPath;
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly ObservableCollection<QuickslotSection> _sections = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
+    private readonly List<InternalBuffTimer> _internalBuffTimers = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private readonly SectionSettings[] _sectionSettings =
     [
@@ -59,6 +61,7 @@ public partial class MainWindow : Window
     private GameWindowInfo? _selectedWindow;
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
+    private InternalTimerOverlayWindow? _internalTimerOverlayWindow;
     private ErinTimerWindow? _erinTimerWindow;
     private GpuLiveOverlayService? _gpuLiveOverlayService;
     private SlotCandidate? _draggingCandidate;
@@ -97,6 +100,8 @@ public partial class MainWindow : Window
     private int _refreshFps = 30;
     private double _layoutSlotScale = 1.5;
     private double _layoutGridSnapSize = 10;
+    private bool _buffMonitorEnabled;
+    private bool _tuarimMonitorEnabled;
     private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
@@ -146,6 +151,7 @@ public partial class MainWindow : Window
         };
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         _profileAutoSaveTimer.Tick += (_, _) => FlushProfileAutoSave();
+        _internalTimerDebugTimer.Tick += InternalTimerDebugTimer_Tick;
         Loaded += MainWindow_Loaded;
         Closing += (_, _) => FlushProfileAutoSave();
         Closed += (_, _) =>
@@ -161,6 +167,7 @@ public partial class MainWindow : Window
         CaptureZoomText.Text = "100%";
         UpdateSectionGapLabels();
         UpdateLayoutSummary();
+        UpdateInternalTimerDebugStatus();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -181,6 +188,7 @@ public partial class MainWindow : Window
         UpdateSizeLabels();
         UpdateSectionGapLabels();
         UpdateLayoutSummary();
+        UpdateInternalTimerDebugStatus();
 
         if (WindowStatusText is not null)
         {
@@ -942,6 +950,110 @@ public partial class MainWindow : Window
         _erinTimerWindow.Show();
     }
 
+    private void BuffMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _buffMonitorEnabled = BuffMonitorEnabledCheckBox.IsChecked == true;
+        ScheduleProfileAutoSave();
+        RefreshInternalTimerOverlay();
+    }
+
+    private void TuarimMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _tuarimMonitorEnabled = TuarimMonitorEnabledCheckBox.IsChecked == true;
+        ScheduleProfileAutoSave();
+    }
+
+    private void DetectBuffWindowButton_Click(object sender, RoutedEventArgs e) =>
+        SetStatus("monitor.buff.detect.pending");
+
+    private void DetectTuarimUiButton_Click(object sender, RoutedEventArgs e) =>
+        SetStatus("monitor.tuarim.detect.pending");
+
+    private void LoadInternalTimerTestDataButton_Click(object sender, RoutedEventArgs e)
+    {
+        _internalBuffTimers.Clear();
+        _internalBuffTimers.AddRange(
+        [
+            new InternalBuffTimer("monitor.buff.battle.overture", 120),
+            new InternalBuffTimer("monitor.buff.march.song", 95),
+            new InternalBuffTimer("monitor.buff.vivace", 70),
+            new InternalBuffTimer("monitor.buff.harvest.song", 45)
+        ]);
+        _buffMonitorEnabled = true;
+        BuffMonitorEnabledCheckBox.IsChecked = true;
+        ScheduleProfileAutoSave();
+        UpdateInternalTimerDebugStatus();
+        RefreshInternalTimerOverlay();
+        SetStatus("monitor.timer.debug.loaded");
+    }
+
+    private void InternalTimerDebugTimer_Tick(object? sender, EventArgs e)
+    {
+        foreach (var timer in _internalBuffTimers)
+        {
+            timer.RemainingSeconds = Math.Max(0, timer.RemainingSeconds - 1);
+        }
+
+        UpdateInternalTimerDebugStatus();
+        _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
+    }
+
+    private void RefreshInternalTimerOverlay()
+    {
+        if (_overlayWindow is null)
+        {
+            return;
+        }
+
+        _internalTimerOverlayWindow?.Close();
+        _internalTimerOverlayWindow = null;
+        if (!_buffMonitorEnabled || _internalBuffTimers.Count == 0)
+        {
+            _internalTimerDebugTimer.Stop();
+            return;
+        }
+
+        StartInternalTimerOverlay();
+    }
+
+    private void StartInternalTimerOverlay()
+    {
+        if (!_buffMonitorEnabled || _internalBuffTimers.Count == 0)
+        {
+            return;
+        }
+
+        _internalTimerOverlayWindow?.Close();
+        _internalTimerOverlayWindow = new InternalTimerOverlayWindow(
+            _layoutCanvasWidth,
+            _layoutCanvasHeight,
+            _overlayOpacity,
+            _layoutSlotScale,
+            _internalBuffTimers)
+        {
+            Left = _overlayLeft,
+            Top = _overlayTop
+        };
+        _internalTimerOverlayWindow.Show();
+        _internalTimerOverlayWindow.UpdateLayout();
+        _internalTimerDebugTimer.Start();
+    }
+
+    private void UpdateInternalTimerDebugStatus()
+    {
+        if (InternalTimerDebugStatusText is null)
+        {
+            return;
+        }
+
+        InternalTimerDebugStatusText.Text = _internalBuffTimers.Count == 0
+            ? L.T("monitor.timer.debug.empty")
+            : string.Join(
+                " | ",
+                _internalBuffTimers.Select(timer =>
+                    $"{L.T(timer.NameKey)} {timer.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}"));
+    }
+
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isUpdatingProfileSelection || ProfileCombo.SelectedItem is not string)
@@ -995,6 +1107,8 @@ public partial class MainWindow : Window
             RefreshFps = _refreshFps,
             LayoutSlotScale = ReadLayoutSlotScale(),
             GridSnapSize = _layoutGridSnapSize,
+            BuffMonitorEnabled = _buffMonitorEnabled,
+            TuarimMonitorEnabled = _tuarimMonitorEnabled,
             SlotInnerSize = Math.Min(ReadSlotInnerWidth(), ReadSlotInnerHeight()),
             SlotInnerWidth = ReadSlotInnerWidth(),
             SlotInnerHeight = ReadSlotInnerHeight(),
@@ -1126,6 +1240,10 @@ public partial class MainWindow : Window
             : FpsFromInterval(profile.RefreshIntervalMs));
         _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 0.1, 10);
         _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
+        _buffMonitorEnabled = profile.BuffMonitorEnabled;
+        _tuarimMonitorEnabled = profile.TuarimMonitorEnabled;
+        BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
+        TuarimMonitorEnabledCheckBox.IsChecked = _tuarimMonitorEnabled;
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
         SlotWidthBox.Text = ReadSlotDimensionText(profileWidth, ReadSlotInnerWidth());
@@ -1226,7 +1344,9 @@ public partial class MainWindow : Window
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_overlaySlots.Count == 0)
+        var hasSlotOverlay = _overlaySlots.Count > 0;
+        var hasInternalTimerOverlay = _buffMonitorEnabled && _internalBuffTimers.Count > 0;
+        if (!hasSlotOverlay && !hasInternalTimerOverlay)
         {
             SetStatus("No slots are placed on the overlay canvas.");
             return;
@@ -1277,7 +1397,7 @@ public partial class MainWindow : Window
             _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
             _activeRenderMode = _appSettings.OverlayRenderMode;
             var captureBackend = CurrentCaptureBackend;
-            if (captureBackend != CaptureBackend.Wgc && _selectedWindow is null)
+            if (hasSlotOverlay && captureBackend != CaptureBackend.Wgc && _selectedWindow is null)
             {
                 StopOverlay(setStatus: false);
                 SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
@@ -1286,7 +1406,11 @@ public partial class MainWindow : Window
 
             ResetCpuRenderStats();
             var rendererMode = RenderModeLabel(_activeRenderMode);
-            if (_activeRenderMode == OverlayRenderMode.GpuDxgi && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
+            if (!hasSlotOverlay)
+            {
+                rendererMode = "monitor.internal.timer";
+            }
+            else if (_activeRenderMode == OverlayRenderMode.GpuDxgi && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
             {
                 try
                 {
@@ -1324,7 +1448,11 @@ public partial class MainWindow : Window
                 _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
             }
 
-            _liveOverlayTimer.Start();
+            StartInternalTimerOverlay();
+            if (hasSlotOverlay)
+            {
+                _liveOverlayTimer.Start();
+            }
             var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
             _log.Info(
                 $"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, " +
@@ -2819,12 +2947,15 @@ public partial class MainWindow : Window
     private void StopOverlay(bool setStatus = true)
     {
         _liveOverlayTimer.Stop();
+        _internalTimerDebugTimer.Stop();
         LogCpuRenderStats(final: true);
         _gpuLiveOverlayService?.Dispose();
         _gpuLiveOverlayService = null;
         _wgcCaptureService.StopLiveCapture();
         _overlayWindow?.Close();
         _overlayWindow = null;
+        _internalTimerOverlayWindow?.Close();
+        _internalTimerOverlayWindow = null;
         _hotkeyService?.Dispose();
         _hotkeyService = null;
         if (setStatus)

@@ -1,0 +1,26 @@
+<Window x:Class="TestOverlay.App.InternalTimerOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Internal Timer Overlay"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        Focusable="False">
+    <Canvas Background="Transparent" Focusable="False" IsHitTestVisible="False">
+        <Border x:Name="TimerPanel"
+                Canvas.Left="8"
+                Canvas.Top="8"
+                Padding="10,8"
+                Background="#E6111315"
+                BorderBrush="{StaticResource OverlayAccentBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                IsHitTestVisible="False">
+            <StackPanel x:Name="TimerRows"/>
+        </Border>
+    </Canvas>
+</Window>

@@ -329,7 +329,9 @@
                           Background="{StaticResource OverlayBorderBrush}"
                           Cursor="SizeWE"/>
 
-            <Grid Grid.Column="2">
+            <TabControl Grid.Column="2" Background="Transparent" BorderThickness="0">
+                <TabItem Header="Overlay" loc:Localize.HeaderKey="monitor.tab.overlay">
+            <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="1.35*"/>
                     <RowDefinition Height="14"/>
@@ -499,6 +501,110 @@
                     </Grid>
                 </Border>
             </Grid>
+                </TabItem>
+
+                <TabItem Header="Buff / Tuarim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="14"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
+                                    <TextBlock Text="Buff alerts" loc:Localize.TextKey="monitor.buff.title" Style="{StaticResource SectionTitleStyle}"/>
+                                </Border>
+                                <Grid Grid.Row="1" Margin="16">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <CheckBox x:Name="BuffMonitorEnabledCheckBox"
+                                              Content="Use buff monitoring"
+                                              loc:Localize.ContentKey="monitor.buff.enabled"
+                                              Click="BuffMonitorEnabledCheckBox_Click"/>
+                                    <TextBlock Grid.Row="1"
+                                               Margin="0,8,0,0"
+                                               Text="Monitor Battle Overture, March Song, Vivace, and Harvest Song with internal timers."
+                                               loc:Localize.TextKey="monitor.buff.description"
+                                               Style="{StaticResource MutedTextStyle}"/>
+                                    <Border Grid.Row="2" Margin="0,14,0,0" Style="{StaticResource InsetPanelStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="Internal timer debug" loc:Localize.TextKey="monitor.timer.debug.title" Style="{StaticResource PanelTitleStyle}"/>
+                                            <TextBlock Margin="0,6,0,0"
+                                                       Text="Load temporary timer values to verify the overlay timer presentation."
+                                                       loc:Localize.TextKey="monitor.timer.debug.description"
+                                                       Style="{StaticResource MutedTextStyle}"/>
+                                            <TextBlock x:Name="InternalTimerDebugStatusText" Margin="0,8,0,0" Style="{StaticResource MonoSummaryStyle}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,14,0,0">
+                                        <Button MinWidth="150" Height="36" Padding="14,0"
+                                                Content="Detect buff window"
+                                                loc:Localize.ContentKey="monitor.buff.detect"
+                                                Click="DetectBuffWindowButton_Click"/>
+                                        <Button MinWidth="154" Height="36" Padding="14,0" Margin="8,0,0,0"
+                                                Content="Load timer test data"
+                                                loc:Localize.ContentKey="monitor.timer.debug.load"
+                                                Click="LoadInternalTimerTestDataButton_Click"/>
+                                    </WrapPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource GlassCardStyle}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
+                                    <TextBlock Text="Tuarim alerts" loc:Localize.TextKey="monitor.tuarim.title" Style="{StaticResource SectionTitleStyle}"/>
+                                </Border>
+                                <Grid Grid.Row="1" Margin="16">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <CheckBox x:Name="TuarimMonitorEnabledCheckBox"
+                                              Content="Use Tuarim monitoring"
+                                              loc:Localize.ContentKey="monitor.tuarim.enabled"
+                                              Click="TuarimMonitorEnabledCheckBox_Click"/>
+                                    <TextBlock Grid.Row="1"
+                                               Margin="0,8,0,0"
+                                               Text="Track the Tuarim gauge UI and prepare a notification when its threshold is reached."
+                                               loc:Localize.TextKey="monitor.tuarim.description"
+                                               Style="{StaticResource MutedTextStyle}"/>
+                                    <Border Grid.Row="2" Margin="0,14,0,0" Style="{StaticResource InsetPanelStyle}">
+                                        <TextBlock Text="Recognition and alert behavior will be connected after the detection rules are finalized."
+                                                   loc:Localize.TextKey="monitor.recognition.pending"
+                                                   Style="{StaticResource MutedTextStyle}"/>
+                                    </Border>
+                                    <Button Grid.Row="3"
+                                            MinWidth="150"
+                                            Height="36"
+                                            Padding="14,0"
+                                            Margin="0,14,0,0"
+                                            HorizontalAlignment="Right"
+                                            Content="Detect Tuarim UI"
+                                            loc:Localize.ContentKey="monitor.tuarim.detect"
+                                            Click="DetectTuarimUiButton_Click"/>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+            </TabControl>
         </Grid>
 
         <Border Grid.Row="4" Padding="12,8" Style="{StaticResource GlassCardStyle}">
