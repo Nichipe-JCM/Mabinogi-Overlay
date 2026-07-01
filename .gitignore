@@ -22,3 +22,11 @@ run-dev.cmd
 Image/icon-build/
 docs/AGENTS.md
 docs/NEXT_SESSION_HANDOFF.md
+
+# Code-signing private material
+*.pfx
+*.p12
+*.pvk
+.signing/
+certificates/private/
+signing-password*
