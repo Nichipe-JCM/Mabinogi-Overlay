@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private GameWindowInfo? _selectedWindow;
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
+    private ErinTimerWindow? _erinTimerWindow;
     private GpuLiveOverlayService? _gpuLiveOverlayService;
     private SlotCandidate? _draggingCandidate;
     private Point _candidateDragStartPosition;
@@ -150,6 +151,7 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
+            _erinTimerWindow?.Close();
             StopOverlay(setStatus: false);
         };
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
@@ -920,6 +922,24 @@ public partial class MainWindow : Window
             _profileStore.ProfileDirectory,
             L.T(RenderModeLabel(_appSettings.OverlayRenderMode)),
             L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
+    }
+
+    private void ErinTimerButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_erinTimerWindow is { IsLoaded: true })
+        {
+            if (_erinTimerWindow.WindowState == WindowState.Minimized)
+            {
+                _erinTimerWindow.WindowState = WindowState.Normal;
+            }
+
+            _erinTimerWindow.Activate();
+            return;
+        }
+
+        _erinTimerWindow = new ErinTimerWindow(_log);
+        _erinTimerWindow.Closed += (_, _) => _erinTimerWindow = null;
+        _erinTimerWindow.Show();
     }
 
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

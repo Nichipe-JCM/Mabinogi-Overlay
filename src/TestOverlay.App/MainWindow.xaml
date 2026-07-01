@@ -139,6 +139,7 @@
                     <Button x:Name="ManualCaptureButton" MinWidth="124" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Manual capture" loc:Localize.ContentKey="Manual capture" Click="ManualCaptureButton_Click"/>
                     <Button x:Name="DetectButton" MinWidth="150" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Auto detect section" loc:Localize.ContentKey="Auto detect section" Click="DetectButton_Click"/>
                     <Button x:Name="DebugDetectButton" MinWidth="116" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Debug detect" loc:Localize.ContentKey="Debug detect" Click="DebugDetectButton_Click"/>
+                    <Button x:Name="ErinTimerButton" MinWidth="112" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Erin Timer" loc:Localize.ContentKey="erin.timer" Click="ErinTimerButton_Click"/>
                     <Button x:Name="SettingsButton" MinWidth="112" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Settings" loc:Localize.ContentKey="Settings" Click="SettingsButton_Click"/>
                 </WrapPanel>
             </Grid>
