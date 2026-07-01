@@ -26,7 +26,7 @@ public sealed class OverlayProfile
 
     public bool BuffMonitorEnabled { get; set; }
 
-    public bool TuarimMonitorEnabled { get; set; }
+    public bool TuairimMonitorEnabled { get; set; }
 
     public int SlotInnerSize { get; set; } = 29;
 
@@ -100,6 +100,12 @@ public sealed class OverlayProfileCandidate
     public double Score { get; set; }
 
     public bool IsSelected { get; set; }
+
+    public OverlayElementKind Kind { get; set; }
+
+    public string? DisplayNameKey { get; set; }
+
+    public bool IsBuiltIn { get; set; }
 }
 
 public sealed class OverlayProfileSection

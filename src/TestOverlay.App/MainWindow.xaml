@@ -344,6 +344,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
@@ -503,7 +504,7 @@
             </Grid>
                 </TabItem>
 
-                <TabItem Header="Buff / Tuarim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
+                <TabItem Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
@@ -567,7 +568,7 @@
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                                    <TextBlock Text="Tuarim alerts" loc:Localize.TextKey="monitor.tuarim.title" Style="{StaticResource SectionTitleStyle}"/>
+                                    <TextBlock Text="Tuairim alerts" loc:Localize.TextKey="monitor.tuairim.title" Style="{StaticResource SectionTitleStyle}"/>
                                 </Border>
                                 <Grid Grid.Row="1" Margin="16">
                                     <Grid.RowDefinitions>
@@ -576,14 +577,14 @@
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <CheckBox x:Name="TuarimMonitorEnabledCheckBox"
-                                              Content="Use Tuarim monitoring"
-                                              loc:Localize.ContentKey="monitor.tuarim.enabled"
-                                              Click="TuarimMonitorEnabledCheckBox_Click"/>
+                                    <CheckBox x:Name="TuairimMonitorEnabledCheckBox"
+                                              Content="Use Tuairim monitoring"
+                                              loc:Localize.ContentKey="monitor.tuairim.enabled"
+                                              Click="TuairimMonitorEnabledCheckBox_Click"/>
                                     <TextBlock Grid.Row="1"
                                                Margin="0,8,0,0"
-                                               Text="Track the Tuarim gauge UI and prepare a notification when its threshold is reached."
-                                               loc:Localize.TextKey="monitor.tuarim.description"
+                                               Text="Track the Tuairim gauge UI and prepare a notification when its threshold is reached."
+                                               loc:Localize.TextKey="monitor.tuairim.description"
                                                Style="{StaticResource MutedTextStyle}"/>
                                     <Border Grid.Row="2" Margin="0,14,0,0" Style="{StaticResource InsetPanelStyle}">
                                         <TextBlock Text="Recognition and alert behavior will be connected after the detection rules are finalized."
@@ -596,9 +597,9 @@
                                             Padding="14,0"
                                             Margin="0,14,0,0"
                                             HorizontalAlignment="Right"
-                                            Content="Detect Tuarim UI"
-                                            loc:Localize.ContentKey="monitor.tuarim.detect"
-                                            Click="DetectTuarimUiButton_Click"/>
+                                            Content="Detect Tuairim UI"
+                                            loc:Localize.ContentKey="monitor.tuairim.detect"
+                                            Click="DetectTuairimUiButton_Click"/>
                                 </Grid>
                             </Grid>
                         </Border>

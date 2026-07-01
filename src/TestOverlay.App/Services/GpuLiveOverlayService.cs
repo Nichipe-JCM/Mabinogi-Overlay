@@ -358,7 +358,7 @@ public sealed class GpuLiveOverlayService : IDisposable
 
     private void DrawSlot(ID2D1Bitmap1 frameBitmap, OverlaySlot slot)
     {
-        if (_d2dContext is null)
+        if (_d2dContext is null || slot.Kind != OverlayElementKind.Quickslot)
         {
             return;
         }

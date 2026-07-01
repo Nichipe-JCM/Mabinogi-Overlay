@@ -12,8 +12,6 @@
         Focusable="False">
     <Canvas Background="Transparent" Focusable="False" IsHitTestVisible="False">
         <Border x:Name="TimerPanel"
-                Canvas.Left="8"
-                Canvas.Top="8"
                 Padding="10,8"
                 Background="#E6111315"
                 BorderBrush="{StaticResource OverlayAccentBrush}"

@@ -1,0 +1,69 @@
+using System.Globalization;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using TestOverlay.App.Models;
+
+namespace TestOverlay.App.Services;
+
+public static class InternalBuffTimerPreviewRenderer
+{
+    public const int BaseWidth = 210;
+    public const int BaseHeight = 100;
+
+    public static IReadOnlyList<string> BuffNameKeys { get; } =
+    [
+        "monitor.buff.battle.overture",
+        "monitor.buff.march.song",
+        "monitor.buff.vivace",
+        "monitor.buff.harvest.song"
+    ];
+
+    public static BitmapSource Render(IReadOnlyList<InternalBuffTimer> timers)
+    {
+        var timerByKey = timers.ToDictionary(timer => timer.NameKey, StringComparer.Ordinal);
+        var visual = new DrawingVisual();
+        using (var context = visual.RenderOpen())
+        {
+            context.DrawRoundedRectangle(
+                new SolidColorBrush(Color.FromArgb(230, 17, 19, 21)),
+                new Pen(new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)), 1),
+                new Rect(0.5, 0.5, BaseWidth - 1, BaseHeight - 1),
+                6,
+                6);
+
+            var nameTypeface = new Typeface(new FontFamily("Segoe UI Variable, Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            var timeTypeface = new Typeface(new FontFamily("Cascadia Mono, Consolas"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            for (var index = 0; index < BuffNameKeys.Count; index++)
+            {
+                var key = BuffNameKeys[index];
+                var y = 8 + index * 22;
+                var name = CreateText(L.T(key), nameTypeface, 12, Brushes.White);
+                context.DrawText(name, new Point(10, y));
+
+                var hasTimer = timerByKey.TryGetValue(key, out var timer);
+                var value = hasTimer ? $"{timer!.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}" : "--:--";
+                var brush = hasTimer && timer!.RemainingSeconds <= 30
+                    ? new SolidColorBrush(Color.FromRgb(0xFF, 0xB4, 0xAB))
+                    : new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4));
+                var time = CreateText(value, timeTypeface, 12, brush);
+                context.DrawText(time, new Point(BaseWidth - 10 - time.WidthIncludingTrailingWhitespace, y));
+            }
+        }
+
+        var bitmap = new RenderTargetBitmap(BaseWidth, BaseHeight, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private static FormattedText CreateText(string text, Typeface typeface, double size, Brush brush) =>
+        new(
+            text,
+            CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            typeface,
+            size,
+            brush,
+            1);
+}

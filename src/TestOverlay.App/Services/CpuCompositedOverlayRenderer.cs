@@ -21,6 +21,11 @@ public sealed class CpuCompositedOverlayRenderer
 
         foreach (var slot in slots)
         {
+            if (slot.Kind != OverlayElementKind.Quickslot)
+            {
+                continue;
+            }
+
             CompositeSlot(sourceFrame, slot, defaultSlotOpacity);
         }
 

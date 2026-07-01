@@ -87,6 +87,11 @@ public partial class OverlayWindow : Window
 
         foreach (var slot in slots)
         {
+            if (slot.Kind != OverlayElementKind.Quickslot)
+            {
+                continue;
+            }
+
             var image = new Image
             {
                 Width = slot.OverlayRect.Width,

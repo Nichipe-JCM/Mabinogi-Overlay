@@ -10,23 +10,31 @@ namespace TestOverlay.App;
 
 public partial class InternalTimerOverlayWindow : Window
 {
-    private readonly double _scale;
     private HwndSource? _source;
     private IReadOnlyList<InternalBuffTimer> _timers = [];
 
     public InternalTimerOverlayWindow(
         double width,
         double height,
-        double opacity,
-        double scale,
+        double defaultOpacity,
+        OverlaySlot timerSlot,
         IReadOnlyList<InternalBuffTimer> timers)
     {
         InitializeComponent();
         Width = Math.Max(120, width);
         Height = Math.Max(80, height);
-        _scale = Math.Clamp(scale, 0.1, 10);
-        TimerPanel.Opacity = Math.Clamp(opacity, 0, 1);
-        TimerPanel.LayoutTransform = new ScaleTransform(_scale, _scale);
+        var scale = Math.Clamp(
+            Math.Min(
+                timerSlot.OverlayRect.Width / InternalBuffTimerPreviewRenderer.BaseWidth,
+                timerSlot.OverlayRect.Height / InternalBuffTimerPreviewRenderer.BaseHeight),
+            0.1,
+            10);
+        TimerPanel.Width = InternalBuffTimerPreviewRenderer.BaseWidth;
+        TimerPanel.Height = InternalBuffTimerPreviewRenderer.BaseHeight;
+        TimerPanel.Opacity = timerSlot.EffectiveOpacity(defaultOpacity);
+        TimerPanel.LayoutTransform = new ScaleTransform(scale, scale);
+        Canvas.SetLeft(TimerPanel, timerSlot.OverlayRect.X);
+        Canvas.SetTop(TimerPanel, timerSlot.OverlayRect.Y);
         Focusable = false;
         ShowActivated = false;
         ShowInTaskbar = false;
@@ -70,7 +78,8 @@ public partial class InternalTimerOverlayWindow : Window
         }
 
         TimerRows.Children.Clear();
-        foreach (var timer in _timers)
+        var timerByKey = _timers.ToDictionary(timer => timer.NameKey, StringComparer.Ordinal);
+        foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys)
         {
             var row = new Grid { Margin = new Thickness(0, 2, 0, 2), MinWidth = 154 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -78,19 +87,19 @@ public partial class InternalTimerOverlayWindow : Window
 
             var name = new TextBlock
             {
-                Text = L.T(timer.NameKey),
+                Text = L.T(nameKey),
                 FontSize = 12,
                 Foreground = (Brush)FindResource("OverlayTextBrush"),
                 VerticalAlignment = VerticalAlignment.Center
             };
             var time = new TextBlock
             {
-                Text = FormatTime(timer.RemainingSeconds),
+                Text = timerByKey.TryGetValue(nameKey, out var timer) ? FormatTime(timer.RemainingSeconds) : "--:--",
                 Margin = new Thickness(12, 0, 0, 0),
                 FontFamily = new FontFamily("Cascadia Mono, Consolas"),
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = timer.RemainingSeconds <= 30
+                Foreground = timer is not null && timer.RemainingSeconds <= 30
                     ? (Brush)FindResource("OverlayDangerBrush")
                     : (Brush)FindResource("OverlayAccentBrush"),
                 VerticalAlignment = VerticalAlignment.Center
@@ -101,7 +110,7 @@ public partial class InternalTimerOverlayWindow : Window
             TimerRows.Children.Add(row);
         }
 
-        TimerPanel.Visibility = _timers.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        TimerPanel.Visibility = Visibility.Visible;
     }
 
     private void LocalizationService_LanguageChanged(object? sender, EventArgs e) =>

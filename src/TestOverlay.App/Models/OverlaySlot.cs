@@ -19,6 +19,7 @@ public sealed class OverlaySlot
         Opacity = Math.Clamp(opacity, 0, 1);
         Scale = Math.Clamp(scale, 0.1, 10);
         HasOpacityOverride = hasOpacityOverride;
+        Kind = source.Kind;
     }
 
     public SlotCandidate Source { get; set; }
@@ -32,6 +33,8 @@ public sealed class OverlaySlot
     public double Scale { get; set; }
 
     public bool HasOpacityOverride { get; set; }
+
+    public OverlayElementKind Kind { get; }
 
     public double EffectiveOpacity(double defaultOpacity) =>
         Math.Clamp(HasOpacityOverride ? Opacity : defaultOpacity, 0, 1);
