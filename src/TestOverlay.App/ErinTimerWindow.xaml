@@ -44,9 +44,9 @@
 
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="0.9*"/>
+                <ColumnDefinition Width="0.6*"/>
                 <ColumnDefinition Width="14"/>
-                <ColumnDefinition Width="1.1*"/>
+                <ColumnDefinition Width="1.4*"/>
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0">
@@ -102,12 +102,12 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" MinWidth="72" Height="36" Padding="12,0" Content="-1 sec" loc:Localize.ContentKey="erin.minus.one.second" Click="SyncMinusButton_Click"/>
+                        <Button Grid.Column="0" MinWidth="72" Height="36" Padding="12,0" Content="-0.5 sec" loc:Localize.ContentKey="erin.minus.half.second" Click="SyncMinusButton_Click"/>
                         <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
                             <TextBlock Text="Time synchronization" loc:Localize.TextKey="erin.time.synchronization" HorizontalAlignment="Center" Style="{StaticResource PanelTitleStyle}"/>
                             <TextBlock x:Name="SyncDelayText" HorizontalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
-                        <Button Grid.Column="2" MinWidth="72" Height="36" Padding="12,0" Content="+1 sec" loc:Localize.ContentKey="erin.plus.one.second" Click="SyncPlusButton_Click"/>
+                        <Button Grid.Column="2" MinWidth="72" Height="36" Padding="12,0" Content="+0.5 sec" loc:Localize.ContentKey="erin.plus.half.second" Click="SyncPlusButton_Click"/>
                     </Grid>
                 </Border>
             </Grid>

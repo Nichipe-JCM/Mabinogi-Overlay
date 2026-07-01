@@ -14,7 +14,7 @@ public sealed class ErinTimerSettings
 
     public bool DesktopNotifications { get; set; } = true;
 
-    public double SyncDelaySeconds { get; set; } = 6.5;
+    public double SyncDelaySeconds { get; set; }
 
     public List<ErinAlarm> Alarms { get; set; } = [];
 }

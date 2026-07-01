@@ -412,9 +412,9 @@ public partial class ErinTimerWindow : Window
 
     private void StopSoundButton_Click(object sender, RoutedEventArgs e) => _mediaPlayer.Stop();
 
-    private void SyncMinusButton_Click(object sender, RoutedEventArgs e) => ChangeSyncDelay(-1);
+    private void SyncMinusButton_Click(object sender, RoutedEventArgs e) => ChangeSyncDelay(-0.5);
 
-    private void SyncPlusButton_Click(object sender, RoutedEventArgs e) => ChangeSyncDelay(1);
+    private void SyncPlusButton_Click(object sender, RoutedEventArgs e) => ChangeSyncDelay(0.5);
 
     private void ChangeSyncDelay(double delta)
     {
