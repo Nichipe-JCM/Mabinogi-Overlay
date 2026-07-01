@@ -17,30 +17,39 @@ public partial class InternalTimerOverlayWindow : Window
         double width,
         double height,
         double defaultOpacity,
-        OverlaySlot timerSlot,
+        OverlaySlot? timerSlot,
+        OverlaySlot? tuairimSlot,
         IReadOnlyList<InternalBuffTimer> timers)
     {
         InitializeComponent();
         Width = Math.Max(120, width);
         Height = Math.Max(80, height);
-        var scale = Math.Clamp(
-            Math.Min(
-                timerSlot.OverlayRect.Width / InternalBuffTimerPreviewRenderer.BaseWidth,
-                timerSlot.OverlayRect.Height / InternalBuffTimerPreviewRenderer.BaseHeight),
-            0.1,
-            10);
-        TimerPanel.Width = InternalBuffTimerPreviewRenderer.BaseWidth;
-        TimerPanel.Height = InternalBuffTimerPreviewRenderer.BaseHeight;
-        TimerPanel.Opacity = timerSlot.EffectiveOpacity(defaultOpacity);
-        TimerPanel.LayoutTransform = new ScaleTransform(scale, scale);
-        Canvas.SetLeft(TimerPanel, timerSlot.OverlayRect.X);
-        Canvas.SetTop(TimerPanel, timerSlot.OverlayRect.Y);
+        ConfigurePanel(
+            TimerPanel,
+            timerSlot,
+            InternalBuffTimerPreviewRenderer.BaseWidth,
+            InternalBuffTimerPreviewRenderer.BaseHeight,
+            defaultOpacity);
+        ConfigurePanel(
+            TuairimPanel,
+            tuairimSlot,
+            TuairimGaugePreviewRenderer.BaseWidth,
+            TuairimGaugePreviewRenderer.BaseHeight,
+            defaultOpacity);
         Focusable = false;
         ShowActivated = false;
         ShowInTaskbar = false;
         Topmost = true;
         SetTimers(timers);
+        SetTuairimPercent(0);
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
+    }
+
+    public void SetTuairimPercent(int percent)
+    {
+        percent = Math.Clamp(percent, 0, 100);
+        TuairimPercentText.Text = $"{percent}%";
+        TuairimGaugeFill.Width = Math.Max(0, (TuairimGaugePreviewRenderer.BaseWidth - 20) * percent / 100.0);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -110,13 +119,39 @@ public partial class InternalTimerOverlayWindow : Window
             TimerRows.Children.Add(row);
         }
 
-        TimerPanel.Visibility = Visibility.Visible;
+        TuairimLabel.Text = L.T("monitor.tuairim.overlay");
     }
 
     private void LocalizationService_LanguageChanged(object? sender, EventArgs e) =>
         Dispatcher.Invoke(RenderTimers);
 
     private static string FormatTime(int seconds) => $"{seconds / 60:00}:{seconds % 60:00}";
+
+    private static void ConfigurePanel(
+        FrameworkElement panel,
+        OverlaySlot? slot,
+        double baseWidth,
+        double baseHeight,
+        double defaultOpacity)
+    {
+        if (slot is null)
+        {
+            panel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var scale = Math.Clamp(
+            Math.Min(slot.OverlayRect.Width / baseWidth, slot.OverlayRect.Height / baseHeight),
+            0.1,
+            10);
+        panel.Width = baseWidth;
+        panel.Height = baseHeight;
+        panel.Opacity = slot.EffectiveOpacity(defaultOpacity);
+        panel.LayoutTransform = new ScaleTransform(scale, scale);
+        Canvas.SetLeft(panel, slot.OverlayRect.X);
+        Canvas.SetTop(panel, slot.OverlayRect.Y);
+        panel.Visibility = Visibility.Visible;
+    }
 
     private static void ApplyClickThroughStyles(nint handle)
     {

@@ -3,5 +3,6 @@ namespace TestOverlay.App.Models;
 public enum OverlayElementKind
 {
     Quickslot,
-    InternalBuffTimer
+    InternalBuffTimer,
+    TuairimGauge
 }

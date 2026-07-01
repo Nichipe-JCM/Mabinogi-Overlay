@@ -86,7 +86,7 @@ public sealed class SlotCandidate : INotifyPropertyChanged
         }
     }
 
-    public string Label => Kind == OverlayElementKind.InternalBuffTimer
+    public string Label => Kind != OverlayElementKind.Quickslot
         ? $"{(IsInOverlay ? "[overlay] " : string.Empty)}{TestOverlay.App.Services.L.T(DisplayNameKey ?? "monitor.timer.element")}"
         : $"{(IsInOverlay ? "[overlay] " : string.Empty)}#{Id:000}  " +
           $"{(string.IsNullOrWhiteSpace(SectionMembership) ? string.Empty : $"{SectionMembership}  ")}" +

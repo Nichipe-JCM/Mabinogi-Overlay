@@ -116,6 +116,7 @@ public partial class MainWindow : Window
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
         DataContext = new { Candidates = _candidates };
         EnsureInternalTimerCandidate();
+        EnsureTuairimGaugeCandidate();
         SectionCombo.ItemsSource = _sections;
         SectionPatternCombo.SelectionChanged += (_, _) =>
         {
@@ -460,9 +461,9 @@ public partial class MainWindow : Window
         var rowHeight = 0.0;
         foreach (var candidate in selected)
         {
-            var crop = candidate.Kind == OverlayElementKind.InternalBuffTimer
-                ? InternalBuffTimerPreviewRenderer.Render(_internalBuffTimers)
-                : _captureService.Crop(_capturedImage!, candidate.SourceRect);
+            var crop = candidate.Kind == OverlayElementKind.Quickslot
+                ? _captureService.Crop(_capturedImage!, candidate.SourceRect)
+                : RenderMonitorElementPreview(candidate.Kind);
             var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * ReadLayoutSlotScale());
             var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * ReadLayoutSlotScale());
             if (cursorX + width > _layoutCanvasWidth - 8)
@@ -959,6 +960,10 @@ public partial class MainWindow : Window
     private void BuffMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         _buffMonitorEnabled = BuffMonitorEnabledCheckBox.IsChecked == true;
+        if (_buffMonitorEnabled)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer);
+        }
         ScheduleProfileAutoSave();
         RefreshInternalTimerOverlay();
     }
@@ -966,7 +971,12 @@ public partial class MainWindow : Window
     private void TuairimMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         _tuairimMonitorEnabled = TuairimMonitorEnabledCheckBox.IsChecked == true;
+        if (_tuairimMonitorEnabled)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge);
+        }
         ScheduleProfileAutoSave();
+        RefreshInternalTimerOverlay();
     }
 
     private void DetectBuffWindowButton_Click(object sender, RoutedEventArgs e) =>
@@ -987,6 +997,7 @@ public partial class MainWindow : Window
         ]);
         _buffMonitorEnabled = true;
         BuffMonitorEnabledCheckBox.IsChecked = true;
+        EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer);
         ScheduleProfileAutoSave();
         UpdateInternalTimerDebugStatus();
         RefreshInternalTimerElementPreviews();
@@ -1014,7 +1025,7 @@ public partial class MainWindow : Window
 
         _internalTimerOverlayWindow?.Close();
         _internalTimerOverlayWindow = null;
-        if (!_buffMonitorEnabled)
+        if (!_buffMonitorEnabled && !_tuairimMonitorEnabled)
         {
             _internalTimerDebugTimer.Stop();
             return;
@@ -1025,8 +1036,13 @@ public partial class MainWindow : Window
 
     private void StartInternalTimerOverlay()
     {
-        var timerSlot = _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.InternalBuffTimer);
-        if (!_buffMonitorEnabled || timerSlot is null)
+        var timerSlot = _buffMonitorEnabled
+            ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.InternalBuffTimer)
+            : null;
+        var tuairimSlot = _tuairimMonitorEnabled
+            ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.TuairimGauge)
+            : null;
+        if (timerSlot is null && tuairimSlot is null)
         {
             return;
         }
@@ -1037,6 +1053,7 @@ public partial class MainWindow : Window
             _layoutCanvasHeight,
             _overlayOpacity,
             timerSlot,
+            tuairimSlot,
             _internalBuffTimers)
         {
             Left = _overlayLeft,
@@ -1052,10 +1069,9 @@ public partial class MainWindow : Window
 
     private void RefreshInternalTimerElementPreviews()
     {
-        var preview = InternalBuffTimerPreviewRenderer.Render(_internalBuffTimers);
-        foreach (var slot in _overlaySlots.Where(slot => slot.Kind == OverlayElementKind.InternalBuffTimer))
+        foreach (var slot in _overlaySlots.Where(slot => slot.Kind != OverlayElementKind.Quickslot))
         {
-            slot.Preview = preview;
+            slot.Preview = RenderMonitorElementPreview(slot.Kind);
         }
     }
 
@@ -1306,6 +1322,8 @@ public partial class MainWindow : Window
 
         var internalTimerCandidate = EnsureInternalTimerCandidate();
         loadedCandidates[internalTimerCandidate.Id] = internalTimerCandidate;
+        var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
+        loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
 
         foreach (var savedSection in profile.Sections)
         {
@@ -1346,9 +1364,9 @@ public partial class MainWindow : Window
                 loadedCandidates[candidate.Id] = candidate;
             }
 
-            var crop = candidate.Kind == OverlayElementKind.InternalBuffTimer
-                ? InternalBuffTimerPreviewRenderer.Render(_internalBuffTimers)
-                : _captureService.Crop(_capturedImage!, candidate.SourceRect);
+            var crop = candidate.Kind == OverlayElementKind.Quickslot
+                ? _captureService.Crop(_capturedImage!, candidate.SourceRect)
+                : RenderMonitorElementPreview(candidate.Kind);
             var hasOpacityOverride = savedSlot.HasOpacityOverride || Math.Abs(savedSlot.Opacity - 1) > 0.001;
             var slot = new OverlaySlot(
                 candidate,
@@ -1359,6 +1377,15 @@ public partial class MainWindow : Window
                 hasOpacityOverride);
             _overlaySlots.Add(slot);
         }
+
+            if (_buffMonitorEnabled)
+            {
+                EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer, scheduleAutoSave: false);
+            }
+            if (_tuairimMonitorEnabled)
+            {
+                EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave: false);
+            }
 
             _nextSectionId = _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1;
             RefreshSectionLabels();
@@ -1378,9 +1405,11 @@ public partial class MainWindow : Window
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
     {
         var hasSlotOverlay = _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.Quickslot);
-        var hasInternalTimerOverlay = _buffMonitorEnabled &&
-                                      _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.InternalBuffTimer);
-        if (!hasSlotOverlay && !hasInternalTimerOverlay)
+        var hasBuffOverlay = _buffMonitorEnabled &&
+                             _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.InternalBuffTimer);
+        var hasTuairimOverlay = _tuairimMonitorEnabled &&
+                                _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.TuairimGauge);
+        if (!hasSlotOverlay && !hasBuffOverlay && !hasTuairimOverlay)
         {
             SetStatus("No slots are placed on the overlay canvas.");
             return;
@@ -1442,7 +1471,7 @@ public partial class MainWindow : Window
             var rendererMode = RenderModeLabel(_activeRenderMode);
             if (!hasSlotOverlay)
             {
-                rendererMode = "monitor.internal.timer";
+                rendererMode = "monitor.internal.overlay";
             }
             else if (_activeRenderMode == OverlayRenderMode.GpuDxgi && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
             {
@@ -2640,6 +2669,64 @@ public partial class MainWindow : Window
         return candidate;
     }
 
+    private SlotCandidate EnsureTuairimGaugeCandidate()
+    {
+        var existing = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.TuairimGauge);
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var candidate = new SlotCandidate(
+            -2,
+            new Rect(0, 0, TuairimGaugePreviewRenderer.BaseWidth, TuairimGaugePreviewRenderer.BaseHeight),
+            100,
+            OverlayElementKind.TuairimGauge,
+            "monitor.tuairim.element",
+            isBuiltIn: true);
+        AddCandidate(candidate);
+        return candidate;
+    }
+
+    private void EnsureMonitorElementPlaced(OverlayElementKind kind, bool scheduleAutoSave = true)
+    {
+        if (_overlaySlots.Any(slot => slot.Kind == kind))
+        {
+            return;
+        }
+
+        var candidate = kind switch
+        {
+            OverlayElementKind.InternalBuffTimer => EnsureInternalTimerCandidate(),
+            OverlayElementKind.TuairimGauge => EnsureTuairimGaugeCandidate(),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only monitor elements can be auto-placed.")
+        };
+        var scale = ReadLayoutSlotScale();
+        var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * scale);
+        var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * scale);
+        var x = 8.0;
+        var y = _overlaySlots.Count == 0 ? 8.0 : _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + 8;
+        _overlaySlots.Add(new OverlaySlot(
+            candidate,
+            new Rect(x, y, width, height),
+            RenderMonitorElementPreview(kind),
+            scale: scale));
+        _layoutCanvasHeight = Math.Max(_layoutCanvasHeight, y + height + 8);
+        UpdateCandidateOverlayFlags();
+        UpdateLayoutSummary();
+        if (scheduleAutoSave)
+        {
+            ScheduleProfileAutoSave();
+        }
+    }
+
+    private BitmapSource RenderMonitorElementPreview(OverlayElementKind kind) => kind switch
+    {
+        OverlayElementKind.InternalBuffTimer => InternalBuffTimerPreviewRenderer.Render(_internalBuffTimers),
+        OverlayElementKind.TuairimGauge => TuairimGaugePreviewRenderer.Render(),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A quickslot requires a captured image crop.")
+    };
+
     private void UpdateCandidateVisual(SlotCandidate candidate)
     {
         if (!_candidateRects.TryGetValue(candidate, out var rect))
@@ -2922,6 +3009,8 @@ public partial class MainWindow : Window
 
         var internalTimerCandidate = EnsureInternalTimerCandidate();
         restoredById[internalTimerCandidate.Id] = internalTimerCandidate;
+        var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
+        restoredById[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
 
         CandidateList.SelectedItem = selected;
         QuickslotSection? selectedSection = null;
@@ -2974,9 +3063,9 @@ public partial class MainWindow : Window
             }
 
             slot.Source = restoredSource;
-            if (restoredSource.Kind == OverlayElementKind.InternalBuffTimer)
+            if (restoredSource.Kind != OverlayElementKind.Quickslot)
             {
-                slot.Preview = InternalBuffTimerPreviewRenderer.Render(_internalBuffTimers);
+                slot.Preview = RenderMonitorElementPreview(restoredSource.Kind);
             }
             else if (_capturedImage is not null)
             {
