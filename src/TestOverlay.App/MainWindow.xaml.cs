@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private readonly HashSet<string> _recognizedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, BuffIconMatch> _buffIconMatches = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _monitorDiagnosticKindsSaved = new(StringComparer.Ordinal);
     private readonly List<Rectangle> _monitorDetectionRects = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private readonly SectionSettings[] _sectionSettings =
@@ -1337,6 +1338,9 @@ public partial class MainWindow : Window
                     if (!match.IsActive && match.StateConfidence >= 0.03)
                     {
                         _internalBuffTimers.RemoveAll(timer => timer.NameKey == nameKey);
+                        _log.Info(
+                            $"Buff state: reason={reason}, key={nameKey}, active=false, " +
+                            $"stateConfidence={match.StateConfidence:0.000}");
                         continue;
                     }
                     if (!match.IsActive)
@@ -1366,6 +1370,10 @@ public partial class MainWindow : Window
                         timer.HasTuanExtension = read.RecognizedText.Contains("투안", StringComparison.Ordinal);
                         timer.HasHarmony = read.RecognizedText.Contains("하모니", StringComparison.Ordinal);
                     }
+                    else
+                    {
+                        SaveMonitorDiagnosticOnce(frame, read.Bounds, $"buff-{SanitizeDiagnosticName(nameKey)}");
+                    }
 
                     _log.Info(
                         $"Buff OCR: reason={reason}, key={nameKey}, active={match.IsActive}, " +
@@ -1385,6 +1393,10 @@ public partial class MainWindow : Window
                 {
                     _tuairimPercent = percent;
                     _internalTimerOverlayWindow?.SetTuairimPercent(percent);
+                }
+                else
+                {
+                    SaveMonitorDiagnosticOnce(frame, read.Bounds, "tuairim-percent");
                 }
 
                 _log.Info(
@@ -1426,6 +1438,28 @@ public partial class MainWindow : Window
             ? _dxgiCaptureService.CaptureClientArea(_selectedWindow)
             : _captureService.CaptureClientArea(_selectedWindow);
     }
+
+    private void SaveMonitorDiagnosticOnce(BitmapSource source, Rect bounds, string kind)
+    {
+        if (!_monitorDiagnosticKindsSaved.Add(kind))
+        {
+            return;
+        }
+
+        try
+        {
+            var prefix = $"monitor-{_log.SessionStartedAt:yyyyMMdd-HHmmss}-{kind}";
+            MonitorValueRecognitionService.SaveDiagnosticImages(source, bounds, _log.LogDirectory, prefix);
+            _log.Info($"Monitor OCR diagnostic saved: prefix={prefix}, bounds={FormatRect(bounds)}");
+        }
+        catch (Exception exception)
+        {
+            _log.Error($"Monitor OCR diagnostic save failed: kind={kind}", exception);
+        }
+    }
+
+    private static string SanitizeDiagnosticName(string value) =>
+        new(value.Select(character => char.IsLetterOrDigit(character) ? character : '-').ToArray());
 
     private void UpdateInternalTimerDebugStatus()
     {

@@ -27,18 +27,7 @@ public sealed partial class MonitorValueRecognitionService
         }
 
         var crop = Crop(source, rowBounds);
-        var text = await RecognizeAsync(crop).ConfigureAwait(false);
-        var seconds = ParseDurationSeconds(text);
-        if (seconds is null)
-        {
-            var highContrast = CreateTextMask(crop);
-            var maskText = await RecognizeAsync(highContrast).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(maskText))
-            {
-                text = string.IsNullOrWhiteSpace(text) ? maskText : $"{text} | {maskText}";
-            }
-            seconds = ParseDurationSeconds(maskText);
-        }
+        var (text, seconds) = await RecognizeCandidatesAsync(crop, ParseDurationSeconds).ConfigureAwait(false);
 
         return new BuffTimeReadResult(seconds, NormalizeText(text), rowBounds);
     }
@@ -54,20 +43,51 @@ public sealed partial class MonitorValueRecognitionService
         }
 
         var crop = Crop(source, valueBounds);
-        var text = await RecognizeAsync(crop).ConfigureAwait(false);
-        var percent = ParsePercent(text);
-        if (percent is null)
-        {
-            var highContrast = CreateTextMask(crop);
-            var maskText = await RecognizeAsync(highContrast).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(maskText))
-            {
-                text = string.IsNullOrWhiteSpace(text) ? maskText : $"{text} | {maskText}";
-            }
-            percent = ParsePercent(maskText);
-        }
+        var (text, percent) = await RecognizeCandidatesAsync(crop, ParsePercent).ConfigureAwait(false);
 
         return new TuairimPercentReadResult(percent, NormalizeText(text), valueBounds);
+    }
+
+    public static void SaveDiagnosticImages(BitmapSource source, Rect bounds, string directory, string prefix)
+    {
+        if (bounds.IsEmpty)
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(directory);
+        var crop = Crop(source, bounds);
+        SavePng(crop, Path.Combine(directory, $"{prefix}-raw.png"));
+        SavePng(CreateTextMask(crop, invert: false), Path.Combine(directory, $"{prefix}-mask-light.png"));
+        SavePng(CreateTextMask(crop, invert: true), Path.Combine(directory, $"{prefix}-mask-dark.png"));
+    }
+
+    private async Task<(string Text, int? Value)> RecognizeCandidatesAsync(
+        BitmapSource crop,
+        Func<string?, int?> parser)
+    {
+        var recognized = new List<string>();
+        foreach (var candidate in new[]
+                 {
+                     crop,
+                     CreateTextMask(crop, invert: false),
+                     CreateTextMask(crop, invert: true)
+                 })
+        {
+            var text = NormalizeText(await RecognizeAsync(candidate).ConfigureAwait(false));
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                recognized.Add(text);
+            }
+
+            var value = parser(text);
+            if (value is not null)
+            {
+                return (string.Join(" | ", recognized.Distinct()), value);
+            }
+        }
+
+        return (string.Join(" | ", recognized.Distinct()), null);
     }
 
     internal static int? ParseDurationSeconds(string? text)
@@ -173,7 +193,9 @@ public sealed partial class MonitorValueRecognitionService
     {
         var left = iconBounds.Right + Math.Max(2, iconBounds.Width * 0.15);
         var top = iconBounds.Top - Math.Max(2, iconBounds.Height * 0.2);
-        var right = Math.Min(monitorRoi.Right, source.PixelWidth);
+        var right = Math.Min(
+            source.PixelWidth,
+            Math.Max(monitorRoi.Right, iconBounds.Left + iconBounds.Width * 24));
         var bottom = Math.Min(
             monitorRoi.Bottom,
             iconBounds.Bottom + Math.Max(3, iconBounds.Height * 0.3));
@@ -182,8 +204,8 @@ public sealed partial class MonitorValueRecognitionService
 
     private static Rect CreateTuairimPercentBounds(BitmapSource source, Rect anchorBounds)
     {
-        var left = anchorBounds.Left + anchorBounds.Width * 0.28;
-        var top = anchorBounds.Top + anchorBounds.Height * 0.48;
+        var left = anchorBounds.Left + anchorBounds.Width * 0.43;
+        var top = anchorBounds.Top + anchorBounds.Height * 0.56;
         return ClampRect(
             new Rect(left, top, anchorBounds.Right - left, anchorBounds.Bottom - top),
             source.PixelWidth,
@@ -212,12 +234,41 @@ public sealed partial class MonitorValueRecognitionService
 
     private static BitmapSource Scale(BitmapSource source, int scale)
     {
-        var transformed = new TransformedBitmap(source, new ScaleTransform(scale, scale));
-        transformed.Freeze();
-        return transformed;
+        if (scale <= 1)
+        {
+            return source;
+        }
+
+        var converted = source.Format == PixelFormats.Bgra32
+            ? source
+            : new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        var sourceStride = converted.PixelWidth * 4;
+        var sourcePixels = new byte[sourceStride * converted.PixelHeight];
+        converted.CopyPixels(sourcePixels, sourceStride, 0);
+        var width = converted.PixelWidth * scale;
+        var height = converted.PixelHeight * scale;
+        var stride = width * 4;
+        var pixels = new byte[stride * height];
+        for (var y = 0; y < height; y++)
+        {
+            var sourceY = y / scale;
+            for (var x = 0; x < width; x++)
+            {
+                var sourceOffset = sourceY * sourceStride + x / scale * 4;
+                var targetOffset = y * stride + x * 4;
+                pixels[targetOffset] = sourcePixels[sourceOffset];
+                pixels[targetOffset + 1] = sourcePixels[sourceOffset + 1];
+                pixels[targetOffset + 2] = sourcePixels[sourceOffset + 2];
+                pixels[targetOffset + 3] = sourcePixels[sourceOffset + 3];
+            }
+        }
+
+        var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+        bitmap.Freeze();
+        return bitmap;
     }
 
-    private static BitmapSource CreateTextMask(BitmapSource source)
+    private static BitmapSource CreateTextMask(BitmapSource source, bool invert)
     {
         var converted = source.Format == PixelFormats.Bgra32
             ? source
@@ -230,10 +281,12 @@ public sealed partial class MonitorValueRecognitionService
             var blue = pixels[offset];
             var green = pixels[offset + 1];
             var red = pixels[offset + 2];
-            var brightNeutral = Math.Min(red, Math.Min(green, blue)) >= 150 &&
-                                Math.Max(red, Math.Max(green, blue)) - Math.Min(red, Math.Min(green, blue)) <= 85;
-            var redText = red >= 135 && red - green >= 45 && red - blue >= 35;
-            var value = (byte)(brightNeutral || redText ? 0 : 255);
+            var minimum = Math.Min(red, Math.Min(green, blue));
+            var maximum = Math.Max(red, Math.Max(green, blue));
+            var brightNeutral = minimum >= 110 && maximum - minimum <= 105;
+            var redText = red >= 105 && red - green >= 35 && red - blue >= 25;
+            var isText = brightNeutral || redText;
+            var value = (byte)(isText == invert ? 255 : 0);
             pixels[offset] = value;
             pixels[offset + 1] = value;
             pixels[offset + 2] = value;
@@ -253,16 +306,24 @@ public sealed partial class MonitorValueRecognitionService
         return bitmap;
     }
 
+    private static void SavePng(BitmapSource source, string path)
+    {
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source));
+        using var stream = File.Create(path);
+        encoder.Save(stream);
+    }
+
     private static string NormalizeText(string? text) =>
         Regex.Replace(text ?? string.Empty, @"\s+", " ").Trim();
 
     [GeneratedRegex(@"(\d{1,2})\s*[:：]\s*(\d{1,2})", RegexOptions.CultureInvariant)]
     private static partial Regex ColonDurationRegex();
 
-    [GeneratedRegex(@"(\d{1,2})\s*(?:분|m|min)\s*(\d{1,2})\s*(?:초|s|sec)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(\d{1,2})[^\d]{0,3}(?:분|m|min)[^\d]{0,5}(\d{1,2})[^\d]{0,3}(?:초|s|sec)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex LocalizedDurationRegex();
 
-    [GeneratedRegex(@"(\d{1,2})\s*(?:초|s|sec)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(\d{1,2})[^\d]{0,3}(?:초|s|sec)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SecondOnlyRegex();
 
     [GeneratedRegex(@"(\d{1,3})\s*[%％]", RegexOptions.CultureInvariant)]
