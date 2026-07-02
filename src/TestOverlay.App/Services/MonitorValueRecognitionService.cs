@@ -12,7 +12,7 @@ namespace TestOverlay.App.Services;
 
 public sealed partial class MonitorValueRecognitionService
 {
-    private const int OcrScale = 4;
+    private const int OcrScale = 8;
     private readonly Lazy<OcrEngine> _engine = new(CreateEngine);
 
     public async Task<BuffTimeReadResult> ReadBuffTimeAsync(
@@ -131,7 +131,13 @@ public sealed partial class MonitorValueRecognitionService
             return numbers[^2] * 60 + numbers[^1];
         }
 
-        return numbers.Count == 1 && numbers[0] <= 60 ? numbers[0] : null;
+        if (numbers.Count != 1 || numbers[0] > 60)
+        {
+            return null;
+        }
+
+        var compactSingleValue = SingleNumberOnlyRegex().IsMatch(normalized);
+        return compactSingleValue ? numbers[0] : null;
     }
 
     internal static int? ParsePercent(string? text)
@@ -160,7 +166,7 @@ public sealed partial class MonitorValueRecognitionService
     {
         var maxDimension = Math.Max(source.PixelWidth, source.PixelHeight);
         var scale = Math.Clamp(2400 / Math.Max(1, maxDimension), 1, OcrScale);
-        var scaled = Scale(source, scale);
+        var scaled = AddPadding(Scale(source, scale), Math.Max(24, scale * 4));
         using var stream = new InMemoryRandomAccessStream();
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(scaled));
@@ -204,10 +210,12 @@ public sealed partial class MonitorValueRecognitionService
 
     private static Rect CreateTuairimPercentBounds(BitmapSource source, Rect anchorBounds)
     {
-        var left = anchorBounds.Left + anchorBounds.Width * 0.43;
-        var top = anchorBounds.Top + anchorBounds.Height * 0.56;
+        var left = anchorBounds.Left + anchorBounds.Width * 0.55;
+        var top = anchorBounds.Top + anchorBounds.Height * 0.74;
+        var right = anchorBounds.Right + anchorBounds.Width * 0.35;
+        var bottom = anchorBounds.Bottom + anchorBounds.Height * 0.32;
         return ClampRect(
-            new Rect(left, top, anchorBounds.Right - left, anchorBounds.Bottom - top),
+            new Rect(left, top, right - left, bottom - top),
             source.PixelWidth,
             source.PixelHeight);
     }
@@ -306,6 +314,34 @@ public sealed partial class MonitorValueRecognitionService
         return bitmap;
     }
 
+    private static BitmapSource AddPadding(BitmapSource source, int padding)
+    {
+        var converted = source.Format == PixelFormats.Bgra32
+            ? source
+            : new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        var sourceStride = converted.PixelWidth * 4;
+        var sourcePixels = new byte[sourceStride * converted.PixelHeight];
+        converted.CopyPixels(sourcePixels, sourceStride, 0);
+        var width = converted.PixelWidth + padding * 2;
+        var height = converted.PixelHeight + padding * 2;
+        var stride = width * 4;
+        var pixels = new byte[stride * height];
+        Array.Fill(pixels, (byte)255);
+        for (var y = 0; y < converted.PixelHeight; y++)
+        {
+            System.Buffer.BlockCopy(
+                sourcePixels,
+                y * sourceStride,
+                pixels,
+                (y + padding) * stride + padding * 4,
+                sourceStride);
+        }
+
+        var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+        bitmap.Freeze();
+        return bitmap;
+    }
+
     private static void SavePng(BitmapSource source, string path)
     {
         var encoder = new PngBitmapEncoder();
@@ -331,6 +367,9 @@ public sealed partial class MonitorValueRecognitionService
 
     [GeneratedRegex(@"\d{1,3}", RegexOptions.CultureInvariant)]
     private static partial Regex NumberRegex();
+
+    [GeneratedRegex(@"^[^\p{L}\d]{0,2}\d{1,2}[^\p{L}\d]{0,2}$", RegexOptions.CultureInvariant)]
+    private static partial Regex SingleNumberOnlyRegex();
 }
 
 public sealed record BuffTimeReadResult(int? RemainingSeconds, string RecognizedText, Rect Bounds);

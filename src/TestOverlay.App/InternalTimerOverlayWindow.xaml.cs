@@ -98,19 +98,21 @@ public partial class InternalTimerOverlayWindow : Window
 
             var name = new TextBlock
             {
-                Text = L.T(nameKey),
+                Text = InternalBuffTimerPreviewRenderer.BuildDisplayName(
+                    nameKey,
+                    timerByKey.TryGetValue(nameKey, out var displayTimer) ? displayTimer : null),
                 FontSize = 12,
                 Foreground = (Brush)FindResource("OverlayTextBrush"),
                 VerticalAlignment = VerticalAlignment.Center
             };
             var time = new TextBlock
             {
-                Text = timerByKey.TryGetValue(nameKey, out var timer) ? FormatTime(timer.RemainingSeconds) : "--:--",
+                Text = displayTimer is not null ? FormatTime(displayTimer.RemainingSeconds) : "--:--",
                 Margin = new Thickness(12, 0, 0, 0),
                 FontFamily = new FontFamily("Cascadia Mono, Consolas"),
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = timer is not null && timer.RemainingSeconds <= 30
+                Foreground = displayTimer is not null && displayTimer.RemainingSeconds <= 30
                     ? (Brush)FindResource("OverlayDangerBrush")
                     : (Brush)FindResource("OverlayAccentBrush"),
                 VerticalAlignment = VerticalAlignment.Center

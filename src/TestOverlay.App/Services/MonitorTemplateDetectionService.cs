@@ -18,7 +18,11 @@ public sealed class MonitorTemplateDetectionService
         var rawMatches = new List<BuffIconMatch>();
         foreach (var descriptor in _catalog.Value.Buffs)
         {
-            var candidate = FindBestBuffCandidate(image, searchRoi, descriptor.On);
+            var onCandidate = FindBestBuffCandidate(image, searchRoi, descriptor.On);
+            var offCandidate = FindBestBuffCandidate(image, searchRoi, descriptor.Off);
+            var candidate = onCandidate is null || offCandidate is not null && offCandidate.Score > onCandidate.Score
+                ? offCandidate
+                : onCandidate;
             if (candidate is null || candidate.Score < MinimumBuffStructureScore)
             {
                 continue;
@@ -140,32 +144,75 @@ public sealed class MonitorTemplateDetectionService
             : null;
     }
 
+    public TuairimDetectionResult? TrackTuairim(BitmapSource source, Rect previousBounds)
+    {
+        var image = PixelImage.FromBitmapSource(source);
+        var template = _catalog.Value.Tuairim;
+        var width = Math.Max(24, (int)Math.Round(previousBounds.Width));
+        var height = Math.Max(20, (int)Math.Round(previousBounds.Height));
+        var scaled = template.Scale(width, height);
+        var kernel = MatchKernel.Create(scaled, MaskKind.TuairimStableShape, coarse: true);
+        var radiusX = Math.Max(240, width * 5);
+        var radiusY = Math.Max(180, height * 5);
+        var localRoi = ClampRoi(
+            new Rect(
+                previousBounds.X - radiusX,
+                previousBounds.Y - radiusY,
+                previousBounds.Width + radiusX * 2,
+                previousBounds.Height + radiusY * 2),
+            image.Width,
+            image.Height);
+        var best = Search(image, localRoi, kernel, step: 1, best: null);
+        if (best is null || best.Score < MinimumTuairimScore)
+        {
+            best = Search(image, new Rect(0, 0, image.Width, image.Height), kernel, step: 1, best);
+        }
+
+        if (best is null || best.Score < 0.55)
+        {
+            return null;
+        }
+
+        best = Refine(
+            image,
+            new Rect(0, 0, image.Width, image.Height),
+            template,
+            best,
+            MaskKind.TuairimStableShape,
+            sizeRadius: 2);
+        return best.Score >= MinimumTuairimScore
+            ? new TuairimDetectionResult(
+                new Rect(0, 0, image.Width, image.Height),
+                new Rect(best.X, best.Y, best.Width, best.Height),
+                best.Score)
+            : null;
+    }
+
     private static MatchCandidate? FindBestBuffCandidate(PixelImage image, Rect roi, TemplateImage template)
     {
-        var leftSearchWidth = Math.Min(roi.Width, Math.Max(64, roi.Width * 0.4));
-        var leftSearchRoi = new Rect(roi.X, roi.Y, leftSearchWidth, roi.Height);
+        var searchRoi = roi;
         var nativeKernel = MatchKernel.Create(template.Scale(16, 16), MaskKind.AllOpaque, coarse: true);
-        MatchCandidate? best = Search(image, leftSearchRoi, nativeKernel, step: 1, best: null);
+        MatchCandidate? best = Search(image, searchRoi, nativeKernel, step: 1, best: null);
         if (best is not null && best.Score >= 0.90)
         {
-            return Refine(image, leftSearchRoi, template, best, MaskKind.AllOpaque, sizeRadius: 1);
+            return Refine(image, searchRoi, template, best, MaskKind.AllOpaque, sizeRadius: 1);
         }
 
         for (var size = 12; size <= 32; size += 2)
         {
-            if (size > leftSearchRoi.Width || size > leftSearchRoi.Height)
+            if (size > searchRoi.Width || size > searchRoi.Height)
             {
                 continue;
             }
 
             var scaled = template.Scale(size, size);
             var kernel = MatchKernel.Create(scaled, MaskKind.AllOpaque, coarse: true);
-            best = Search(image, leftSearchRoi, kernel, step: 1, best);
+            best = Search(image, searchRoi, kernel, step: 1, best);
         }
 
         return best is null
             ? null
-            : Refine(image, leftSearchRoi, template, best, MaskKind.AllOpaque, sizeRadius: 2);
+            : Refine(image, searchRoi, template, best, MaskKind.AllOpaque, sizeRadius: 2);
     }
 
     private static MatchCandidate? Search(

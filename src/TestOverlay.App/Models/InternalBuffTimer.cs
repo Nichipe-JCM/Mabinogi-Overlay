@@ -17,4 +17,13 @@ public sealed class InternalBuffTimer
     public bool HasHarmony { get; set; }
 
     public string LastRecognizedText { get; set; } = string.Empty;
+
+    public int ConsecutiveZeroConfirmations { get; set; }
+
+    public int? PendingObservedSeconds { get; set; }
+
+    public int PendingObservationConfirmations { get; set; }
+
+    public bool NeedsFastVerification =>
+        ConsecutiveZeroConfirmations > 0 || PendingObservedSeconds is not null || RemainingSeconds <= 1;
 }

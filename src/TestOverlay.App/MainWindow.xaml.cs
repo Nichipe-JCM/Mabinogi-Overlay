@@ -117,7 +117,6 @@ public partial class MainWindow : Window
     private Rect? _buffMonitorRoi;
     private Rect? _tuairimMonitorRoi;
     private Rect? _tuairimAnchor;
-    private DateTimeOffset _lastInternalTimerUpdateAt;
     private DateTimeOffset _nextMonitorValueRecognitionAt;
     private int _tuairimPercent;
     private string _lastStatusMessage = string.Empty;
@@ -1193,23 +1192,23 @@ public partial class MainWindow : Window
     private async void InternalTimerDebugTimer_Tick(object? sender, EventArgs e)
     {
         var now = DateTimeOffset.UtcNow;
-        var elapsedSeconds = _lastInternalTimerUpdateAt == default
-            ? 1
-            : Math.Max(1, (int)Math.Floor((now - _lastInternalTimerUpdateAt).TotalSeconds));
-        _lastInternalTimerUpdateAt = now;
         var reachedVerificationPoint = false;
         foreach (var timer in _internalBuffTimers)
         {
             var previousSeconds = timer.RemainingSeconds;
-            timer.RemainingSeconds = Math.Max(0, timer.RemainingSeconds - elapsedSeconds);
+            timer.RemainingSeconds = Math.Max(1, timer.RemainingSeconds - 1);
             reachedVerificationPoint |= previousSeconds > 30 && timer.RemainingSeconds <= 30;
         }
 
         UpdateInternalTimerDebugStatus();
         _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
-        if (reachedVerificationPoint || now >= _nextMonitorValueRecognitionAt)
+        var needsFastVerification = _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
+        if (reachedVerificationPoint || needsFastVerification || now >= _nextMonitorValueRecognitionAt)
         {
-            await SynchronizeMonitorValuesAsync(reachedVerificationPoint ? "threshold-30" : "periodic");
+            var reason = reachedVerificationPoint
+                ? "threshold-30"
+                : needsFastVerification ? "fast-verification" : "periodic";
+            await SynchronizeMonitorValuesAsync(reason);
         }
     }
 
@@ -1259,7 +1258,6 @@ public partial class MainWindow : Window
         };
         _internalTimerOverlayWindow.Show();
         _internalTimerOverlayWindow.UpdateLayout();
-        _lastInternalTimerUpdateAt = DateTimeOffset.UtcNow;
         _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
         _monitorValueRecognitionGeneration++;
         _internalTimerDebugTimer.Start();
@@ -1337,10 +1335,7 @@ public partial class MainWindow : Window
 
                     if (!match.IsActive && match.StateConfidence >= 0.03)
                     {
-                        _internalBuffTimers.RemoveAll(timer => timer.NameKey == nameKey);
-                        _log.Info(
-                            $"Buff state: reason={reason}, key={nameKey}, active=false, " +
-                            $"stateConfidence={match.StateConfidence:0.000}");
+                        RegisterBuffZeroConfirmation(nameKey, reason, "inactive");
                         continue;
                     }
                     if (!match.IsActive)
@@ -1355,20 +1350,7 @@ public partial class MainWindow : Window
                     }
                     if (read.RemainingSeconds is int remainingSeconds)
                     {
-                        var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
-                        if (timer is null)
-                        {
-                            timer = new InternalBuffTimer(nameKey, remainingSeconds);
-                            _internalBuffTimers.Add(timer);
-                        }
-                        else
-                        {
-                            timer.RemainingSeconds = remainingSeconds;
-                        }
-
-                        timer.LastRecognizedText = read.RecognizedText;
-                        timer.HasTuanExtension = read.RecognizedText.Contains("투안", StringComparison.Ordinal);
-                        timer.HasHarmony = read.RecognizedText.Contains("하모니", StringComparison.Ordinal);
+                        ApplyBuffTimeObservation(nameKey, remainingSeconds, read.RecognizedText, reason);
                     }
                     else
                     {
@@ -1384,7 +1366,19 @@ public partial class MainWindow : Window
 
             if (shouldReadTuairim && _tuairimAnchor is Rect tuairimAnchor)
             {
-                var read = await _monitorValueRecognition.ReadTuairimPercentAsync(frame, tuairimAnchor);
+                var tracked = await Task.Run(() => _monitorTemplateDetection.TrackTuairim(frame, tuairimAnchor));
+                if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
+                {
+                    return;
+                }
+                if (tracked is null)
+                {
+                    _log.Info($"Tuairim tracking: reason={reason}, result=none, previous={FormatRect(tuairimAnchor)}");
+                    return;
+                }
+
+                _tuairimAnchor = tracked.Bounds;
+                var read = await _monitorValueRecognition.ReadTuairimPercentAsync(frame, tracked.Bounds);
                 if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
                 {
                     return;
@@ -1400,8 +1394,8 @@ public partial class MainWindow : Window
                 }
 
                 _log.Info(
-                    $"Tuairim OCR: reason={reason}, percent={read.Percent?.ToString() ?? "none"}, " +
-                    $"bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
+                    $"Tuairim OCR: reason={reason}, score={tracked.Score:0.000}, " +
+                    $"percent={read.Percent?.ToString() ?? "none"}, bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
             }
 
             UpdateInternalTimerDebugStatus();
@@ -1417,8 +1411,87 @@ public partial class MainWindow : Window
             _isMonitorValueRecognitionBusy = false;
             if (generation == _monitorValueRecognitionGeneration)
             {
-                _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(10);
+                var delaySeconds = _internalBuffTimers.Any(timer => timer.NeedsFastVerification) ? 1 : 10;
+                _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(delaySeconds);
             }
+        }
+    }
+
+    private void ApplyBuffTimeObservation(string nameKey, int observedSeconds, string recognizedText, string reason)
+    {
+        var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+        if (observedSeconds <= 0)
+        {
+            RegisterBuffZeroConfirmation(nameKey, reason, "ocr-zero");
+            return;
+        }
+
+        if (timer is null)
+        {
+            timer = new InternalBuffTimer(nameKey, observedSeconds);
+            _internalBuffTimers.Add(timer);
+        }
+        else
+        {
+            timer.ConsecutiveZeroConfirmations = 0;
+            var difference = observedSeconds - timer.RemainingSeconds;
+            if (difference < -3)
+            {
+                timer.PendingObservedSeconds = null;
+                timer.PendingObservationConfirmations = 0;
+                _log.Info(
+                    $"Buff OCR rejected downward jump: reason={reason}, key={nameKey}, " +
+                    $"current={timer.RemainingSeconds}, observed={observedSeconds}");
+            }
+            else if (difference <= 12)
+            {
+                timer.RemainingSeconds = observedSeconds;
+                timer.PendingObservedSeconds = null;
+                timer.PendingObservationConfirmations = 0;
+            }
+            else if (timer.PendingObservedSeconds is int pending && Math.Abs(pending - observedSeconds) <= 4)
+            {
+                timer.PendingObservationConfirmations++;
+                if (timer.PendingObservationConfirmations >= 2)
+                {
+                    timer.RemainingSeconds = observedSeconds;
+                    timer.PendingObservedSeconds = null;
+                    timer.PendingObservationConfirmations = 0;
+                }
+            }
+            else
+            {
+                timer.PendingObservedSeconds = observedSeconds;
+                timer.PendingObservationConfirmations = 1;
+                _log.Info(
+                    $"Buff OCR deferred: reason={reason}, key={nameKey}, current={timer.RemainingSeconds}, observed={observedSeconds}");
+            }
+        }
+
+        timer.LastRecognizedText = recognizedText;
+        timer.HasTuanExtension = recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal);
+        timer.HasHarmony = recognizedText.Contains("\uD558\uBAA8\uB2C8", StringComparison.Ordinal);
+    }
+
+    private void RegisterBuffZeroConfirmation(string nameKey, string reason, string source)
+    {
+        var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+        if (timer is null)
+        {
+            return;
+        }
+
+        timer.RemainingSeconds = Math.Max(1, timer.RemainingSeconds);
+        timer.PendingObservedSeconds = null;
+        timer.PendingObservationConfirmations = 0;
+        timer.ConsecutiveZeroConfirmations++;
+        _log.Info(
+            $"Buff zero confirmation: reason={reason}, key={nameKey}, source={source}, " +
+            $"count={timer.ConsecutiveZeroConfirmations}/5");
+        if (timer.ConsecutiveZeroConfirmations >= 5)
+        {
+            _internalBuffTimers.Remove(timer);
+            _log.Info($"Buff expired after confirmation: key={nameKey}");
         }
     }
 
@@ -1473,7 +1546,8 @@ public partial class MainWindow : Window
             : string.Join(
                 " | ",
                 _internalBuffTimers.Select(timer =>
-                    $"{L.T(timer.NameKey)} {timer.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}"));
+                    $"{InternalBuffTimerPreviewRenderer.BuildDisplayName(timer.NameKey, timer)} " +
+                    $"{timer.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}"));
     }
 
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -4,7 +4,9 @@ using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
 
-if (args.Length >= 6 && args[0].Equals("buff", StringComparison.OrdinalIgnoreCase))
+if (args.Length >= 6 &&
+    (args[0].Equals("buff", StringComparison.OrdinalIgnoreCase) ||
+     args[0].Equals("buff-value", StringComparison.OrdinalIgnoreCase)))
 {
     var image = LoadImage(args[1]);
     var roi = ParseRoi(args, 2);
@@ -17,15 +19,28 @@ if (args.Length >= 6 && args[0].Equals("buff", StringComparison.OrdinalIgnoreCas
         Console.WriteLine(
             $"{match.NameKey},{FormatRect(match.Bounds)},score={match.StructureScore:0.0000}," +
             $"active={match.IsActive},stateConfidence={match.StateConfidence:0.0000}");
+        if (args[0].Equals("buff-value", StringComparison.OrdinalIgnoreCase) && match.IsActive)
+        {
+            var value = await new MonitorValueRecognitionService().ReadBuffTimeAsync(image, result.Roi, match.Bounds);
+            Console.WriteLine(
+                $"  seconds={value.RemainingSeconds?.ToString() ?? "none"},text={value.RecognizedText}," +
+                $"valueBounds={FormatRect(value.Bounds)}");
+        }
     }
     return result.Matches.Count > 0 ? 0 : 1;
 }
 
-if (args.Length >= 6 && args[0].Equals("tuairim", StringComparison.OrdinalIgnoreCase))
+if (args.Length >= 6 &&
+    (args[0].Equals("tuairim", StringComparison.OrdinalIgnoreCase) ||
+     args[0].Equals("tuairim-value", StringComparison.OrdinalIgnoreCase) ||
+     args[0].Equals("tuairim-track", StringComparison.OrdinalIgnoreCase)))
 {
     var image = LoadImage(args[1]);
     var roi = ParseRoi(args, 2);
-    var result = new MonitorTemplateDetectionService().DetectTuairim(image, roi);
+    var detector = new MonitorTemplateDetectionService();
+    var result = args[0].Equals("tuairim-track", StringComparison.OrdinalIgnoreCase)
+        ? detector.TrackTuairim(image, roi)
+        : detector.DetectTuairim(image, roi);
     Console.WriteLine($"image={image.PixelWidth}x{image.PixelHeight}");
     Console.WriteLine($"roi={FormatRect(roi)}");
     if (result is null)
@@ -37,6 +52,19 @@ if (args.Length >= 6 && args[0].Equals("tuairim", StringComparison.OrdinalIgnore
     Console.WriteLine("count=1");
     Console.WriteLine($"bounds={FormatRect(result.Bounds)}");
     Console.WriteLine($"score={result.Score:0.0000}");
+    if (args[0].Equals("tuairim-value", StringComparison.OrdinalIgnoreCase))
+    {
+        var value = await new MonitorValueRecognitionService().ReadTuairimPercentAsync(image, result.Bounds);
+        Console.WriteLine($"percent={value.Percent?.ToString() ?? "none"}");
+        Console.WriteLine($"text={value.RecognizedText}");
+        Console.WriteLine($"valueBounds={FormatRect(value.Bounds)}");
+        if (value.Percent is null)
+        {
+            var diagnosticDirectory = Path.Combine(AppContext.BaseDirectory, "probe-diagnostics");
+            MonitorValueRecognitionService.SaveDiagnosticImages(image, value.Bounds, diagnosticDirectory, "tuairim-value");
+            Console.WriteLine($"diagnostics={diagnosticDirectory}");
+        }
+    }
     return 0;
 }
 
@@ -45,7 +73,10 @@ if (args.Length < 6)
     Console.Error.WriteLine("Usage:");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe <image-path> <top|vertical> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe buff <image-path> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe buff-value <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim <image-path> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-value <image-path> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-track <image-path> <previous-x> <previous-y> <width> <height>");
     return 2;
 }
 

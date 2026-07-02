@@ -45,10 +45,11 @@ public static class InternalBuffTimerPreviewRenderer
             {
                 var key = visibleKeys[index];
                 var y = 8 + index * RowHeight;
-                var name = CreateText(L.T(key), nameTypeface, 12, Brushes.White);
+                timerByKey.TryGetValue(key, out var timer);
+                var name = CreateText(BuildDisplayName(key, timer), nameTypeface, 12, Brushes.White);
                 context.DrawText(name, new Point(10, y));
 
-                var hasTimer = timerByKey.TryGetValue(key, out var timer);
+                var hasTimer = timer is not null;
                 var value = hasTimer ? $"{timer!.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}" : "--:--";
                 var brush = hasTimer && timer!.RemainingSeconds <= 30
                     ? new SolidColorBrush(Color.FromRgb(0xFF, 0xB4, 0xAB))
@@ -72,6 +73,23 @@ public static class InternalBuffTimerPreviewRenderer
 
     public static int GetBaseHeight(int visibleBuffCount) =>
         VerticalPadding + Math.Max(1, visibleBuffCount) * RowHeight;
+
+    public static string BuildDisplayName(string nameKey, InternalBuffTimer? timer)
+    {
+        var tags = new List<string>();
+        if (timer?.HasHarmony == true)
+        {
+            tags.Add(L.T("monitor.buff.tag.harmony"));
+        }
+        if (timer?.HasTuanExtension == true)
+        {
+            tags.Add(L.T("monitor.buff.tag.tuan"));
+        }
+
+        return tags.Count == 0
+            ? L.T(nameKey)
+            : $"{L.T(nameKey)} [{string.Join("] [", tags)}]";
+    }
 
     private static FormattedText CreateText(string text, Typeface typeface, double size, Brush brush) =>
         new(
