@@ -10,6 +10,7 @@
         Width="1660"
         MinHeight="920"
         MinWidth="1360"
+        WindowStartupLocation="CenterScreen"
         Background="{StaticResource OverlayBgBrush}"
         PreviewKeyDown="Window_PreviewKeyDown"
         KeyDown="Window_KeyDown"
