@@ -4,57 +4,103 @@ using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
 
+if (args.Length >= 6 && args[0].Equals("buff", StringComparison.OrdinalIgnoreCase))
+{
+    var image = LoadImage(args[1]);
+    var roi = ParseRoi(args, 2);
+    var result = new MonitorTemplateDetectionService().DetectBuffs(image, roi);
+    Console.WriteLine($"image={image.PixelWidth}x{image.PixelHeight}");
+    Console.WriteLine($"roi={FormatRect(result.Roi)}");
+    Console.WriteLine($"count={result.Matches.Count}");
+    foreach (var match in result.Matches)
+    {
+        Console.WriteLine(
+            $"{match.NameKey},{FormatRect(match.Bounds)},score={match.StructureScore:0.0000}," +
+            $"active={match.IsActive},stateConfidence={match.StateConfidence:0.0000}");
+    }
+    return result.Matches.Count > 0 ? 0 : 1;
+}
+
+if (args.Length >= 6 && args[0].Equals("tuairim", StringComparison.OrdinalIgnoreCase))
+{
+    var image = LoadImage(args[1]);
+    var roi = ParseRoi(args, 2);
+    var result = new MonitorTemplateDetectionService().DetectTuairim(image, roi);
+    Console.WriteLine($"image={image.PixelWidth}x{image.PixelHeight}");
+    Console.WriteLine($"roi={FormatRect(roi)}");
+    if (result is null)
+    {
+        Console.WriteLine("count=0");
+        return 1;
+    }
+
+    Console.WriteLine("count=1");
+    Console.WriteLine($"bounds={FormatRect(result.Bounds)}");
+    Console.WriteLine($"score={result.Score:0.0000}");
+    return 0;
+}
+
 if (args.Length < 6)
 {
-    Console.Error.WriteLine("Usage: TestOverlay.DetectionProbe <image-path> <top|vertical> <x> <y> <width> <height>");
+    Console.Error.WriteLine("Usage:");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe <image-path> <top|vertical> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe buff <image-path> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim <image-path> <x> <y> <width> <height>");
     return 2;
 }
 
-var imagePath = Path.GetFullPath(args[0]);
+var quickslotImage = LoadImage(args[0]);
 var patternKind = args[1].Equals("vertical", StringComparison.OrdinalIgnoreCase)
     ? QuickslotSectionPatternKind.Vertical
     : QuickslotSectionPatternKind.TopGrouped;
-var x = double.Parse(args[2]);
-var y = double.Parse(args[3]);
-var width = double.Parse(args[4]);
-var height = double.Parse(args[5]);
+var quickslotRoi = ParseRoi(args, 2);
+var quickslotResult = new RoiSectionDetectionService().Detect(quickslotImage, quickslotRoi, patternKind);
 
-if (!File.Exists(imagePath))
-{
-    Console.Error.WriteLine($"Image not found: {imagePath}");
-    return 3;
-}
-
-var image = new BitmapImage();
-image.BeginInit();
-image.CacheOption = BitmapCacheOption.OnLoad;
-image.UriSource = new Uri(imagePath);
-image.EndInit();
-image.Freeze();
-
-var detector = new RoiSectionDetectionService();
-var result = detector.Detect(image, new Rect(x, y, width, height), patternKind);
-
-Console.WriteLine($"image={image.PixelWidth}x{image.PixelHeight}");
-Console.WriteLine($"roi={x:0},{y:0},{width:0}x{height:0}");
+Console.WriteLine($"image={quickslotImage.PixelWidth}x{quickslotImage.PixelHeight}");
+Console.WriteLine($"roi={FormatRect(quickslotRoi)}");
 Console.WriteLine($"pattern={patternKind}");
-if (result is null)
+if (quickslotResult is null)
 {
     Console.WriteLine("count=0");
     return 1;
 }
 
-Console.WriteLine($"count={result.Slots.Count}");
-Console.WriteLine($"gapX={result.SmallGapX:0}");
-Console.WriteLine($"gapY={result.SmallGapY:0}");
-Console.WriteLine($"largeGap={result.LargeGap:0}");
-Console.WriteLine($"score={result.Score:0.00}");
-Console.WriteLine($"detectedSlotSize={result.Slots[0].Width:0}x{result.Slots[0].Height:0}");
+Console.WriteLine($"count={quickslotResult.Slots.Count}");
+Console.WriteLine($"gapX={quickslotResult.SmallGapX:0}");
+Console.WriteLine($"gapY={quickslotResult.SmallGapY:0}");
+Console.WriteLine($"largeGap={quickslotResult.LargeGap:0}");
+Console.WriteLine($"score={quickslotResult.Score:0.00}");
+Console.WriteLine($"detectedSlotSize={quickslotResult.Slots[0].Width:0}x{quickslotResult.Slots[0].Height:0}");
 Console.WriteLine("id,x,y,width,height,score");
-for (var i = 0; i < result.Slots.Count; i++)
+for (var index = 0; index < quickslotResult.Slots.Count; index++)
 {
-    var slot = result.Slots[i];
-    Console.WriteLine($"{i + 1},{slot.X:0},{slot.Y:0},{slot.Width:0},{slot.Height:0},{result.Score:0.00}");
+    var slot = quickslotResult.Slots[index];
+    Console.WriteLine($"{index + 1},{slot.X:0},{slot.Y:0},{slot.Width:0},{slot.Height:0},{quickslotResult.Score:0.00}");
 }
 
 return 0;
+
+static BitmapSource LoadImage(string path)
+{
+    var imagePath = Path.GetFullPath(path);
+    if (!File.Exists(imagePath))
+    {
+        throw new FileNotFoundException("Image not found.", imagePath);
+    }
+
+    var image = new BitmapImage();
+    image.BeginInit();
+    image.CacheOption = BitmapCacheOption.OnLoad;
+    image.UriSource = new Uri(imagePath);
+    image.EndInit();
+    image.Freeze();
+    return image;
+}
+
+static Rect ParseRoi(string[] values, int offset) => new(
+    double.Parse(values[offset]),
+    double.Parse(values[offset + 1]),
+    double.Parse(values[offset + 2]),
+    double.Parse(values[offset + 3]));
+
+static string FormatRect(Rect rect) => $"{rect.X:0},{rect.Y:0},{rect.Width:0}x{rect.Height:0}";

@@ -29,6 +29,15 @@
   <ItemGroup>
     <Resource Include="..\..\Image\Logo.png" Link="Image\Logo.png" />
     <Resource Include="..\..\Image\AppIcon.ico" Link="Image\AppIcon.ico" />
+    <Resource Include="..\..\Image\BattlefieldOff.png" Link="Image\BattlefieldOff.png" />
+    <Resource Include="..\..\Image\BattlefieldOn.png" Link="Image\BattlefieldOn.png" />
+    <Resource Include="..\..\Image\MarchOff.png" Link="Image\MarchOff.png" />
+    <Resource Include="..\..\Image\MarchOn.png" Link="Image\MarchOn.png" />
+    <Resource Include="..\..\Image\RichyearOff.png" Link="Image\RichyearOff.png" />
+    <Resource Include="..\..\Image\RichyearOn.png" Link="Image\RichyearOn.png" />
+    <Resource Include="..\..\Image\Tuairim.png" Link="Image\Tuairim.png" />
+    <Resource Include="..\..\Image\VivaceOff.png" Link="Image\VivaceOff.png" />
+    <Resource Include="..\..\Image\VivaceOn.png" Link="Image\VivaceOn.png" />
   </ItemGroup>
 
   <ItemGroup>

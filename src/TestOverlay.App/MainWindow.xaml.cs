@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly CpuCompositedOverlayRenderer _cpuCompositedRenderer = new();
+    private readonly MonitorTemplateDetectionService _monitorTemplateDetection = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly ProfileStore _profileStore;
     private AppSettings _appSettings;
@@ -45,6 +46,8 @@ public partial class MainWindow : Window
     private readonly List<InternalBuffTimer> _internalBuffTimers = new();
     private readonly HashSet<string> _recognizedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedBuffNameKeys = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, BuffIconMatch> _buffIconMatches = new(StringComparer.Ordinal);
+    private readonly List<Rectangle> _monitorDetectionRects = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private readonly SectionSettings[] _sectionSettings =
     [
@@ -76,6 +79,9 @@ public partial class MainWindow : Window
     private bool _isSelectingDetectionRoi;
     private bool _isAwaitingDebugDetectionRoi;
     private bool _isSelectingDebugDetectionRoi;
+    private MonitorDetectionMode _monitorDetectionMode;
+    private bool _isSelectingMonitorDetectionRoi;
+    private bool _isMonitorDetectionBusy;
     private DebugDetectionExpectation _debugDetectionExpectation = DebugDetectionExpectation.TopGrouped1();
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection;
@@ -104,6 +110,9 @@ public partial class MainWindow : Window
     private double _layoutGridSnapSize = 10;
     private bool _buffMonitorEnabled;
     private bool _tuairimMonitorEnabled;
+    private Rect? _buffMonitorRoi;
+    private Rect? _tuairimMonitorRoi;
+    private Rect? _tuairimAnchor;
     private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
@@ -212,6 +221,7 @@ public partial class MainWindow : Window
         {
             DebugDetectButton.Content = _isAwaitingDebugDetectionRoi ? L.T("Drag debug ROI...") : L.T("Debug detect");
         }
+        UpdateMonitorDetectionButtonPresentation();
 
         if (!string.IsNullOrEmpty(_lastStatusMessage) && StatusText is not null)
         {
@@ -348,6 +358,15 @@ public partial class MainWindow : Window
         _candidates.Clear();
         ClearCandidateRects();
         ClearSections();
+        ClearMonitorDetectionVisuals();
+        _buffMonitorRoi = null;
+        _buffIconMatches.Clear();
+        _recognizedBuffNameKeys.Clear();
+        _selectedBuffNameKeys.Clear();
+        _tuairimMonitorRoi = null;
+        _tuairimAnchor = null;
+        EnsureEnabledMonitorElementsPlaced();
+        UpdateMonitorControlAvailability();
         SetStatus(L.F("{0}. Run slot detection next.", status));
     }
 
@@ -965,8 +984,15 @@ public partial class MainWindow : Window
         _buffMonitorEnabled = BuffMonitorEnabledCheckBox.IsChecked == true;
         if (!_buffMonitorEnabled)
         {
+            if (_monitorDetectionMode == MonitorDetectionMode.BuffWindow)
+            {
+                SetMonitorDetectionMode(MonitorDetectionMode.None);
+            }
             _recognizedBuffNameKeys.Clear();
             _selectedBuffNameKeys.Clear();
+            _buffMonitorRoi = null;
+            _buffIconMatches.Clear();
+            RefreshMonitorDetectionVisuals();
         }
         SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled);
         UpdateMonitorControlAvailability();
@@ -977,6 +1003,16 @@ public partial class MainWindow : Window
     private void TuairimMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         _tuairimMonitorEnabled = TuairimMonitorEnabledCheckBox.IsChecked == true;
+        if (!_tuairimMonitorEnabled && _monitorDetectionMode == MonitorDetectionMode.Tuairim)
+        {
+            SetMonitorDetectionMode(MonitorDetectionMode.None);
+        }
+        if (!_tuairimMonitorEnabled)
+        {
+            _tuairimMonitorRoi = null;
+            _tuairimAnchor = null;
+            RefreshMonitorDetectionVisuals();
+        }
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
         UpdateMonitorControlAvailability();
         RefreshInternalTimerOverlay();
@@ -988,13 +1024,31 @@ public partial class MainWindow : Window
         {
             return;
         }
+        if (_capturedImage is null)
+        {
+            SetStatus("No captured image is available.");
+            return;
+        }
 
-        ApplyRecognizedBuffs(InternalBuffTimerPreviewRenderer.BuffNameKeys);
-        SetStatus("monitor.buff.detected.all");
+        SetMonitorDetectionMode(MonitorDetectionMode.BuffWindow);
+        SetStatus("monitor.buff.detect.drag");
     }
 
-    private void DetectTuairimUiButton_Click(object sender, RoutedEventArgs e) =>
-        SetStatus("monitor.tuairim.detect.pending");
+    private void DetectTuairimUiButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_tuairimMonitorEnabled || _overlayWindow is not null)
+        {
+            return;
+        }
+        if (_capturedImage is null)
+        {
+            SetStatus("No captured image is available.");
+            return;
+        }
+
+        SetMonitorDetectionMode(MonitorDetectionMode.Tuairim);
+        SetStatus("monitor.tuairim.detect.drag");
+    }
 
     private void BuffSelectionCheckBox_Click(object sender, RoutedEventArgs e)
     {
@@ -1087,16 +1141,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        var canEdit = _overlayWindow is null;
-        BuffMonitorEnabledCheckBox.IsEnabled = canEdit;
-        TuairimMonitorEnabledCheckBox.IsEnabled = canEdit;
-        DetectBuffWindowButton.IsEnabled = canEdit && _buffMonitorEnabled;
-        LoadInternalTimerTestDataButton.IsEnabled = canEdit && _buffMonitorEnabled;
-        DetectTuairimUiButton.IsEnabled = canEdit && _tuairimMonitorEnabled;
+        var baseEditable = _overlayWindow is null && !_isMonitorDetectionBusy;
+        var settingsEditable = baseEditable && _monitorDetectionMode == MonitorDetectionMode.None;
+        BuffMonitorEnabledCheckBox.IsEnabled = settingsEditable;
+        TuairimMonitorEnabledCheckBox.IsEnabled = settingsEditable;
+        DetectBuffWindowButton.IsEnabled = baseEditable &&
+                                           _buffMonitorEnabled &&
+                                           _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.BuffWindow;
+        LoadInternalTimerTestDataButton.IsEnabled = settingsEditable && _buffMonitorEnabled;
+        DetectTuairimUiButton.IsEnabled = baseEditable &&
+                                         _tuairimMonitorEnabled &&
+                                         _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.Tuairim;
         foreach (var checkBox in BuffSelectionCheckBoxes())
         {
             var nameKey = checkBox.Tag as string;
-            checkBox.IsEnabled = canEdit &&
+            checkBox.IsEnabled = settingsEditable &&
                                  _buffMonitorEnabled &&
                                  nameKey is not null &&
                                  _recognizedBuffNameKeys.Contains(nameKey);
@@ -1271,6 +1330,20 @@ public partial class MainWindow : Window
             SelectedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
                 .Where(_selectedBuffNameKeys.Contains)
                 .ToList(),
+            BuffMonitorRoi = ToProfileRect(_buffMonitorRoi),
+            BuffAnchors = _buffIconMatches.Values
+                .OrderBy(match => match.Bounds.Y)
+                .Select(match => new OverlayProfileBuffAnchor
+                {
+                    NameKey = match.NameKey,
+                    Bounds = ToProfileRect(match.Bounds)!,
+                    StructureScore = match.StructureScore,
+                    IsActive = match.IsActive,
+                    StateConfidence = match.StateConfidence
+                })
+                .ToList(),
+            TuairimMonitorRoi = ToProfileRect(_tuairimMonitorRoi),
+            TuairimAnchor = ToProfileRect(_tuairimAnchor),
             SlotInnerSize = Math.Min(ReadSlotInnerWidth(), ReadSlotInnerHeight()),
             SlotInnerWidth = ReadSlotInnerWidth(),
             SlotInnerHeight = ReadSlotInnerHeight(),
@@ -1411,18 +1484,37 @@ public partial class MainWindow : Window
         _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();
+        _buffIconMatches.Clear();
+        _buffMonitorRoi = FromProfileRect(profile.BuffMonitorRoi);
+        _tuairimMonitorRoi = FromProfileRect(profile.TuairimMonitorRoi);
+        _tuairimAnchor = FromProfileRect(profile.TuairimAnchor);
         if (_buffMonitorEnabled)
         {
-            foreach (var key in profile.RecognizedBuffNameKeys.Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
+            foreach (var key in (profile.RecognizedBuffNameKeys ?? []).Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
             {
                 _recognizedBuffNameKeys.Add(key);
             }
-            foreach (var key in InternalBuffTimerPreviewRenderer.BuffNameKeys.Where(profile.SelectedBuffNameKeys.Contains))
+            foreach (var key in InternalBuffTimerPreviewRenderer.BuffNameKeys.Where((profile.SelectedBuffNameKeys ?? []).Contains))
             {
                 if (_recognizedBuffNameKeys.Contains(key) && CanAddBuffSelection(key))
                 {
                     _selectedBuffNameKeys.Add(key);
                 }
+            }
+            foreach (var savedAnchor in profile.BuffAnchors ?? [])
+            {
+                var bounds = FromProfileRect(savedAnchor.Bounds);
+                if (bounds is null || !InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains(savedAnchor.NameKey))
+                {
+                    continue;
+                }
+
+                _buffIconMatches[savedAnchor.NameKey] = new BuffIconMatch(
+                    savedAnchor.NameKey,
+                    bounds.Value,
+                    savedAnchor.StructureScore,
+                    savedAnchor.IsActive,
+                    savedAnchor.StateConfidence);
             }
         }
         BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
@@ -1547,6 +1639,7 @@ public partial class MainWindow : Window
             UpdateLayoutSummary();
             RefreshInternalTimerElementPreviews();
             UpdateMonitorControlAvailability();
+            RefreshMonitorDetectionVisuals();
             _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
             SetStatus(L.F("Profile loaded: {0} ({1} candidates, {2} slots).", _profileStore.GetProfilePath(profileName), _candidates.Count, profile.Slots.Count));
         }
@@ -1769,6 +1862,13 @@ public partial class MainWindow : Window
     private void CaptureCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var position = e.GetPosition(CaptureCanvas);
+        if (_monitorDetectionMode != MonitorDetectionMode.None)
+        {
+            BeginMonitorDetectionRoiSelection(position);
+            e.Handled = true;
+            return;
+        }
+
         if (_isAwaitingDebugDetectionRoi)
         {
             BeginDebugDetectionRoiSelection(position);
@@ -1798,6 +1898,12 @@ public partial class MainWindow : Window
         }
 
         var position = e.GetPosition(CaptureCanvas);
+        if (_isSelectingMonitorDetectionRoi)
+        {
+            UpdateDetectionRoiSelection(position);
+            return;
+        }
+
         if (_isSelectingDebugDetectionRoi)
         {
             UpdateDetectionRoiSelection(position);
@@ -1830,6 +1936,12 @@ public partial class MainWindow : Window
 
     private void CaptureCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (_isSelectingMonitorDetectionRoi)
+        {
+            EndMonitorDetectionRoiSelection();
+            return;
+        }
+
         if (_isSelectingDebugDetectionRoi)
         {
             EndDebugDetectionRoiSelection();
@@ -1969,12 +2081,15 @@ public partial class MainWindow : Window
     {
         var hadDetection = _isSelectingDetectionRoi || (cancelAwaitingModes && _isAwaitingDetectionRoi);
         var hadDebugDetection = _isSelectingDebugDetectionRoi || (cancelAwaitingModes && _isAwaitingDebugDetectionRoi);
+        var hadMonitorDetection = _isSelectingMonitorDetectionRoi ||
+                                  cancelAwaitingModes && _monitorDetectionMode != MonitorDetectionMode.None;
         var hadSelection = _selectionRect is not null ||
                            _isSelectingCandidates ||
                            _isSelectingDetectionRoi ||
-                           _isSelectingDebugDetectionRoi;
+                           _isSelectingDebugDetectionRoi ||
+                           _isSelectingMonitorDetectionRoi;
         var hadDrag = _draggingCandidate is not null;
-        if (!hadSelection && !hadDrag && !hadDetection && !hadDebugDetection)
+        if (!hadSelection && !hadDrag && !hadDetection && !hadDebugDetection && !hadMonitorDetection)
         {
             return false;
         }
@@ -1992,6 +2107,12 @@ public partial class MainWindow : Window
         {
             _isSelectingDebugDetectionRoi = false;
             SetDebugDetectionMode(active: false);
+        }
+
+        if (hadMonitorDetection)
+        {
+            _isSelectingMonitorDetectionRoi = false;
+            SetMonitorDetectionMode(MonitorDetectionMode.None);
         }
 
         _isSelectingCandidates = false;
@@ -2013,7 +2134,9 @@ public partial class MainWindow : Window
         _candidateDragOrigins.Clear();
         _candidateDragSnapshotBefore = null;
         ReleaseCaptureSafely(CaptureCanvas);
-        SetStatus(hadDebugDetection
+        SetStatus(hadMonitorDetection
+            ? "monitor.detect.canceled"
+            : hadDebugDetection
             ? "Debug detect canceled."
             : hadDetection
                 ? "Section detection canceled."
@@ -2084,6 +2207,24 @@ public partial class MainWindow : Window
         CaptureCanvas.CaptureMouse();
     }
 
+    private void BeginMonitorDetectionRoiSelection(Point position)
+    {
+        _isSelectingMonitorDetectionRoi = true;
+        _selectionStartPosition = position;
+        _selectionRect = new Rectangle
+        {
+            Stroke = CreateProjectAccentBrush(),
+            StrokeThickness = 2,
+            StrokeDashArray = new DoubleCollection { 6, 3 },
+            Fill = CreateProjectAccentBrush(30),
+            IsHitTestVisible = false
+        };
+        CaptureCanvas.Children.Add(_selectionRect);
+        Canvas.SetLeft(_selectionRect, position.X);
+        Canvas.SetTop(_selectionRect, position.Y);
+        CaptureCanvas.CaptureMouse();
+    }
+
     private void UpdateDetectionRoiSelection(Point position) => UpdateSelectionRectangle(position);
 
     private void EndDetectionRoiSelection()
@@ -2141,11 +2282,170 @@ public partial class MainWindow : Window
         RunDebugDetection(roi, _debugDetectionExpectation);
     }
 
+    private async void EndMonitorDetectionRoiSelection()
+    {
+        var mode = _monitorDetectionMode;
+        var roi = Rect.Empty;
+        if (_selectionRect is not null)
+        {
+            roi = new Rect(
+                Canvas.GetLeft(_selectionRect),
+                Canvas.GetTop(_selectionRect),
+                _selectionRect.Width,
+                _selectionRect.Height);
+            RemoveSelectionRectangle();
+        }
+
+        _isSelectingMonitorDetectionRoi = false;
+        ReleaseCaptureSafely(CaptureCanvas);
+        SetMonitorDetectionMode(MonitorDetectionMode.None);
+        var capturedImage = _capturedImage;
+        if (capturedImage is null || roi.Width < 16 || roi.Height < 16)
+        {
+            SetStatus("monitor.detect.area.too.small");
+            return;
+        }
+
+        _isMonitorDetectionBusy = true;
+        UpdateMonitorControlAvailability();
+        SetStatus("monitor.detect.processing");
+        try
+        {
+            if (mode == MonitorDetectionMode.BuffWindow)
+            {
+                var result = await Task.Run(() => _monitorTemplateDetection.DetectBuffs(capturedImage, roi));
+                if (!ReferenceEquals(_capturedImage, capturedImage))
+                {
+                    SetStatus("monitor.detect.capture.changed");
+                    return;
+                }
+                _buffMonitorRoi = result.Roi;
+                _buffIconMatches.Clear();
+                foreach (var match in result.Matches)
+                {
+                    _buffIconMatches[match.NameKey] = match;
+                }
+
+                ApplyRecognizedBuffs(result.Matches.Select(match => match.NameKey));
+                RefreshMonitorDetectionVisuals();
+                foreach (var match in result.Matches)
+                {
+                    _log.Info(
+                        $"Buff template match: key={match.NameKey}, bounds={FormatRect(match.Bounds)}, " +
+                        $"structure={match.StructureScore:0.0000}, active={match.IsActive}, stateConfidence={match.StateConfidence:0.0000}");
+                }
+
+                SetStatus(result.Matches.Count == 0
+                    ? "monitor.buff.detect.none"
+                    : L.F("monitor.buff.detect.result", result.Matches.Count));
+            }
+            else if (mode == MonitorDetectionMode.Tuairim)
+            {
+                var result = await Task.Run(() => _monitorTemplateDetection.DetectTuairim(capturedImage, roi));
+                if (!ReferenceEquals(_capturedImage, capturedImage))
+                {
+                    SetStatus("monitor.detect.capture.changed");
+                    return;
+                }
+                _tuairimMonitorRoi = roi;
+                _tuairimAnchor = result?.Bounds;
+                RefreshMonitorDetectionVisuals();
+                if (result is null)
+                {
+                    SetStatus("monitor.tuairim.detect.none");
+                }
+                else
+                {
+                    _log.Info(
+                        $"Tuairim template match: bounds={FormatRect(result.Bounds)}, score={result.Score:0.0000}, roi={FormatRect(result.Roi)}");
+                    SetStatus(L.F("monitor.tuairim.detect.result", result.Score.ToString("0.000")));
+                }
+
+                ScheduleProfileAutoSave();
+            }
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Monitor template detection failed.", exception);
+            SetStatus(L.F("monitor.detect.failed", exception.Message));
+        }
+        finally
+        {
+            _isMonitorDetectionBusy = false;
+            UpdateMonitorControlAvailability();
+        }
+    }
+
+    private void ShowMonitorDetectionBounds(IEnumerable<Rect> bounds)
+    {
+        ClearMonitorDetectionVisuals();
+        foreach (var bound in bounds)
+        {
+            var rectangle = new Rectangle
+            {
+                Width = bound.Width,
+                Height = bound.Height,
+                Stroke = CreateProjectAccentBrush(),
+                StrokeThickness = 2,
+                Fill = CreateProjectAccentBrush(24),
+                IsHitTestVisible = false
+            };
+            _monitorDetectionRects.Add(rectangle);
+            CaptureCanvas.Children.Add(rectangle);
+            Canvas.SetLeft(rectangle, bound.X);
+            Canvas.SetTop(rectangle, bound.Y);
+        }
+    }
+
+    private void RefreshMonitorDetectionVisuals()
+    {
+        if (_capturedImage is null)
+        {
+            ClearMonitorDetectionVisuals();
+            return;
+        }
+
+        var bounds = _buffIconMatches.Values.Select(match => match.Bounds).ToList();
+        if (_tuairimAnchor is Rect tuairimBounds)
+        {
+            bounds.Add(tuairimBounds);
+        }
+        ShowMonitorDetectionBounds(bounds);
+    }
+
+    private void ClearMonitorDetectionVisuals()
+    {
+        foreach (var rectangle in _monitorDetectionRects)
+        {
+            CaptureCanvas.Children.Remove(rectangle);
+        }
+        _monitorDetectionRects.Clear();
+    }
+
+    private static string FormatRect(Rect rect) =>
+        $"{rect.X:0},{rect.Y:0},{rect.Width:0}x{rect.Height:0}";
+
+    private static OverlayProfileRect? ToProfileRect(Rect? rect) => rect is null
+        ? null
+        : new OverlayProfileRect
+        {
+            X = rect.Value.X,
+            Y = rect.Value.Y,
+            Width = rect.Value.Width,
+            Height = rect.Value.Height
+        };
+
+    private static Rect? FromProfileRect(OverlayProfileRect? rect) =>
+        rect is null || rect.Width <= 0 || rect.Height <= 0
+            ? null
+            : new Rect(rect.X, rect.Y, rect.Width, rect.Height);
+
     private void SetDetectionMode(bool active)
     {
         if (active)
         {
             SetDebugDetectionMode(active: false);
+            SetMonitorDetectionMode(MonitorDetectionMode.None);
         }
 
         _isAwaitingDetectionRoi = active;
@@ -2166,6 +2466,7 @@ public partial class MainWindow : Window
         if (active)
         {
             SetDetectionMode(active: false);
+            SetMonitorDetectionMode(MonitorDetectionMode.None);
         }
 
         _isAwaitingDebugDetectionRoi = active;
@@ -2173,6 +2474,36 @@ public partial class MainWindow : Window
         {
             DebugDetectButton.Content = active ? L.T("Drag debug ROI...") : L.T("Debug detect");
             ApplyDetectModeButtonStyle(DebugDetectButton, active);
+        }
+    }
+
+    private void SetMonitorDetectionMode(MonitorDetectionMode mode)
+    {
+        if (mode != MonitorDetectionMode.None)
+        {
+            SetDetectionMode(active: false);
+            SetDebugDetectionMode(active: false);
+        }
+
+        _monitorDetectionMode = mode;
+        UpdateMonitorDetectionButtonPresentation();
+        UpdateMonitorControlAvailability();
+    }
+
+    private void UpdateMonitorDetectionButtonPresentation()
+    {
+        if (DetectBuffWindowButton is not null)
+        {
+            var active = _monitorDetectionMode == MonitorDetectionMode.BuffWindow;
+            DetectBuffWindowButton.Content = active ? L.T("Drag ROI...") : L.T("monitor.buff.detect");
+            ApplyDetectModeButtonStyle(DetectBuffWindowButton, active);
+        }
+
+        if (DetectTuairimUiButton is not null)
+        {
+            var active = _monitorDetectionMode == MonitorDetectionMode.Tuairim;
+            DetectTuairimUiButton.Content = active ? L.T("Drag ROI...") : L.T("monitor.tuairim.detect");
+            ApplyDetectModeButtonStyle(DetectTuairimUiButton, active);
         }
     }
 
@@ -2896,17 +3227,21 @@ public partial class MainWindow : Window
 
     private void EnsureMonitorElementPlaced(OverlayElementKind kind, bool scheduleAutoSave = true)
     {
-        if (_overlaySlots.Any(slot => slot.Kind == kind))
-        {
-            return;
-        }
-
         var candidate = kind switch
         {
             OverlayElementKind.InternalBuffTimer => EnsureInternalTimerCandidate(),
             OverlayElementKind.TuairimGauge => EnsureTuairimGaugeCandidate(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only monitor elements can be auto-placed.")
         };
+        var existingSlot = _overlaySlots.FirstOrDefault(slot => slot.Kind == kind);
+        if (existingSlot is not null)
+        {
+            existingSlot.Source = candidate;
+            existingSlot.Preview = RenderMonitorElementPreview(kind);
+            UpdateCandidateOverlayFlags();
+            return;
+        }
+
         var scale = ReadLayoutSlotScale();
         var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * scale);
         var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * scale);
@@ -3753,6 +4088,13 @@ public partial class MainWindow : Window
         _lastStatusMessage = message;
         StatusText.Text = L.T(message);
         _log.Info($"Status: {message}");
+    }
+
+    private enum MonitorDetectionMode
+    {
+        None,
+        BuffWindow,
+        Tuairim
     }
 
     private sealed class QuickslotSection

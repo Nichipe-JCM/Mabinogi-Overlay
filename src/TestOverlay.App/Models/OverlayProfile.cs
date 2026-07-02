@@ -32,6 +32,14 @@ public sealed class OverlayProfile
 
     public List<string> SelectedBuffNameKeys { get; set; } = [];
 
+    public OverlayProfileRect? BuffMonitorRoi { get; set; }
+
+    public List<OverlayProfileBuffAnchor> BuffAnchors { get; set; } = [];
+
+    public OverlayProfileRect? TuairimMonitorRoi { get; set; }
+
+    public OverlayProfileRect? TuairimAnchor { get; set; }
+
     public int SlotInnerSize { get; set; } = 29;
 
     public int SlotInnerWidth { get; set; } = 29;
@@ -110,6 +118,30 @@ public sealed class OverlayProfileCandidate
     public string? DisplayNameKey { get; set; }
 
     public bool IsBuiltIn { get; set; }
+}
+
+public sealed class OverlayProfileRect
+{
+    public double X { get; set; }
+
+    public double Y { get; set; }
+
+    public double Width { get; set; }
+
+    public double Height { get; set; }
+}
+
+public sealed class OverlayProfileBuffAnchor
+{
+    public string NameKey { get; set; } = string.Empty;
+
+    public OverlayProfileRect Bounds { get; set; } = new();
+
+    public double StructureScore { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public double StateConfidence { get; set; }
 }
 
 public sealed class OverlayProfileSection
