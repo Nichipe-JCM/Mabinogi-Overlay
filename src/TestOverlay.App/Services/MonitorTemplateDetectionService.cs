@@ -41,6 +41,57 @@ public sealed class MonitorTemplateDetectionService
         return new BuffWindowDetectionResult(searchRoi, SelectAlignedBuffMatches(rawMatches));
     }
 
+    public IReadOnlyList<BuffIconMatch> EvaluateBuffAnchors(
+        BitmapSource source,
+        IEnumerable<BuffIconMatch> anchors)
+    {
+        var image = PixelImage.FromBitmapSource(source);
+        var descriptors = _catalog.Value.Buffs.ToDictionary(descriptor => descriptor.NameKey, StringComparer.Ordinal);
+        var results = new List<BuffIconMatch>();
+        foreach (var anchor in anchors)
+        {
+            if (!descriptors.TryGetValue(anchor.NameKey, out var descriptor))
+            {
+                continue;
+            }
+
+            var bounds = ClampRoi(anchor.Bounds, image.Width, image.Height);
+            var width = Math.Max(8, (int)Math.Round(bounds.Width));
+            var height = Math.Max(8, (int)Math.Round(bounds.Height));
+            if (bounds.X + width > image.Width || bounds.Y + height > image.Height)
+            {
+                continue;
+            }
+
+            var onScaled = descriptor.On.Scale(width, height);
+            var offScaled = descriptor.Off.Scale(width, height);
+            var onKernel = MatchKernel.Create(onScaled, MaskKind.AllOpaque, coarse: false);
+            var offKernel = MatchKernel.Create(offScaled, MaskKind.AllOpaque, coarse: false);
+            var x = (int)Math.Round(bounds.X);
+            var y = (int)Math.Round(bounds.Y);
+            var onScore = CalculateCorrelation(image, x, y, onKernel);
+            var offScore = CalculateCorrelation(image, x, y, offKernel);
+            var structureScore = Math.Max(onScore, offScore);
+            if (structureScore < 0.55)
+            {
+                continue;
+            }
+
+            var onError = CalculateColorError(image, x, y, onScaled);
+            var offError = CalculateColorError(image, x, y, offScaled);
+            var active = onError <= offError;
+            var stateConfidence = Math.Abs(onError - offError) / Math.Max(1, Math.Max(onError, offError));
+            results.Add(new BuffIconMatch(
+                anchor.NameKey,
+                new Rect(x, y, width, height),
+                structureScore,
+                active,
+                stateConfidence));
+        }
+
+        return results;
+    }
+
     public TuairimDetectionResult? DetectTuairim(BitmapSource source, Rect roi)
     {
         var image = PixelImage.FromBitmapSource(source);

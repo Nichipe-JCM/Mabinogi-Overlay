@@ -30,7 +30,7 @@ public partial class InternalTimerOverlayWindow : Window
             TimerPanel,
             timerSlot,
             InternalBuffTimerPreviewRenderer.BaseWidth,
-            InternalBuffTimerPreviewRenderer.BaseHeight,
+            InternalBuffTimerPreviewRenderer.GetBaseHeight(visibleBuffNameKeys.Count),
             defaultOpacity);
         ConfigurePanel(
             TuairimPanel,
@@ -52,7 +52,6 @@ public partial class InternalTimerOverlayWindow : Window
     {
         percent = Math.Clamp(percent, 0, 100);
         TuairimPercentText.Text = $"{percent}%";
-        TuairimGaugeFill.Width = Math.Max(0, (TuairimGaugePreviewRenderer.BaseWidth - 20) * percent / 100.0);
     }
 
     protected override void OnSourceInitialized(EventArgs e)

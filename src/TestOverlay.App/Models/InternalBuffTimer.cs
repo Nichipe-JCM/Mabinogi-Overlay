@@ -11,4 +11,10 @@ public sealed class InternalBuffTimer
     public string NameKey { get; }
 
     public int RemainingSeconds { get; set; }
+
+    public bool HasTuanExtension { get; set; }
+
+    public bool HasHarmony { get; set; }
+
+    public string LastRecognizedText { get; set; } = string.Empty;
 }

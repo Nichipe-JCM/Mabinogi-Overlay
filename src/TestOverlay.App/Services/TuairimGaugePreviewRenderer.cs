@@ -7,8 +7,8 @@ namespace TestOverlay.App.Services;
 
 public static class TuairimGaugePreviewRenderer
 {
-    public const int BaseWidth = 160;
-    public const int BaseHeight = 58;
+    public const int BaseWidth = 96;
+    public const int BaseHeight = 36;
 
     public static BitmapSource Render(int percent = 0)
     {
@@ -30,13 +30,6 @@ public static class TuairimGaugePreviewRenderer
             context.DrawText(label, new Point(10, 8));
             context.DrawText(value, new Point(BaseWidth - 10 - value.WidthIncludingTrailingWhitespace, 8));
 
-            var track = new Rect(10, 34, BaseWidth - 20, 8);
-            context.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0x35, 0x39, 0x3D)), null, track, 4, 4);
-            if (percent > 0)
-            {
-                var fill = new Rect(track.X, track.Y, track.Width * percent / 100.0, track.Height);
-                context.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)), null, fill, 4, 4);
-            }
         }
 
         var bitmap = new RenderTargetBitmap(BaseWidth, BaseHeight, 96, 96, PixelFormats.Pbgra32);

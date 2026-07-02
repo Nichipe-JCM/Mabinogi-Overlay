@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly CpuCompositedOverlayRenderer _cpuCompositedRenderer = new();
     private readonly MonitorTemplateDetectionService _monitorTemplateDetection = new();
+    private readonly MonitorValueRecognitionService _monitorValueRecognition = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly ProfileStore _profileStore;
     private AppSettings _appSettings;
@@ -82,6 +83,8 @@ public partial class MainWindow : Window
     private MonitorDetectionMode _monitorDetectionMode;
     private bool _isSelectingMonitorDetectionRoi;
     private bool _isMonitorDetectionBusy;
+    private bool _isMonitorValueRecognitionBusy;
+    private int _monitorValueRecognitionGeneration;
     private DebugDetectionExpectation _debugDetectionExpectation = DebugDetectionExpectation.TopGrouped1();
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection;
@@ -113,6 +116,9 @@ public partial class MainWindow : Window
     private Rect? _buffMonitorRoi;
     private Rect? _tuairimMonitorRoi;
     private Rect? _tuairimAnchor;
+    private DateTimeOffset _lastInternalTimerUpdateAt;
+    private DateTimeOffset _nextMonitorValueRecognitionAt;
+    private int _tuairimPercent;
     private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
@@ -1183,15 +1189,27 @@ public partial class MainWindow : Window
         SetStatus("monitor.timer.debug.loaded");
     }
 
-    private void InternalTimerDebugTimer_Tick(object? sender, EventArgs e)
+    private async void InternalTimerDebugTimer_Tick(object? sender, EventArgs e)
     {
+        var now = DateTimeOffset.UtcNow;
+        var elapsedSeconds = _lastInternalTimerUpdateAt == default
+            ? 1
+            : Math.Max(1, (int)Math.Floor((now - _lastInternalTimerUpdateAt).TotalSeconds));
+        _lastInternalTimerUpdateAt = now;
+        var reachedVerificationPoint = false;
         foreach (var timer in _internalBuffTimers)
         {
-            timer.RemainingSeconds = Math.Max(0, timer.RemainingSeconds - 1);
+            var previousSeconds = timer.RemainingSeconds;
+            timer.RemainingSeconds = Math.Max(0, timer.RemainingSeconds - elapsedSeconds);
+            reachedVerificationPoint |= previousSeconds > 30 && timer.RemainingSeconds <= 30;
         }
 
         UpdateInternalTimerDebugStatus();
         _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
+        if (reachedVerificationPoint || now >= _nextMonitorValueRecognitionAt)
+        {
+            await SynchronizeMonitorValuesAsync(reachedVerificationPoint ? "threshold-30" : "periodic");
+        }
     }
 
     private void RefreshInternalTimerOverlay()
@@ -1240,18 +1258,173 @@ public partial class MainWindow : Window
         };
         _internalTimerOverlayWindow.Show();
         _internalTimerOverlayWindow.UpdateLayout();
-        if (_internalBuffTimers.Count > 0)
-        {
-            _internalTimerDebugTimer.Start();
-        }
+        _lastInternalTimerUpdateAt = DateTimeOffset.UtcNow;
+        _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
+        _monitorValueRecognitionGeneration++;
+        _internalTimerDebugTimer.Start();
+        _ = SynchronizeMonitorValuesAsync("overlay-start");
     }
 
     private void RefreshInternalTimerElementPreviews()
     {
+        SynchronizeMonitorElementDimensions();
         foreach (var slot in _overlaySlots.Where(slot => slot.Kind != OverlayElementKind.Quickslot))
         {
             slot.Preview = RenderMonitorElementPreview(slot.Kind);
         }
+    }
+
+    private async Task SynchronizeMonitorValuesAsync(string reason)
+    {
+        if (_isMonitorValueRecognitionBusy || _overlayWindow is null)
+        {
+            return;
+        }
+
+        var shouldReadBuffs = _buffMonitorEnabled &&
+                              _selectedBuffNameKeys.Count > 0 &&
+                              _buffMonitorRoi is not null;
+        var shouldReadTuairim = _tuairimMonitorEnabled && _tuairimAnchor is not null;
+        if (!shouldReadBuffs && !shouldReadTuairim)
+        {
+            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(10);
+            return;
+        }
+
+        BitmapSource? frame;
+        try
+        {
+            frame = CaptureMonitorFrame();
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Monitor value capture failed.", exception);
+            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(10);
+            return;
+        }
+
+        if (frame is null)
+        {
+            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(2);
+            return;
+        }
+
+        _isMonitorValueRecognitionBusy = true;
+        var generation = _monitorValueRecognitionGeneration;
+        try
+        {
+            if (shouldReadBuffs && _buffMonitorRoi is Rect buffRoi)
+            {
+                var evaluatedMatches = await Task.Run(() =>
+                    _monitorTemplateDetection.EvaluateBuffAnchors(frame, _buffIconMatches.Values.ToArray()));
+                if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
+                {
+                    return;
+                }
+                foreach (var match in evaluatedMatches)
+                {
+                    _buffIconMatches[match.NameKey] = match;
+                }
+
+                foreach (var nameKey in _selectedBuffNameKeys.ToArray())
+                {
+                    var match = evaluatedMatches.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+                    if (match is null)
+                    {
+                        continue;
+                    }
+
+                    if (!match.IsActive && match.StateConfidence >= 0.03)
+                    {
+                        _internalBuffTimers.RemoveAll(timer => timer.NameKey == nameKey);
+                        continue;
+                    }
+                    if (!match.IsActive)
+                    {
+                        continue;
+                    }
+
+                    var read = await _monitorValueRecognition.ReadBuffTimeAsync(frame, buffRoi, match.Bounds);
+                    if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
+                    {
+                        return;
+                    }
+                    if (read.RemainingSeconds is int remainingSeconds)
+                    {
+                        var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+                        if (timer is null)
+                        {
+                            timer = new InternalBuffTimer(nameKey, remainingSeconds);
+                            _internalBuffTimers.Add(timer);
+                        }
+                        else
+                        {
+                            timer.RemainingSeconds = remainingSeconds;
+                        }
+
+                        timer.LastRecognizedText = read.RecognizedText;
+                        timer.HasTuanExtension = read.RecognizedText.Contains("투안", StringComparison.Ordinal);
+                        timer.HasHarmony = read.RecognizedText.Contains("하모니", StringComparison.Ordinal);
+                    }
+
+                    _log.Info(
+                        $"Buff OCR: reason={reason}, key={nameKey}, active={match.IsActive}, " +
+                        $"stateConfidence={match.StateConfidence:0.000}, seconds={read.RemainingSeconds?.ToString() ?? "none"}, " +
+                        $"bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
+                }
+            }
+
+            if (shouldReadTuairim && _tuairimAnchor is Rect tuairimAnchor)
+            {
+                var read = await _monitorValueRecognition.ReadTuairimPercentAsync(frame, tuairimAnchor);
+                if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
+                {
+                    return;
+                }
+                if (read.Percent is int percent)
+                {
+                    _tuairimPercent = percent;
+                    _internalTimerOverlayWindow?.SetTuairimPercent(percent);
+                }
+
+                _log.Info(
+                    $"Tuairim OCR: reason={reason}, percent={read.Percent?.ToString() ?? "none"}, " +
+                    $"bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
+            }
+
+            UpdateInternalTimerDebugStatus();
+            _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
+            RefreshInternalTimerElementPreviews();
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Monitor value recognition failed.", exception);
+        }
+        finally
+        {
+            _isMonitorValueRecognitionBusy = false;
+            if (generation == _monitorValueRecognitionGeneration)
+            {
+                _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(10);
+            }
+        }
+    }
+
+    private BitmapSource? CaptureMonitorFrame()
+    {
+        if (CurrentCaptureBackend == CaptureBackend.Wgc)
+        {
+            return _wgcCaptureService.TryGetLatestFrame(out var frame) ? frame : null;
+        }
+
+        if (_selectedWindow is null)
+        {
+            return null;
+        }
+
+        return CurrentCaptureBackend == CaptureBackend.DxgiDesktopDuplication
+            ? _dxgiCaptureService.CaptureClientArea(_selectedWindow)
+            : _captureService.CaptureClientArea(_selectedWindow);
     }
 
     private void UpdateInternalTimerDebugStatus()
@@ -1710,7 +1883,18 @@ public partial class MainWindow : Window
             _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
             _activeRenderMode = _appSettings.OverlayRenderMode;
             var captureBackend = CurrentCaptureBackend;
-            if (hasSlotOverlay && captureBackend != CaptureBackend.Wgc && _selectedWindow is null)
+            var hasMonitorOverlay = hasBuffOverlay || hasTuairimOverlay;
+            if ((hasSlotOverlay || hasMonitorOverlay) &&
+                captureBackend != CaptureBackend.Wgc &&
+                _selectedWindow is null)
+            {
+                StopOverlay(setStatus: false);
+                SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
+                return;
+            }
+            if ((hasSlotOverlay || hasMonitorOverlay) &&
+                captureBackend == CaptureBackend.Wgc &&
+                _wgcSelection is null)
             {
                 StopOverlay(setStatus: false);
                 SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
@@ -1757,6 +1941,14 @@ public partial class MainWindow : Window
                 _log.Info($"GPU/DXGI renderer requested with captureBackend={captureBackend}. Falling back to CPU/WPF renderer.");
             }
             else if (captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
+            {
+                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
+            }
+
+            if (hasMonitorOverlay &&
+                captureBackend == CaptureBackend.Wgc &&
+                _wgcSelection is not null &&
+                (_gpuLiveOverlayService is not null || !hasSlotOverlay))
             {
                 _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
             }
@@ -3144,12 +3336,17 @@ public partial class MainWindow : Window
         var existing = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.InternalBuffTimer);
         if (existing is not null)
         {
+            ResizeMonitorElement(
+                existing,
+                InternalBuffTimerPreviewRenderer.BaseWidth,
+                InternalBuffTimerPreviewRenderer.GetBaseHeight(_selectedBuffNameKeys.Count));
             return existing;
         }
 
+        var baseHeight = InternalBuffTimerPreviewRenderer.GetBaseHeight(_selectedBuffNameKeys.Count);
         var candidate = new SlotCandidate(
             -1,
-            new Rect(0, 0, InternalBuffTimerPreviewRenderer.BaseWidth, InternalBuffTimerPreviewRenderer.BaseHeight),
+            new Rect(0, 0, InternalBuffTimerPreviewRenderer.BaseWidth, baseHeight),
             100,
             OverlayElementKind.InternalBuffTimer,
             "monitor.timer.element",
@@ -3163,6 +3360,10 @@ public partial class MainWindow : Window
         var existing = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.TuairimGauge);
         if (existing is not null)
         {
+            ResizeMonitorElement(
+                existing,
+                TuairimGaugePreviewRenderer.BaseWidth,
+                TuairimGaugePreviewRenderer.BaseHeight);
             return existing;
         }
 
@@ -3175,6 +3376,63 @@ public partial class MainWindow : Window
             isBuiltIn: true);
         AddCandidate(candidate);
         return candidate;
+    }
+
+    private void SynchronizeMonitorElementDimensions()
+    {
+        var timerCandidate = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.InternalBuffTimer);
+        if (timerCandidate is not null)
+        {
+            ResizeMonitorElement(
+                timerCandidate,
+                InternalBuffTimerPreviewRenderer.BaseWidth,
+                InternalBuffTimerPreviewRenderer.GetBaseHeight(_selectedBuffNameKeys.Count));
+        }
+
+        var tuairimCandidate = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.TuairimGauge);
+        if (tuairimCandidate is not null)
+        {
+            ResizeMonitorElement(
+                tuairimCandidate,
+                TuairimGaugePreviewRenderer.BaseWidth,
+                TuairimGaugePreviewRenderer.BaseHeight);
+        }
+    }
+
+    private void ResizeMonitorElement(SlotCandidate candidate, double width, double height)
+    {
+        var oldWidth = candidate.SourceRect.Width;
+        var oldHeight = candidate.SourceRect.Height;
+        if (Math.Abs(oldWidth - width) < 0.01 && Math.Abs(oldHeight - height) < 0.01)
+        {
+            return;
+        }
+
+        var slot = _overlaySlots.FirstOrDefault(item => item.Kind == candidate.Kind);
+        if (slot is not null)
+        {
+            var scale = oldWidth > 0 && oldHeight > 0
+                ? Math.Min(slot.OverlayRect.Width / oldWidth, slot.OverlayRect.Height / oldHeight)
+                : Math.Max(0.1, slot.Scale);
+            if (candidate.Kind == OverlayElementKind.InternalBuffTimer && Math.Abs(oldWidth - width) < 0.01)
+            {
+                slot.OverlayRect = new Rect(
+                    slot.OverlayRect.X,
+                    slot.OverlayRect.Y,
+                    slot.OverlayRect.Width,
+                    Math.Max(MinimumOverlaySlotSize, height * slot.OverlayRect.Width / width));
+            }
+            else
+            {
+                slot.OverlayRect = new Rect(
+                    slot.OverlayRect.X,
+                    slot.OverlayRect.Y,
+                    Math.Max(MinimumOverlaySlotSize, width * scale),
+                    Math.Max(MinimumOverlaySlotSize, height * scale));
+            }
+        }
+
+        candidate.ResizeTo(width, height);
     }
 
     private void SetMonitorElementEnabled(OverlayElementKind kind, bool enabled, bool scheduleAutoSave = true)
@@ -3266,7 +3524,7 @@ public partial class MainWindow : Window
         OverlayElementKind.InternalBuffTimer => InternalBuffTimerPreviewRenderer.Render(
             _internalBuffTimers,
             _selectedBuffNameKeys),
-        OverlayElementKind.TuairimGauge => TuairimGaugePreviewRenderer.Render(),
+        OverlayElementKind.TuairimGauge => TuairimGaugePreviewRenderer.Render(_tuairimPercent),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A quickslot requires a captured image crop.")
     };
 
@@ -3665,6 +3923,7 @@ public partial class MainWindow : Window
     {
         _liveOverlayTimer.Stop();
         _internalTimerDebugTimer.Stop();
+        _monitorValueRecognitionGeneration++;
         LogCpuRenderStats(final: true);
         _gpuLiveOverlayService?.Dispose();
         _gpuLiveOverlayService = null;

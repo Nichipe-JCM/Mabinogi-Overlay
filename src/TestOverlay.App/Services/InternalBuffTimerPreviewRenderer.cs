@@ -9,7 +9,8 @@ namespace TestOverlay.App.Services;
 public static class InternalBuffTimerPreviewRenderer
 {
     public const int BaseWidth = 210;
-    public const int BaseHeight = 100;
+    public const int RowHeight = 22;
+    public const int VerticalPadding = 16;
 
     public static IReadOnlyList<string> BuffNameKeys { get; } =
     [
@@ -27,13 +28,14 @@ public static class InternalBuffTimerPreviewRenderer
         var visibleKeys = BuffNameKeys
             .Where(key => visibleBuffNameKeys is null || visibleBuffNameKeys.Contains(key))
             .ToList();
+        var baseHeight = GetBaseHeight(visibleKeys.Count);
         var visual = new DrawingVisual();
         using (var context = visual.RenderOpen())
         {
             context.DrawRoundedRectangle(
                 new SolidColorBrush(Color.FromArgb(230, 17, 19, 21)),
                 new Pen(new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)), 1),
-                new Rect(0.5, 0.5, BaseWidth - 1, BaseHeight - 1),
+                new Rect(0.5, 0.5, BaseWidth - 1, baseHeight - 1),
                 6,
                 6);
 
@@ -42,7 +44,7 @@ public static class InternalBuffTimerPreviewRenderer
             for (var index = 0; index < visibleKeys.Count; index++)
             {
                 var key = visibleKeys[index];
-                var y = 8 + index * 22;
+                var y = 8 + index * RowHeight;
                 var name = CreateText(L.T(key), nameTypeface, 12, Brushes.White);
                 context.DrawText(name, new Point(10, y));
 
@@ -62,11 +64,14 @@ public static class InternalBuffTimerPreviewRenderer
             }
         }
 
-        var bitmap = new RenderTargetBitmap(BaseWidth, BaseHeight, 96, 96, PixelFormats.Pbgra32);
+        var bitmap = new RenderTargetBitmap(BaseWidth, baseHeight, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(visual);
         bitmap.Freeze();
         return bitmap;
     }
+
+    public static int GetBaseHeight(int visibleBuffCount) =>
+        VerticalPadding + Math.Max(1, visibleBuffCount) * RowHeight;
 
     private static FormattedText CreateText(string text, Typeface typeface, double size, Brush brush) =>
         new(
