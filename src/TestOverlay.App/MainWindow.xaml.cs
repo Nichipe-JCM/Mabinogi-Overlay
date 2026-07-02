@@ -115,8 +115,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
         DataContext = new { Candidates = _candidates };
-        EnsureInternalTimerCandidate();
-        EnsureTuairimGaugeCandidate();
         SectionCombo.ItemsSource = _sections;
         SectionPatternCombo.SelectionChanged += (_, _) =>
         {
@@ -805,6 +803,7 @@ public partial class MainWindow : Window
         _overlaySlots.Clear();
         ClearCandidateRects();
         ClearSections();
+        EnsureEnabledMonitorElementsPlaced();
         UpdateCandidateOverlayFlags();
         PushUndoIfChanged(before);
         SetStatus("Candidate list cleared.");
@@ -849,6 +848,7 @@ public partial class MainWindow : Window
             _refreshFps = editor.RefreshFps;
             _layoutSlotScale = editor.SlotScale;
             _layoutGridSnapSize = editor.GridSnapSize;
+            EnsureEnabledMonitorElementsPlaced();
             UpdateCandidateOverlayFlags();
             UpdateLayoutSummary();
         }
@@ -960,22 +960,14 @@ public partial class MainWindow : Window
     private void BuffMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         _buffMonitorEnabled = BuffMonitorEnabledCheckBox.IsChecked == true;
-        if (_buffMonitorEnabled)
-        {
-            EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer);
-        }
-        ScheduleProfileAutoSave();
+        SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled);
         RefreshInternalTimerOverlay();
     }
 
     private void TuairimMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         _tuairimMonitorEnabled = TuairimMonitorEnabledCheckBox.IsChecked == true;
-        if (_tuairimMonitorEnabled)
-        {
-            EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge);
-        }
-        ScheduleProfileAutoSave();
+        SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
         RefreshInternalTimerOverlay();
     }
 
@@ -997,8 +989,7 @@ public partial class MainWindow : Window
         ]);
         _buffMonitorEnabled = true;
         BuffMonitorEnabledCheckBox.IsChecked = true;
-        EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer);
-        ScheduleProfileAutoSave();
+        SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, enabled: true);
         UpdateInternalTimerDebugStatus();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
@@ -1301,6 +1292,12 @@ public partial class MainWindow : Window
         {
             foreach (var savedCandidate in profile.Candidates.OrderBy(candidate => candidate.Id))
             {
+                if (savedCandidate.Kind != OverlayElementKind.Quickslot &&
+                    !IsMonitorElementEnabled(savedCandidate.Kind))
+                {
+                    continue;
+                }
+
                 var candidate = new SlotCandidate(
                     savedCandidate.Id,
                     new Rect(
@@ -1320,10 +1317,16 @@ public partial class MainWindow : Window
             }
         }
 
-        var internalTimerCandidate = EnsureInternalTimerCandidate();
-        loadedCandidates[internalTimerCandidate.Id] = internalTimerCandidate;
-        var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
-        loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
+        if (_buffMonitorEnabled)
+        {
+            var internalTimerCandidate = EnsureInternalTimerCandidate();
+            loadedCandidates[internalTimerCandidate.Id] = internalTimerCandidate;
+        }
+        if (_tuairimMonitorEnabled)
+        {
+            var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
+            loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
+        }
 
         foreach (var savedSection in profile.Sections)
         {
@@ -1353,6 +1356,13 @@ public partial class MainWindow : Window
         var nextCandidateId = loadedCandidates.Keys.Where(id => id > 0).DefaultIfEmpty(0).Max() + 1;
         foreach (var savedSlot in profile.Slots)
         {
+            if (savedKinds.TryGetValue(savedSlot.SourceCandidateId, out var savedKind) &&
+                savedKind != OverlayElementKind.Quickslot &&
+                !IsMonitorElementEnabled(savedKind))
+            {
+                continue;
+            }
+
             var candidate = ResolveProfileSlotSource(savedSlot, loadedCandidates);
             if (candidate is null)
             {
@@ -1378,14 +1388,7 @@ public partial class MainWindow : Window
             _overlaySlots.Add(slot);
         }
 
-            if (_buffMonitorEnabled)
-            {
-                EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer, scheduleAutoSave: false);
-            }
-            if (_tuairimMonitorEnabled)
-            {
-                EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave: false);
-            }
+            EnsureEnabledMonitorElementsPlaced();
 
             _nextSectionId = _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1;
             RefreshSectionLabels();
@@ -2688,6 +2691,54 @@ public partial class MainWindow : Window
         return candidate;
     }
 
+    private void SetMonitorElementEnabled(OverlayElementKind kind, bool enabled, bool scheduleAutoSave = true)
+    {
+        if (enabled)
+        {
+            EnsureMonitorElementPlaced(kind, scheduleAutoSave: false);
+        }
+        else
+        {
+            var candidates = _candidates.Where(candidate => candidate.Kind == kind).ToList();
+            _overlaySlots.RemoveAll(slot => slot.Kind == kind);
+            foreach (var candidate in candidates)
+            {
+                if (ReferenceEquals(CandidateList.SelectedItem, candidate))
+                {
+                    CandidateList.SelectedItem = null;
+                }
+                _candidates.Remove(candidate);
+            }
+
+            UpdateCandidateOverlayFlags();
+            UpdateLayoutSummary();
+        }
+
+        if (scheduleAutoSave)
+        {
+            ScheduleProfileAutoSave();
+        }
+    }
+
+    private void EnsureEnabledMonitorElementsPlaced(bool scheduleAutoSave = false)
+    {
+        if (_buffMonitorEnabled)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer, scheduleAutoSave);
+        }
+        if (_tuairimMonitorEnabled)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave);
+        }
+    }
+
+    private bool IsMonitorElementEnabled(OverlayElementKind kind) => kind switch
+    {
+        OverlayElementKind.InternalBuffTimer => _buffMonitorEnabled,
+        OverlayElementKind.TuairimGauge => _tuairimMonitorEnabled,
+        _ => false
+    };
+
     private void EnsureMonitorElementPlaced(OverlayElementKind kind, bool scheduleAutoSave = true)
     {
         if (_overlaySlots.Any(slot => slot.Kind == kind))
@@ -2750,6 +2801,7 @@ public partial class MainWindow : Window
     private void ClearLayout()
     {
         _overlaySlots.Clear();
+        EnsureEnabledMonitorElementsPlaced();
         UpdateLayoutSummary();
         UpdateCandidateOverlayFlags();
     }
@@ -2989,6 +3041,11 @@ public partial class MainWindow : Window
         var restoredById = new Dictionary<int, SlotCandidate>();
         foreach (var saved in snapshot.Candidates)
         {
+            if (saved.Kind != OverlayElementKind.Quickslot && !IsMonitorElementEnabled(saved.Kind))
+            {
+                continue;
+            }
+
             var candidate = new SlotCandidate(
                 saved.Id,
                 new Rect(saved.X, saved.Y, saved.Width, saved.Height),
@@ -3007,10 +3064,16 @@ public partial class MainWindow : Window
             }
         }
 
-        var internalTimerCandidate = EnsureInternalTimerCandidate();
-        restoredById[internalTimerCandidate.Id] = internalTimerCandidate;
-        var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
-        restoredById[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
+        if (_buffMonitorEnabled)
+        {
+            var internalTimerCandidate = EnsureInternalTimerCandidate();
+            restoredById[internalTimerCandidate.Id] = internalTimerCandidate;
+        }
+        if (_tuairimMonitorEnabled)
+        {
+            var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
+            restoredById[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
+        }
 
         CandidateList.SelectedItem = selected;
         QuickslotSection? selectedSection = null;
