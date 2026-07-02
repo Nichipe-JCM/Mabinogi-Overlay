@@ -28,6 +28,10 @@ public sealed class OverlayProfile
 
     public bool TuairimMonitorEnabled { get; set; }
 
+    public List<string> RecognizedBuffNameKeys { get; set; } = [];
+
+    public List<string> SelectedBuffNameKeys { get; set; } = [];
+
     public int SlotInnerSize { get; set; } = 29;
 
     public int SlotInnerWidth { get; set; } = 29;

@@ -19,9 +19,14 @@ public static class InternalBuffTimerPreviewRenderer
         "monitor.buff.harvest.song"
     ];
 
-    public static BitmapSource Render(IReadOnlyList<InternalBuffTimer> timers)
+    public static BitmapSource Render(
+        IReadOnlyList<InternalBuffTimer> timers,
+        IReadOnlyCollection<string>? visibleBuffNameKeys = null)
     {
         var timerByKey = timers.ToDictionary(timer => timer.NameKey, StringComparer.Ordinal);
+        var visibleKeys = BuffNameKeys
+            .Where(key => visibleBuffNameKeys is null || visibleBuffNameKeys.Contains(key))
+            .ToList();
         var visual = new DrawingVisual();
         using (var context = visual.RenderOpen())
         {
@@ -34,9 +39,9 @@ public static class InternalBuffTimerPreviewRenderer
 
             var nameTypeface = new Typeface(new FontFamily("Segoe UI Variable, Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             var timeTypeface = new Typeface(new FontFamily("Cascadia Mono, Consolas"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
-            for (var index = 0; index < BuffNameKeys.Count; index++)
+            for (var index = 0; index < visibleKeys.Count; index++)
             {
-                var key = BuffNameKeys[index];
+                var key = visibleKeys[index];
                 var y = 8 + index * 22;
                 var name = CreateText(L.T(key), nameTypeface, 12, Brushes.White);
                 context.DrawText(name, new Point(10, y));
@@ -48,6 +53,12 @@ public static class InternalBuffTimerPreviewRenderer
                     : new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4));
                 var time = CreateText(value, timeTypeface, 12, brush);
                 context.DrawText(time, new Point(BaseWidth - 10 - time.WidthIncludingTrailingWhitespace, y));
+            }
+
+            if (visibleKeys.Count == 0)
+            {
+                var empty = CreateText(L.T("monitor.buff.none.selected"), nameTypeface, 12, Brushes.Gray);
+                context.DrawText(empty, new Point(10, 8));
             }
         }
 

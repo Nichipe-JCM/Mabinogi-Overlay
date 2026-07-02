@@ -12,6 +12,7 @@ public partial class InternalTimerOverlayWindow : Window
 {
     private HwndSource? _source;
     private IReadOnlyList<InternalBuffTimer> _timers = [];
+    private IReadOnlyCollection<string> _visibleBuffNameKeys = [];
 
     public InternalTimerOverlayWindow(
         double width,
@@ -19,7 +20,8 @@ public partial class InternalTimerOverlayWindow : Window
         double defaultOpacity,
         OverlaySlot? timerSlot,
         OverlaySlot? tuairimSlot,
-        IReadOnlyList<InternalBuffTimer> timers)
+        IReadOnlyList<InternalBuffTimer> timers,
+        IReadOnlyCollection<string> visibleBuffNameKeys)
     {
         InitializeComponent();
         Width = Math.Max(120, width);
@@ -40,6 +42,7 @@ public partial class InternalTimerOverlayWindow : Window
         ShowActivated = false;
         ShowInTaskbar = false;
         Topmost = true;
+        _visibleBuffNameKeys = visibleBuffNameKeys.ToArray();
         SetTimers(timers);
         SetTuairimPercent(0);
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
@@ -88,7 +91,7 @@ public partial class InternalTimerOverlayWindow : Window
 
         TimerRows.Children.Clear();
         var timerByKey = _timers.ToDictionary(timer => timer.NameKey, StringComparer.Ordinal);
-        foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys)
+        foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys.Where(_visibleBuffNameKeys.Contains))
         {
             var row = new Grid { Margin = new Thickness(0, 2, 0, 2), MinWidth = 154 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });

@@ -43,6 +43,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<QuickslotSection> _sections = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
     private readonly List<InternalBuffTimer> _internalBuffTimers = new();
+    private readonly HashSet<string> _recognizedBuffNameKeys = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _selectedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private readonly SectionSettings[] _sectionSettings =
     [
@@ -168,6 +170,7 @@ public partial class MainWindow : Window
         UpdateSectionGapLabels();
         UpdateLayoutSummary();
         UpdateInternalTimerDebugStatus();
+        UpdateMonitorControlAvailability();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -960,7 +963,14 @@ public partial class MainWindow : Window
     private void BuffMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         _buffMonitorEnabled = BuffMonitorEnabledCheckBox.IsChecked == true;
+        if (!_buffMonitorEnabled)
+        {
+            _recognizedBuffNameKeys.Clear();
+            _selectedBuffNameKeys.Clear();
+        }
         SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled);
+        UpdateMonitorControlAvailability();
+        RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
     }
 
@@ -968,14 +978,131 @@ public partial class MainWindow : Window
     {
         _tuairimMonitorEnabled = TuairimMonitorEnabledCheckBox.IsChecked == true;
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
+        UpdateMonitorControlAvailability();
         RefreshInternalTimerOverlay();
     }
 
-    private void DetectBuffWindowButton_Click(object sender, RoutedEventArgs e) =>
-        SetStatus("monitor.buff.detect.pending");
+    private void DetectBuffWindowButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_buffMonitorEnabled || _overlayWindow is not null)
+        {
+            return;
+        }
+
+        ApplyRecognizedBuffs(InternalBuffTimerPreviewRenderer.BuffNameKeys);
+        SetStatus("monitor.buff.detected.all");
+    }
 
     private void DetectTuairimUiButton_Click(object sender, RoutedEventArgs e) =>
         SetStatus("monitor.tuairim.detect.pending");
+
+    private void BuffSelectionCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { Tag: string nameKey } checkBox ||
+            _overlayWindow is not null ||
+            !_recognizedBuffNameKeys.Contains(nameKey))
+        {
+            UpdateBuffSelectionCheckStates();
+            return;
+        }
+
+        if (checkBox.IsChecked == true)
+        {
+            if (!CanAddBuffSelection(nameKey))
+            {
+                checkBox.IsChecked = false;
+                SetStatus("monitor.buff.selection.invalid");
+                return;
+            }
+
+            _selectedBuffNameKeys.Add(nameKey);
+        }
+        else
+        {
+            _selectedBuffNameKeys.Remove(nameKey);
+        }
+
+        RefreshInternalTimerElementPreviews();
+        ScheduleProfileAutoSave();
+    }
+
+    private void ApplyRecognizedBuffs(IEnumerable<string> nameKeys)
+    {
+        _recognizedBuffNameKeys.Clear();
+        foreach (var key in nameKeys.Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
+        {
+            _recognizedBuffNameKeys.Add(key);
+        }
+
+        _selectedBuffNameKeys.RemoveWhere(key => !_recognizedBuffNameKeys.Contains(key));
+        UpdateMonitorControlAvailability();
+        RefreshInternalTimerElementPreviews();
+        ScheduleProfileAutoSave();
+    }
+
+    private bool CanAddBuffSelection(string nameKey)
+    {
+        if (_selectedBuffNameKeys.Contains(nameKey))
+        {
+            return true;
+        }
+        if (_selectedBuffNameKeys.Count >= 2)
+        {
+            return false;
+        }
+        if (_selectedBuffNameKeys.Count == 0)
+        {
+            return true;
+        }
+
+        const string marchSongKey = "monitor.buff.march.song";
+        return nameKey == marchSongKey || _selectedBuffNameKeys.Contains(marchSongKey);
+    }
+
+    private IEnumerable<CheckBox> BuffSelectionCheckBoxes()
+    {
+        yield return BattleOvertureBuffCheckBox;
+        yield return MarchSongBuffCheckBox;
+        yield return VivaceBuffCheckBox;
+        yield return HarvestSongBuffCheckBox;
+    }
+
+    private void UpdateBuffSelectionCheckStates()
+    {
+        foreach (var checkBox in BuffSelectionCheckBoxes())
+        {
+            if (checkBox.Tag is not string nameKey)
+            {
+                continue;
+            }
+
+            checkBox.IsChecked = _selectedBuffNameKeys.Contains(nameKey);
+        }
+    }
+
+    private void UpdateMonitorControlAvailability()
+    {
+        if (DetectBuffWindowButton is null)
+        {
+            return;
+        }
+
+        var canEdit = _overlayWindow is null;
+        BuffMonitorEnabledCheckBox.IsEnabled = canEdit;
+        TuairimMonitorEnabledCheckBox.IsEnabled = canEdit;
+        DetectBuffWindowButton.IsEnabled = canEdit && _buffMonitorEnabled;
+        LoadInternalTimerTestDataButton.IsEnabled = canEdit && _buffMonitorEnabled;
+        DetectTuairimUiButton.IsEnabled = canEdit && _tuairimMonitorEnabled;
+        foreach (var checkBox in BuffSelectionCheckBoxes())
+        {
+            var nameKey = checkBox.Tag as string;
+            checkBox.IsEnabled = canEdit &&
+                                 _buffMonitorEnabled &&
+                                 nameKey is not null &&
+                                 _recognizedBuffNameKeys.Contains(nameKey);
+        }
+        UpdateBuffSelectionCheckStates();
+    }
 
     private void LoadInternalTimerTestDataButton_Click(object sender, RoutedEventArgs e)
     {
@@ -990,6 +1117,7 @@ public partial class MainWindow : Window
         _buffMonitorEnabled = true;
         BuffMonitorEnabledCheckBox.IsChecked = true;
         SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, enabled: true);
+        ApplyRecognizedBuffs(InternalBuffTimerPreviewRenderer.BuffNameKeys);
         UpdateInternalTimerDebugStatus();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
@@ -1027,7 +1155,7 @@ public partial class MainWindow : Window
 
     private void StartInternalTimerOverlay()
     {
-        var timerSlot = _buffMonitorEnabled
+        var timerSlot = _buffMonitorEnabled && _selectedBuffNameKeys.Count > 0
             ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.InternalBuffTimer)
             : null;
         var tuairimSlot = _tuairimMonitorEnabled
@@ -1045,7 +1173,8 @@ public partial class MainWindow : Window
             _overlayOpacity,
             timerSlot,
             tuairimSlot,
-            _internalBuffTimers)
+            _internalBuffTimers,
+            _selectedBuffNameKeys)
         {
             Left = _overlayLeft,
             Top = _overlayTop
@@ -1136,6 +1265,12 @@ public partial class MainWindow : Window
             GridSnapSize = _layoutGridSnapSize,
             BuffMonitorEnabled = _buffMonitorEnabled,
             TuairimMonitorEnabled = _tuairimMonitorEnabled,
+            RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
+                .Where(_recognizedBuffNameKeys.Contains)
+                .ToList(),
+            SelectedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
+                .Where(_selectedBuffNameKeys.Contains)
+                .ToList(),
             SlotInnerSize = Math.Min(ReadSlotInnerWidth(), ReadSlotInnerHeight()),
             SlotInnerWidth = ReadSlotInnerWidth(),
             SlotInnerHeight = ReadSlotInnerHeight(),
@@ -1274,6 +1409,22 @@ public partial class MainWindow : Window
         _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
         _buffMonitorEnabled = profile.BuffMonitorEnabled;
         _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
+        _recognizedBuffNameKeys.Clear();
+        _selectedBuffNameKeys.Clear();
+        if (_buffMonitorEnabled)
+        {
+            foreach (var key in profile.RecognizedBuffNameKeys.Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
+            {
+                _recognizedBuffNameKeys.Add(key);
+            }
+            foreach (var key in InternalBuffTimerPreviewRenderer.BuffNameKeys.Where(profile.SelectedBuffNameKeys.Contains))
+            {
+                if (_recognizedBuffNameKeys.Contains(key) && CanAddBuffSelection(key))
+                {
+                    _selectedBuffNameKeys.Add(key);
+                }
+            }
+        }
         BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
         TuairimMonitorEnabledCheckBox.IsChecked = _tuairimMonitorEnabled;
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
@@ -1394,6 +1545,8 @@ public partial class MainWindow : Window
             RefreshSectionLabels();
             UpdateCandidateOverlayFlags();
             UpdateLayoutSummary();
+            RefreshInternalTimerElementPreviews();
+            UpdateMonitorControlAvailability();
             _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
             SetStatus(L.F("Profile loaded: {0} ({1} candidates, {2} slots).", _profileStore.GetProfilePath(profileName), _candidates.Count, profile.Slots.Count));
         }
@@ -1409,6 +1562,7 @@ public partial class MainWindow : Window
     {
         var hasSlotOverlay = _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.Quickslot);
         var hasBuffOverlay = _buffMonitorEnabled &&
+                             _selectedBuffNameKeys.Count > 0 &&
                              _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.InternalBuffTimer);
         var hasTuairimOverlay = _tuairimMonitorEnabled &&
                                 _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.TuairimGauge);
@@ -1519,6 +1673,7 @@ public partial class MainWindow : Window
             {
                 _liveOverlayTimer.Start();
             }
+            UpdateMonitorControlAvailability();
             var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
             _log.Info(
                 $"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, " +
@@ -2773,7 +2928,9 @@ public partial class MainWindow : Window
 
     private BitmapSource RenderMonitorElementPreview(OverlayElementKind kind) => kind switch
     {
-        OverlayElementKind.InternalBuffTimer => InternalBuffTimerPreviewRenderer.Render(_internalBuffTimers),
+        OverlayElementKind.InternalBuffTimer => InternalBuffTimerPreviewRenderer.Render(
+            _internalBuffTimers,
+            _selectedBuffNameKeys),
         OverlayElementKind.TuairimGauge => TuairimGaugePreviewRenderer.Render(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A quickslot requires a captured image crop.")
     };
@@ -3183,6 +3340,7 @@ public partial class MainWindow : Window
         _internalTimerOverlayWindow = null;
         _hotkeyService?.Dispose();
         _hotkeyService = null;
+        UpdateMonitorControlAvailability();
         if (setStatus)
         {
             _log.Info("Overlay stopped.");
