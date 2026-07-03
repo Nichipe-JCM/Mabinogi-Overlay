@@ -24,6 +24,10 @@ public sealed class InternalBuffTimer
 
     public int PendingObservationConfirmations { get; set; }
 
+    public DateTimeOffset? PendingObservationStartedAt { get; set; }
+
+    public bool PendingObservationIsDownward { get; set; }
+
     public bool NeedsFastVerification =>
         ConsecutiveZeroConfirmations > 0 || PendingObservedSeconds is not null || RemainingSeconds <= 1;
 }

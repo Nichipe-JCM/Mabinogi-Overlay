@@ -144,50 +144,6 @@ public sealed class MonitorTemplateDetectionService
             : null;
     }
 
-    public TuairimDetectionResult? TrackTuairim(BitmapSource source, Rect previousBounds)
-    {
-        var image = PixelImage.FromBitmapSource(source);
-        var template = _catalog.Value.Tuairim;
-        var width = Math.Max(24, (int)Math.Round(previousBounds.Width));
-        var height = Math.Max(20, (int)Math.Round(previousBounds.Height));
-        var scaled = template.Scale(width, height);
-        var kernel = MatchKernel.Create(scaled, MaskKind.TuairimStableShape, coarse: true);
-        var radiusX = Math.Max(240, width * 5);
-        var radiusY = Math.Max(180, height * 5);
-        var localRoi = ClampRoi(
-            new Rect(
-                previousBounds.X - radiusX,
-                previousBounds.Y - radiusY,
-                previousBounds.Width + radiusX * 2,
-                previousBounds.Height + radiusY * 2),
-            image.Width,
-            image.Height);
-        var best = Search(image, localRoi, kernel, step: 1, best: null);
-        if (best is null || best.Score < MinimumTuairimScore)
-        {
-            best = Search(image, new Rect(0, 0, image.Width, image.Height), kernel, step: 1, best);
-        }
-
-        if (best is null || best.Score < 0.55)
-        {
-            return null;
-        }
-
-        best = Refine(
-            image,
-            new Rect(0, 0, image.Width, image.Height),
-            template,
-            best,
-            MaskKind.TuairimStableShape,
-            sizeRadius: 2);
-        return best.Score >= MinimumTuairimScore
-            ? new TuairimDetectionResult(
-                new Rect(0, 0, image.Width, image.Height),
-                new Rect(best.X, best.Y, best.Width, best.Height),
-                best.Score)
-            : null;
-    }
-
     private static MatchCandidate? FindBestBuffCandidate(PixelImage image, Rect roi, TemplateImage template)
     {
         var searchRoi = roi;

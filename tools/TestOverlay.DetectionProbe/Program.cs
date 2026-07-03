@@ -32,15 +32,11 @@ if (args.Length >= 6 &&
 
 if (args.Length >= 6 &&
     (args[0].Equals("tuairim", StringComparison.OrdinalIgnoreCase) ||
-     args[0].Equals("tuairim-value", StringComparison.OrdinalIgnoreCase) ||
-     args[0].Equals("tuairim-track", StringComparison.OrdinalIgnoreCase)))
+     args[0].Equals("tuairim-value", StringComparison.OrdinalIgnoreCase)))
 {
     var image = LoadImage(args[1]);
     var roi = ParseRoi(args, 2);
-    var detector = new MonitorTemplateDetectionService();
-    var result = args[0].Equals("tuairim-track", StringComparison.OrdinalIgnoreCase)
-        ? detector.TrackTuairim(image, roi)
-        : detector.DetectTuairim(image, roi);
+    var result = new MonitorTemplateDetectionService().DetectTuairim(image, roi);
     Console.WriteLine($"image={image.PixelWidth}x{image.PixelHeight}");
     Console.WriteLine($"roi={FormatRect(roi)}");
     if (result is null)
@@ -76,7 +72,6 @@ if (args.Length < 6)
     Console.Error.WriteLine("  TestOverlay.DetectionProbe buff-value <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-value <image-path> <x> <y> <width> <height>");
-    Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-track <image-path> <previous-x> <previous-y> <width> <height>");
     return 2;
 }
 

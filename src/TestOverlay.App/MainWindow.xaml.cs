@@ -1330,6 +1330,7 @@ public partial class MainWindow : Window
                     var match = evaluatedMatches.FirstOrDefault(candidate => candidate.NameKey == nameKey);
                     if (match is null)
                     {
+                        ResetPendingTimeObservation(nameKey);
                         continue;
                     }
 
@@ -1354,6 +1355,7 @@ public partial class MainWindow : Window
                     }
                     else
                     {
+                        ResetPendingTimeObservation(nameKey);
                         SaveMonitorDiagnosticOnce(frame, read.Bounds, $"buff-{SanitizeDiagnosticName(nameKey)}");
                     }
 
@@ -1366,19 +1368,7 @@ public partial class MainWindow : Window
 
             if (shouldReadTuairim && _tuairimAnchor is Rect tuairimAnchor)
             {
-                var tracked = await Task.Run(() => _monitorTemplateDetection.TrackTuairim(frame, tuairimAnchor));
-                if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
-                {
-                    return;
-                }
-                if (tracked is null)
-                {
-                    _log.Info($"Tuairim tracking: reason={reason}, result=none, previous={FormatRect(tuairimAnchor)}");
-                    return;
-                }
-
-                _tuairimAnchor = tracked.Bounds;
-                var read = await _monitorValueRecognition.ReadTuairimPercentAsync(frame, tracked.Bounds);
+                var read = await _monitorValueRecognition.ReadTuairimPercentAsync(frame, tuairimAnchor);
                 if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
                 {
                     return;
@@ -1394,8 +1384,8 @@ public partial class MainWindow : Window
                 }
 
                 _log.Info(
-                    $"Tuairim OCR: reason={reason}, score={tracked.Score:0.000}, " +
-                    $"percent={read.Percent?.ToString() ?? "none"}, bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
+                    $"Tuairim OCR: reason={reason}, percent={read.Percent?.ToString() ?? "none"}, " +
+                    $"bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
             }
 
             UpdateInternalTimerDebugStatus();
@@ -1412,7 +1402,9 @@ public partial class MainWindow : Window
             if (generation == _monitorValueRecognitionGeneration)
             {
                 var delaySeconds = _internalBuffTimers.Any(timer => timer.NeedsFastVerification) ? 1 : 10;
-                _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(delaySeconds);
+                _nextMonitorValueRecognitionAt = delaySeconds == 1
+                    ? DateTimeOffset.UtcNow
+                    : DateTimeOffset.UtcNow.AddSeconds(9);
             }
         }
     }
@@ -1437,32 +1429,63 @@ public partial class MainWindow : Window
             var difference = observedSeconds - timer.RemainingSeconds;
             if (difference < -3)
             {
-                timer.PendingObservedSeconds = null;
-                timer.PendingObservationConfirmations = 0;
-                _log.Info(
-                    $"Buff OCR rejected downward jump: reason={reason}, key={nameKey}, " +
-                    $"current={timer.RemainingSeconds}, observed={observedSeconds}");
+                var now = DateTimeOffset.UtcNow;
+                var continuesDownwardObservation = timer.PendingObservationIsDownward &&
+                                                   timer.PendingObservedSeconds is int pending &&
+                                                   observedSeconds <= pending + 1 &&
+                                                   observedSeconds >= pending - 4;
+                if (continuesDownwardObservation)
+                {
+                    timer.PendingObservedSeconds = observedSeconds;
+                    timer.PendingObservationConfirmations++;
+                }
+                else
+                {
+                    timer.PendingObservedSeconds = observedSeconds;
+                    timer.PendingObservationConfirmations = 1;
+                    timer.PendingObservationStartedAt = now;
+                    timer.PendingObservationIsDownward = true;
+                }
+
+                var validFor = now - (timer.PendingObservationStartedAt ?? now);
+                if (validFor >= TimeSpan.FromSeconds(5) && timer.PendingObservationConfirmations >= 5)
+                {
+                    timer.RemainingSeconds = observedSeconds;
+                    ClearPendingTimeObservation(timer);
+                    _log.Info(
+                        $"Buff OCR accepted sustained downward value: reason={reason}, key={nameKey}, " +
+                        $"observed={observedSeconds}, validMs={validFor.TotalMilliseconds:0}");
+                }
+                else
+                {
+                    _log.Info(
+                        $"Buff OCR validating downward value: reason={reason}, key={nameKey}, " +
+                        $"current={timer.RemainingSeconds}, observed={observedSeconds}, " +
+                        $"count={timer.PendingObservationConfirmations}, validMs={validFor.TotalMilliseconds:0}");
+                }
             }
             else if (difference <= 12)
             {
                 timer.RemainingSeconds = observedSeconds;
-                timer.PendingObservedSeconds = null;
-                timer.PendingObservationConfirmations = 0;
+                ClearPendingTimeObservation(timer);
             }
-            else if (timer.PendingObservedSeconds is int pending && Math.Abs(pending - observedSeconds) <= 4)
+            else if (!timer.PendingObservationIsDownward &&
+                     timer.PendingObservedSeconds is int pending &&
+                     Math.Abs(pending - observedSeconds) <= 4)
             {
                 timer.PendingObservationConfirmations++;
                 if (timer.PendingObservationConfirmations >= 2)
                 {
                     timer.RemainingSeconds = observedSeconds;
-                    timer.PendingObservedSeconds = null;
-                    timer.PendingObservationConfirmations = 0;
+                    ClearPendingTimeObservation(timer);
                 }
             }
             else
             {
                 timer.PendingObservedSeconds = observedSeconds;
                 timer.PendingObservationConfirmations = 1;
+                timer.PendingObservationStartedAt = DateTimeOffset.UtcNow;
+                timer.PendingObservationIsDownward = false;
                 _log.Info(
                     $"Buff OCR deferred: reason={reason}, key={nameKey}, current={timer.RemainingSeconds}, observed={observedSeconds}");
             }
@@ -1482,8 +1505,7 @@ public partial class MainWindow : Window
         }
 
         timer.RemainingSeconds = Math.Max(1, timer.RemainingSeconds);
-        timer.PendingObservedSeconds = null;
-        timer.PendingObservationConfirmations = 0;
+        ClearPendingTimeObservation(timer);
         timer.ConsecutiveZeroConfirmations++;
         _log.Info(
             $"Buff zero confirmation: reason={reason}, key={nameKey}, source={source}, " +
@@ -1493,6 +1515,23 @@ public partial class MainWindow : Window
             _internalBuffTimers.Remove(timer);
             _log.Info($"Buff expired after confirmation: key={nameKey}");
         }
+    }
+
+    private void ResetPendingTimeObservation(string nameKey)
+    {
+        var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+        if (timer is not null)
+        {
+            ClearPendingTimeObservation(timer);
+        }
+    }
+
+    private static void ClearPendingTimeObservation(InternalBuffTimer timer)
+    {
+        timer.PendingObservedSeconds = null;
+        timer.PendingObservationConfirmations = 0;
+        timer.PendingObservationStartedAt = null;
+        timer.PendingObservationIsDownward = false;
     }
 
     private BitmapSource? CaptureMonitorFrame()
