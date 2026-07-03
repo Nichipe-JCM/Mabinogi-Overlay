@@ -16,6 +16,8 @@ public sealed class InternalBuffTimer
 
     public bool AwaitingTuanExtensionRefresh { get; set; }
 
+    public bool AlertFired { get; set; }
+
     public bool HasHarmony { get; set; }
 
     public string LastRecognizedText { get; set; } = string.Empty;

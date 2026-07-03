@@ -28,6 +28,14 @@ public sealed class OverlayProfile
 
     public bool TuairimMonitorEnabled { get; set; }
 
+    public int BuffAlertSeconds { get; set; } = 30;
+
+    public string BuffAlertSoundPath { get; set; } = string.Empty;
+
+    public int TuairimAlertPercent { get; set; } = 95;
+
+    public string TuairimAlertSoundPath { get; set; } = string.Empty;
+
     public List<string> RecognizedBuffNameKeys { get; set; } = [];
 
     public List<string> SelectedBuffNameKeys { get; set; } = [];

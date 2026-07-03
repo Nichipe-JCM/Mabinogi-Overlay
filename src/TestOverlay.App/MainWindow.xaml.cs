@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -8,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
 
@@ -33,6 +35,8 @@ public partial class MainWindow : Window
     private readonly CpuCompositedOverlayRenderer _cpuCompositedRenderer = new();
     private readonly MonitorTemplateDetectionService _monitorTemplateDetection = new();
     private readonly MonitorValueRecognitionService _monitorValueRecognition = new();
+    private readonly MediaPlayer _buffAlertPlayer = new();
+    private readonly MediaPlayer _tuairimAlertPlayer = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly ProfileStore _profileStore;
     private AppSettings _appSettings;
@@ -125,6 +129,11 @@ public partial class MainWindow : Window
     private int? _pendingTuairimPercent;
     private int _pendingTuairimPercentConfirmations;
     private DateTimeOffset? _lastAcceptedTuairimPercentAt;
+    private int _buffAlertSeconds = 30;
+    private string _buffAlertSoundPath = string.Empty;
+    private int _tuairimAlertPercent = 95;
+    private string _tuairimAlertSoundPath = string.Empty;
+    private bool _tuairimAlertFired;
     private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
@@ -175,12 +184,15 @@ public partial class MainWindow : Window
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         _profileAutoSaveTimer.Tick += (_, _) => FlushProfileAutoSave();
         _internalTimerDebugTimer.Tick += InternalTimerDebugTimer_Tick;
+        _buffAlertPlayer.MediaFailed += (_, args) => _log.Error("Buff alert media playback failed.", args.ErrorException);
+        _tuairimAlertPlayer.MediaFailed += (_, args) => _log.Error("Tuairim alert media playback failed.", args.ErrorException);
         Loaded += MainWindow_Loaded;
         Closing += (_, _) => FlushProfileAutoSave();
         Closed += (_, _) =>
         {
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
             _erinTimerWindow?.Close();
+            CloseAlertPlayers();
             StopOverlay(setStatus: false);
         };
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
@@ -192,12 +204,14 @@ public partial class MainWindow : Window
         UpdateLayoutSummary();
         UpdateInternalTimerDebugStatus();
         UpdateMonitorControlAvailability();
+        RefreshMonitorAlertSettingsControls();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshWindows();
         RefreshProfileList();
+        LoadStartupAlertSettings();
         _log.Info("Application loaded.");
     }
 
@@ -1034,6 +1048,218 @@ public partial class MainWindow : Window
         RefreshInternalTimerOverlay();
     }
 
+    private void AlertNumberTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
+        e.Handled = e.Text.Any(character => !char.IsDigit(character));
+
+    private void BuffAlertSecondsBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        _buffAlertSeconds = ReadAlertThreshold(BuffAlertSecondsBox.Text, 5, 30, _buffAlertSeconds);
+        BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
+        ScheduleProfileAutoSave();
+    }
+
+    private void TuairimAlertPercentBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 1, 100, _tuairimAlertPercent);
+        TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
+        ScheduleProfileAutoSave();
+    }
+
+    private void BrowseBuffAlertSoundButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = ChooseMonitorAlertSound();
+        if (path is null)
+        {
+            return;
+        }
+        _buffAlertSoundPath = path;
+        RefreshMonitorAlertSettingsControls();
+        ScheduleProfileAutoSave();
+    }
+
+    private void BrowseTuairimAlertSoundButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = ChooseMonitorAlertSound();
+        if (path is null)
+        {
+            return;
+        }
+        _tuairimAlertSoundPath = path;
+        RefreshMonitorAlertSettingsControls();
+        ScheduleProfileAutoSave();
+    }
+
+    private void ClearBuffAlertSoundButton_Click(object sender, RoutedEventArgs e)
+    {
+        _buffAlertSoundPath = string.Empty;
+        _buffAlertPlayer.Stop();
+        _buffAlertPlayer.Close();
+        RefreshMonitorAlertSettingsControls();
+        ScheduleProfileAutoSave();
+    }
+
+    private void ClearTuairimAlertSoundButton_Click(object sender, RoutedEventArgs e)
+    {
+        _tuairimAlertSoundPath = string.Empty;
+        _tuairimAlertPlayer.Stop();
+        _tuairimAlertPlayer.Close();
+        RefreshMonitorAlertSettingsControls();
+        ScheduleProfileAutoSave();
+    }
+
+    private void TestBuffAlertSoundButton_Click(object sender, RoutedEventArgs e) =>
+        PlayMonitorAlertSound(_buffAlertPlayer, _buffAlertSoundPath, "buff-test");
+
+    private void TestTuairimAlertSoundButton_Click(object sender, RoutedEventArgs e) =>
+        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, "tuairim-test");
+
+    private string? ChooseMonitorAlertSound()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = L.T("monitor.alert.sound.choose"),
+            Filter = L.T("erin.audio.file.filter"),
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+    }
+
+    private static int ReadAlertThreshold(string? text, int minimum, int maximum, int fallback) =>
+        int.TryParse(text, out var value) && value >= minimum && value <= maximum ? value : fallback;
+
+    private void CommitMonitorAlertThresholdInputs()
+    {
+        if (BuffAlertSecondsBox is null)
+        {
+            return;
+        }
+        _buffAlertSeconds = ReadAlertThreshold(BuffAlertSecondsBox.Text, 5, 30, _buffAlertSeconds);
+        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 1, 100, _tuairimAlertPercent);
+        BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
+        TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
+    }
+
+    private void RefreshMonitorAlertSettingsControls()
+    {
+        if (BuffAlertSecondsBox is null)
+        {
+            return;
+        }
+        BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
+        BuffAlertSoundPathBox.Text = _buffAlertSoundPath;
+        TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
+        TuairimAlertSoundPathBox.Text = _tuairimAlertSoundPath;
+        ClearBuffAlertSoundButton.IsEnabled = !string.IsNullOrWhiteSpace(_buffAlertSoundPath);
+        TestBuffAlertSoundButton.IsEnabled = File.Exists(_buffAlertSoundPath);
+        ClearTuairimAlertSoundButton.IsEnabled = !string.IsNullOrWhiteSpace(_tuairimAlertSoundPath);
+        TestTuairimAlertSoundButton.IsEnabled = File.Exists(_tuairimAlertSoundPath);
+    }
+
+    private void LoadStartupAlertSettings()
+    {
+        try
+        {
+            var profile = _profileStore.Load(ReadSelectedProfileName());
+            if (profile is null)
+            {
+                return;
+            }
+            ApplyMonitorAlertSettings(profile);
+            RefreshMonitorAlertSettingsControls();
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Failed to load startup monitor alert settings.", exception);
+        }
+    }
+
+    private void ApplyMonitorAlertSettings(OverlayProfile profile)
+    {
+        _buffAlertSeconds = profile.BuffAlertSeconds is >= 5 and <= 30 ? profile.BuffAlertSeconds : 30;
+        _buffAlertSoundPath = profile.BuffAlertSoundPath ?? string.Empty;
+        _tuairimAlertPercent = profile.TuairimAlertPercent is >= 1 and <= 100 ? profile.TuairimAlertPercent : 95;
+        _tuairimAlertSoundPath = profile.TuairimAlertSoundPath ?? string.Empty;
+        _tuairimAlertFired = false;
+        foreach (var timer in _internalBuffTimers)
+        {
+            timer.AlertFired = timer.RemainingSeconds <= _buffAlertSeconds;
+        }
+    }
+
+    private void TryFireBuffAlert(InternalBuffTimer timer, int previousSeconds, int currentSeconds)
+    {
+        if (currentSeconds > _buffAlertSeconds)
+        {
+            timer.AlertFired = false;
+            return;
+        }
+        if (timer.AlertFired || previousSeconds <= _buffAlertSeconds)
+        {
+            return;
+        }
+
+        timer.AlertFired = true;
+        _log.Info(
+            $"Buff alert threshold reached: key={timer.NameKey}, threshold={_buffAlertSeconds}, " +
+            $"previous={previousSeconds}, current={currentSeconds}");
+        PlayMonitorAlertSound(_buffAlertPlayer, _buffAlertSoundPath, $"buff:{timer.NameKey}");
+    }
+
+    private void TryFireTuairimAlert(int previousPercent, int currentPercent, bool hadAcceptedObservation)
+    {
+        if (!hadAcceptedObservation)
+        {
+            _tuairimAlertFired = currentPercent >= _tuairimAlertPercent;
+            return;
+        }
+        if (currentPercent < _tuairimAlertPercent)
+        {
+            _tuairimAlertFired = false;
+            return;
+        }
+        if (_tuairimAlertFired || previousPercent >= _tuairimAlertPercent)
+        {
+            return;
+        }
+
+        _tuairimAlertFired = true;
+        _log.Info(
+            $"Tuairim alert threshold reached: threshold={_tuairimAlertPercent}, " +
+            $"previous={previousPercent}, current={currentPercent}");
+        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, "tuairim");
+    }
+
+    private void PlayMonitorAlertSound(MediaPlayer player, string path, string alertKind)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            player.Stop();
+            player.Close();
+            player.Open(new Uri(path, UriKind.Absolute));
+            player.Volume = 1;
+            player.Play();
+            _log.Info($"Monitor alert sound played: kind={alertKind}, path={path}");
+        }
+        catch (Exception exception)
+        {
+            _log.Error($"Failed to play monitor alert sound: kind={alertKind}, path={path}", exception);
+        }
+    }
+
+    private void CloseAlertPlayers()
+    {
+        _buffAlertPlayer.Stop();
+        _buffAlertPlayer.Close();
+        _tuairimAlertPlayer.Stop();
+        _tuairimAlertPlayer.Close();
+    }
+
     private void DetectBuffWindowButton_Click(object sender, RoutedEventArgs e)
     {
         if (!_buffMonitorEnabled || _overlayWindow is not null)
@@ -1161,6 +1387,14 @@ public partial class MainWindow : Window
         var settingsEditable = baseEditable && _monitorDetectionMode == MonitorDetectionMode.None;
         BuffMonitorEnabledCheckBox.IsEnabled = settingsEditable;
         TuairimMonitorEnabledCheckBox.IsEnabled = settingsEditable;
+        BuffAlertSecondsBox.IsEnabled = settingsEditable;
+        BrowseBuffAlertSoundButton.IsEnabled = settingsEditable;
+        ClearBuffAlertSoundButton.IsEnabled = settingsEditable && !string.IsNullOrWhiteSpace(_buffAlertSoundPath);
+        TestBuffAlertSoundButton.IsEnabled = settingsEditable && File.Exists(_buffAlertSoundPath);
+        TuairimAlertPercentBox.IsEnabled = settingsEditable;
+        BrowseTuairimAlertSoundButton.IsEnabled = settingsEditable;
+        ClearTuairimAlertSoundButton.IsEnabled = settingsEditable && !string.IsNullOrWhiteSpace(_tuairimAlertSoundPath);
+        TestTuairimAlertSoundButton.IsEnabled = settingsEditable && File.Exists(_tuairimAlertSoundPath);
         DetectBuffWindowButton.IsEnabled = baseEditable &&
                                            _buffMonitorEnabled &&
                                            _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.BuffWindow;
@@ -1207,6 +1441,7 @@ public partial class MainWindow : Window
         {
             var previousSeconds = timer.RemainingSeconds;
             timer.RemainingSeconds = Math.Max(1, timer.RemainingSeconds - 1);
+            TryFireBuffAlert(timer, previousSeconds, timer.RemainingSeconds);
             reachedVerificationPoint |= previousSeconds > 30 && timer.RemainingSeconds <= 30;
         }
 
@@ -1437,6 +1672,8 @@ public partial class MainWindow : Window
     private void ApplyTuairimPercentObservation(int observedPercent, string reason)
     {
         observedPercent = Math.Clamp(observedPercent, 0, 100);
+        var hadAcceptedObservation = _hasTuairimPercentObservation;
+        var previousPercent = _tuairimPercent;
         if (!_hasTuairimPercentObservation)
         {
             if (!ConfirmInitialTuairimPercent(observedPercent, reason))
@@ -1488,6 +1725,7 @@ public partial class MainWindow : Window
         _tuairimPercent = observedPercent;
         _lastAcceptedTuairimPercentAt = DateTimeOffset.UtcNow;
         _internalTimerOverlayWindow?.SetTuairimPercent(observedPercent);
+        TryFireTuairimAlert(previousPercent, observedPercent, hadAcceptedObservation);
     }
 
     private bool ConfirmInitialTuairimPercent(int observedPercent, string reason)
@@ -1520,12 +1758,14 @@ public partial class MainWindow : Window
     {
         _hasTuairimPercentObservation = false;
         _lastAcceptedTuairimPercentAt = null;
+        _tuairimAlertFired = false;
         ClearPendingTuairimPercent();
     }
 
     private void ApplyBuffTimeObservation(string nameKey, int observedSeconds, string recognizedText, string reason)
     {
         var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+        var previousSeconds = timer?.RemainingSeconds;
         var recognizedTuan =
             recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal) ||
             recognizedText.Contains("\uC758 \uB178\uB798", StringComparison.Ordinal) ||
@@ -1550,6 +1790,7 @@ public partial class MainWindow : Window
         if (timer is null)
         {
             timer = new InternalBuffTimer(nameKey, observedSeconds);
+            timer.AlertFired = observedSeconds <= _buffAlertSeconds;
             _internalBuffTimers.Add(timer);
         }
         else
@@ -1642,6 +1883,10 @@ public partial class MainWindow : Window
         timer.LastRecognizedText = recognizedText;
         timer.HasTuanExtension |= recognizedTuan;
         timer.HasHarmony = recognizedText.Contains("\uD558\uBAA8\uB2C8", StringComparison.Ordinal);
+        if (previousSeconds is int previous)
+        {
+            TryFireBuffAlert(timer, previous, timer.RemainingSeconds);
+        }
     }
 
     private void RegisterBuffZeroConfirmation(string nameKey, string reason, string source)
@@ -1787,6 +2032,7 @@ public partial class MainWindow : Window
     private OverlayProfile BuildCurrentProfile(string profileName)
     {
         SaveCurrentSectionSettings();
+        CommitMonitorAlertThresholdInputs();
         return new OverlayProfile
         {
             Name = profileName,
@@ -1802,6 +2048,10 @@ public partial class MainWindow : Window
             GridSnapSize = _layoutGridSnapSize,
             BuffMonitorEnabled = _buffMonitorEnabled,
             TuairimMonitorEnabled = _tuairimMonitorEnabled,
+            BuffAlertSeconds = _buffAlertSeconds,
+            BuffAlertSoundPath = _buffAlertSoundPath,
+            TuairimAlertPercent = _tuairimAlertPercent,
+            TuairimAlertSoundPath = _tuairimAlertSoundPath,
             RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
                 .Where(_recognizedBuffNameKeys.Contains)
                 .ToList(),
@@ -1960,6 +2210,7 @@ public partial class MainWindow : Window
         _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
         _buffMonitorEnabled = profile.BuffMonitorEnabled;
         _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
+        ApplyMonitorAlertSettings(profile);
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();
         _pendingInitialBuffMinuteValidation.Clear();
@@ -1999,6 +2250,7 @@ public partial class MainWindow : Window
         }
         BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
         TuairimMonitorEnabledCheckBox.IsChecked = _tuairimMonitorEnabled;
+        RefreshMonitorAlertSettingsControls();
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
         SlotWidthBox.Text = ReadSlotDimensionText(profileWidth, ReadSlotInnerWidth());
