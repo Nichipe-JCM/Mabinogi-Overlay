@@ -1331,6 +1331,7 @@ public partial class MainWindow : Window
                     if (match is null)
                     {
                         ResetPendingTimeObservation(nameKey);
+                        ResetBuffZeroConfirmation(nameKey);
                         continue;
                     }
 
@@ -1341,6 +1342,7 @@ public partial class MainWindow : Window
                     }
                     if (!match.IsActive)
                     {
+                        ResetBuffZeroConfirmation(nameKey);
                         continue;
                     }
 
@@ -1356,6 +1358,7 @@ public partial class MainWindow : Window
                     else
                     {
                         ResetPendingTimeObservation(nameKey);
+                        ResetBuffZeroConfirmation(nameKey);
                         SaveMonitorDiagnosticOnce(frame, read.Bounds, $"buff-{SanitizeDiagnosticName(nameKey)}");
                     }
 
@@ -1523,6 +1526,15 @@ public partial class MainWindow : Window
         if (timer is not null)
         {
             ClearPendingTimeObservation(timer);
+        }
+    }
+
+    private void ResetBuffZeroConfirmation(string nameKey)
+    {
+        var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+        if (timer is not null)
+        {
+            timer.ConsecutiveZeroConfirmations = 0;
         }
     }
 
