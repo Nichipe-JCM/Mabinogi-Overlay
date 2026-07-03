@@ -122,6 +122,9 @@ public partial class MainWindow : Window
     private DateTimeOffset _nextMonitorValueRecognitionAt;
     private int _tuairimPercent;
     private bool _hasTuairimPercentObservation;
+    private int? _pendingTuairimPercent;
+    private int _pendingTuairimPercentConfirmations;
+    private DateTimeOffset? _lastAcceptedTuairimPercentAt;
     private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
@@ -375,7 +378,7 @@ public partial class MainWindow : Window
         _pendingInitialBuffMinuteValidation.Clear();
         _tuairimMonitorRoi = null;
         _tuairimAnchor = null;
-        _hasTuairimPercentObservation = false;
+        ResetTuairimPercentRecognitionState();
         EnsureEnabledMonitorElementsPlaced();
         UpdateMonitorControlAvailability();
         SetStatus(L.F("{0}. Run slot detection next.", status));
@@ -1023,7 +1026,7 @@ public partial class MainWindow : Window
         {
             _tuairimMonitorRoi = null;
             _tuairimAnchor = null;
-            _hasTuairimPercentObservation = false;
+            ResetTuairimPercentRecognitionState();
             RefreshMonitorDetectionVisuals();
         }
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
@@ -1436,18 +1439,88 @@ public partial class MainWindow : Window
         observedPercent = Math.Clamp(observedPercent, 0, 100);
         if (!_hasTuairimPercentObservation)
         {
-            _hasTuairimPercentObservation = true;
+            if (!ConfirmInitialTuairimPercent(observedPercent, reason))
+            {
+                return;
+            }
         }
-        else if (observedPercent != 0 &&
-                 (observedPercent < _tuairimPercent || observedPercent > _tuairimPercent + 5))
+        else if (observedPercent == 0 && _tuairimPercent != 0)
         {
+            if (_pendingTuairimPercent == 0)
+            {
+                _pendingTuairimPercentConfirmations++;
+            }
+            else
+            {
+                _pendingTuairimPercent = 0;
+                _pendingTuairimPercentConfirmations = 1;
+            }
+
             _log.Info(
-                $"Tuairim OCR rejected implausible change: reason={reason}, current={_tuairimPercent}, observed={observedPercent}");
-            return;
+                $"Tuairim zero validating: reason={reason}, count={_pendingTuairimPercentConfirmations}/2");
+            if (_pendingTuairimPercentConfirmations < 2)
+            {
+                return;
+            }
+        }
+        else
+        {
+            var elapsedSeconds = Math.Max(
+                MonitorRecognitionIntervalSeconds,
+                (DateTimeOffset.UtcNow - (_lastAcceptedTuairimPercentAt ?? DateTimeOffset.UtcNow)).TotalSeconds);
+            var elapsedIntervals = Math.Max(
+                1,
+                (int)Math.Floor((elapsedSeconds + 0.25) / MonitorRecognitionIntervalSeconds));
+            var allowedIncrease = Math.Max(
+                5,
+                elapsedIntervals * 5);
+            if (observedPercent < _tuairimPercent || observedPercent > _tuairimPercent + allowedIncrease)
+            {
+                _log.Info(
+                    $"Tuairim OCR rejected implausible change: reason={reason}, current={_tuairimPercent}, " +
+                    $"observed={observedPercent}, allowedIncrease={allowedIncrease}");
+                return;
+            }
         }
 
+        ClearPendingTuairimPercent();
+        _hasTuairimPercentObservation = true;
         _tuairimPercent = observedPercent;
+        _lastAcceptedTuairimPercentAt = DateTimeOffset.UtcNow;
         _internalTimerOverlayWindow?.SetTuairimPercent(observedPercent);
+    }
+
+    private bool ConfirmInitialTuairimPercent(int observedPercent, string reason)
+    {
+        if (_pendingTuairimPercent is int pending &&
+            observedPercent >= pending &&
+            observedPercent <= pending + 5)
+        {
+            _pendingTuairimPercentConfirmations++;
+        }
+        else
+        {
+            _pendingTuairimPercent = observedPercent;
+            _pendingTuairimPercentConfirmations = 1;
+        }
+
+        _log.Info(
+            $"Tuairim initial validating: reason={reason}, observed={observedPercent}, " +
+            $"count={_pendingTuairimPercentConfirmations}/2");
+        return _pendingTuairimPercentConfirmations >= 2;
+    }
+
+    private void ClearPendingTuairimPercent()
+    {
+        _pendingTuairimPercent = null;
+        _pendingTuairimPercentConfirmations = 0;
+    }
+
+    private void ResetTuairimPercentRecognitionState()
+    {
+        _hasTuairimPercentObservation = false;
+        _lastAcceptedTuairimPercentAt = null;
+        ClearPendingTuairimPercent();
     }
 
     private void ApplyBuffTimeObservation(string nameKey, int observedSeconds, string recognizedText, string reason)
@@ -1544,7 +1617,10 @@ public partial class MainWindow : Window
         }
 
         timer.LastRecognizedText = recognizedText;
-        timer.HasTuanExtension = recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal);
+        timer.HasTuanExtension |=
+            recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal) ||
+            recognizedText.Contains("\uC758 \uB178\uB798", StringComparison.Ordinal) ||
+            recognizedText.Contains("\uC758\uB178\uB798", StringComparison.Ordinal);
         timer.HasHarmony = recognizedText.Contains("\uD558\uBAA8\uB2C8", StringComparison.Ordinal);
     }
 
@@ -1871,7 +1947,7 @@ public partial class MainWindow : Window
         _buffMonitorRoi = FromProfileRect(profile.BuffMonitorRoi);
         _tuairimMonitorRoi = FromProfileRect(profile.TuairimMonitorRoi);
         _tuairimAnchor = FromProfileRect(profile.TuairimAnchor);
-        _hasTuairimPercentObservation = false;
+        ResetTuairimPercentRecognitionState();
         if (_buffMonitorEnabled)
         {
             foreach (var key in (profile.RecognizedBuffNameKeys ?? []).Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
@@ -2752,7 +2828,7 @@ public partial class MainWindow : Window
                 }
                 _tuairimMonitorRoi = roi;
                 _tuairimAnchor = result?.Bounds;
-                _hasTuairimPercentObservation = false;
+                ResetTuairimPercentRecognitionState();
                 RefreshMonitorDetectionVisuals();
                 if (result is null)
                 {
@@ -4136,7 +4212,7 @@ public partial class MainWindow : Window
         _liveOverlayTimer.Stop();
         _internalTimerDebugTimer.Stop();
         _pendingInitialBuffMinuteValidation.Clear();
-        _hasTuairimPercentObservation = false;
+        ResetTuairimPercentRecognitionState();
         _monitorValueRecognitionGeneration++;
         LogCpuRenderStats(final: true);
         _gpuLiveOverlayService?.Dispose();

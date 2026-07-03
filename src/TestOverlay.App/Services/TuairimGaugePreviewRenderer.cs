@@ -23,8 +23,8 @@ public static class TuairimGaugePreviewRenderer
                 6,
                 6);
 
-            var labelTypeface = new Typeface(new FontFamily("Segoe UI Variable, Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-            var valueTypeface = new Typeface(new FontFamily("Cascadia Mono, Consolas"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            var labelTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            var valueTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
             var label = CreateText(L.T("monitor.tuairim.overlay"), labelTypeface, 12, Brushes.White);
             var value = CreateText($"{percent}%", valueTypeface, 12, new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)));
             context.DrawText(label, new Point(10, 8));

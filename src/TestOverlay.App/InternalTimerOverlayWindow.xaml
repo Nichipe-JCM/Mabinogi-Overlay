@@ -9,7 +9,8 @@
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
-        Focusable="False">
+        Focusable="False"
+        FontFamily="Malgun Gothic">
     <Canvas Background="Transparent" Focusable="False" IsHitTestVisible="False">
         <Border x:Name="TimerPanel"
                 Padding="10,8"
@@ -40,7 +41,7 @@
                            Margin="6,0,0,0"
                            Text="0%"
                            Foreground="{StaticResource OverlayAccentBrush}"
-                           FontFamily="Cascadia Mono, Consolas"
+                           FontFamily="Malgun Gothic"
                            FontWeight="SemiBold"
                            FontSize="12"/>
             </Grid>

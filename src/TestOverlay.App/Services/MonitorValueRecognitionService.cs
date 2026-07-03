@@ -97,7 +97,7 @@ public sealed partial class MonitorValueRecognitionService
             return null;
         }
 
-        var normalized = NormalizeText(text);
+        var normalized = NormalizeDurationOcrText(text);
         var colonMatch = ColonDurationRegex().Match(normalized);
         if (colonMatch.Success &&
             int.TryParse(colonMatch.Groups[1].Value, out var colonMinutes) &&
@@ -160,10 +160,9 @@ public sealed partial class MonitorValueRecognitionService
             return percent is >= 0 and <= 100 ? percent : null;
         }
 
-        var numberMatches = NumberRegex().Matches(NormalizeText(text));
-        var numberMatch = numberMatches.Count == 0 ? null : numberMatches[^1];
-        return numberMatch is not null &&
-               int.TryParse(numberMatch.Value, out percent) &&
+        var compactMatch = CompactPercentRegex().Match(NormalizeText(text));
+        return compactMatch.Success &&
+               int.TryParse(compactMatch.Groups[1].Value, out percent) &&
                percent is >= 0 and <= 100
             ? percent
             : null;
@@ -360,6 +359,26 @@ public sealed partial class MonitorValueRecognitionService
     private static string NormalizeText(string? text) =>
         Regex.Replace(text ?? string.Empty, @"\s+", " ").Trim();
 
+    private static string NormalizeDurationOcrText(string? text)
+    {
+        var normalized = NormalizeText(text);
+        normalized = Regex.Replace(
+            normalized,
+            @"\uD06C(?=\s*\uBD84)",
+            "3",
+            RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(
+            normalized,
+            @"(?<=\d)\s*[\uC870\uD638](?=\s*$)",
+            "\uCD08",
+            RegexOptions.CultureInvariant);
+        return Regex.Replace(
+            normalized,
+            @"(?<=\uBD84)\s*\uD45C\uD1A0(?=\s*$)",
+            " 30\uCD08",
+            RegexOptions.CultureInvariant);
+    }
+
     [GeneratedRegex(@"(\d{1,2})\s*[:：]\s*(\d{1,2})", RegexOptions.CultureInvariant)]
     private static partial Regex ColonDurationRegex();
 
@@ -371,6 +390,9 @@ public sealed partial class MonitorValueRecognitionService
 
     [GeneratedRegex(@"(\d{1,3})\s*[%％]", RegexOptions.CultureInvariant)]
     private static partial Regex PercentRegex();
+
+    [GeneratedRegex(@"^[^\p{L}\d]{0,2}(\d{1,3})[^\p{L}\d]{0,2}$", RegexOptions.CultureInvariant)]
+    private static partial Regex CompactPercentRegex();
 
     [GeneratedRegex(@"\d{1,3}", RegexOptions.CultureInvariant)]
     private static partial Regex NumberRegex();

@@ -101,6 +101,7 @@ public partial class InternalTimerOverlayWindow : Window
                 Text = InternalBuffTimerPreviewRenderer.BuildDisplayName(
                     nameKey,
                     timerByKey.TryGetValue(nameKey, out var displayTimer) ? displayTimer : null),
+                FontFamily = new FontFamily("Malgun Gothic"),
                 FontSize = 12,
                 Foreground = (Brush)FindResource("OverlayTextBrush"),
                 VerticalAlignment = VerticalAlignment.Center
@@ -109,7 +110,7 @@ public partial class InternalTimerOverlayWindow : Window
             {
                 Text = displayTimer is not null ? FormatTime(displayTimer.RemainingSeconds) : "--:--",
                 Margin = new Thickness(12, 0, 0, 0),
-                FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+                FontFamily = new FontFamily("Malgun Gothic"),
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = displayTimer is not null && displayTimer.RemainingSeconds <= 30

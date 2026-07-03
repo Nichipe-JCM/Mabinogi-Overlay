@@ -39,8 +39,8 @@ public static class InternalBuffTimerPreviewRenderer
                 6,
                 6);
 
-            var nameTypeface = new Typeface(new FontFamily("Segoe UI Variable, Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-            var timeTypeface = new Typeface(new FontFamily("Cascadia Mono, Consolas"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            var nameTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            var timeTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
             for (var index = 0; index < visibleKeys.Count; index++)
             {
                 var key = visibleKeys[index];
