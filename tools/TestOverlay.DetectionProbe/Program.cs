@@ -1,8 +1,61 @@
 using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
+
+if (args.Length >= 6 &&
+    (args[0].Equals("buff-benchmark", StringComparison.OrdinalIgnoreCase) ||
+     args[0].Equals("tuairim-benchmark", StringComparison.OrdinalIgnoreCase)))
+{
+    const int runCount = 30;
+    var image = LoadImage(args[1]);
+    var roi = ParseRoi(args, 2);
+    var detector = new MonitorTemplateDetectionService();
+    var recognizer = new MonitorValueRecognitionService();
+    Func<Task<int?>> readValue;
+    if (args[0].Equals("buff-benchmark", StringComparison.OrdinalIgnoreCase))
+    {
+        var detection = detector.DetectBuffs(image, roi);
+        var activeMatch = detection.Matches.FirstOrDefault(match => match.IsActive)
+                          ?? throw new InvalidOperationException("No active supported buff was detected in the ROI.");
+        readValue = async () =>
+            (await recognizer.ReadBuffTimeAsync(image, detection.Roi, activeMatch.Bounds)).RemainingSeconds;
+        Console.WriteLine($"target=buff,key={activeMatch.NameKey},bounds={FormatRect(activeMatch.Bounds)}");
+    }
+    else
+    {
+        var detection = detector.DetectTuairim(image, roi)
+                        ?? throw new InvalidOperationException("Tuairim UI was not detected in the ROI.");
+        readValue = async () =>
+            (await recognizer.ReadTuairimPercentAsync(image, detection.Bounds)).Percent;
+        Console.WriteLine($"target=tuairim,bounds={FormatRect(detection.Bounds)}");
+    }
+
+    var coldClock = Stopwatch.StartNew();
+    var coldValue = await readValue();
+    coldClock.Stop();
+    Console.WriteLine($"coldMs={coldClock.Elapsed.TotalMilliseconds:0.000},value={coldValue?.ToString() ?? "none"}");
+
+    var samples = new List<double>(runCount);
+    var values = new List<int?>(runCount);
+    for (var index = 0; index < runCount; index++)
+    {
+        var clock = Stopwatch.StartNew();
+        values.Add(await readValue());
+        clock.Stop();
+        samples.Add(clock.Elapsed.TotalMilliseconds);
+        Console.WriteLine($"run={index + 1:00},ms={samples[^1]:0.000},value={values[^1]?.ToString() ?? "none"}");
+    }
+
+    var ordered = samples.Order().ToArray();
+    Console.WriteLine(
+        $"summary=runs:{runCount},success:{values.Count(value => value is not null)}," +
+        $"minMs:{ordered[0]:0.000},p50Ms:{Percentile(ordered, 0.50):0.000}," +
+        $"avgMs:{samples.Average():0.000},p95Ms:{Percentile(ordered, 0.95):0.000},maxMs:{ordered[^1]:0.000}");
+    return values.All(value => value is not null) ? 0 : 1;
+}
 
 if (args.Length >= 6 &&
     (args[0].Equals("buff", StringComparison.OrdinalIgnoreCase) ||
@@ -70,8 +123,10 @@ if (args.Length < 6)
     Console.Error.WriteLine("  TestOverlay.DetectionProbe <image-path> <top|vertical> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe buff <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe buff-value <image-path> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe buff-benchmark <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-value <image-path> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-benchmark <image-path> <x> <y> <width> <height>");
     return 2;
 }
 
@@ -130,3 +185,16 @@ static Rect ParseRoi(string[] values, int offset) => new(
     double.Parse(values[offset + 3]));
 
 static string FormatRect(Rect rect) => $"{rect.X:0},{rect.Y:0},{rect.Width:0}x{rect.Height:0}";
+
+static double Percentile(IReadOnlyList<double> ordered, double percentile)
+{
+    var position = Math.Clamp((ordered.Count - 1) * percentile, 0, ordered.Count - 1);
+    var lower = (int)Math.Floor(position);
+    var upper = (int)Math.Ceiling(position);
+    if (lower == upper)
+    {
+        return ordered[lower];
+    }
+
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower);
+}
