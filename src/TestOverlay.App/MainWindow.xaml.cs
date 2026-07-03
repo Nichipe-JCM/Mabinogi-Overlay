@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private const int CandidateVisualPaddingPixels = 1;
     private const int DebugDetectRuns = 100;
     private const double MinimumOverlaySlotSize = 1;
+    private const int MonitorRecognitionIntervalSeconds = 2;
     private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
@@ -1286,7 +1287,7 @@ public partial class MainWindow : Window
         var shouldReadTuairim = _tuairimMonitorEnabled && _tuairimAnchor is not null;
         if (!shouldReadBuffs && !shouldReadTuairim)
         {
-            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(10);
+            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
             return;
         }
 
@@ -1298,13 +1299,13 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             _log.Error("Monitor value capture failed.", exception);
-            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(10);
+            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
             return;
         }
 
         if (frame is null)
         {
-            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(2);
+            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
             return;
         }
 
@@ -1404,10 +1405,10 @@ public partial class MainWindow : Window
             _isMonitorValueRecognitionBusy = false;
             if (generation == _monitorValueRecognitionGeneration)
             {
-                var delaySeconds = _internalBuffTimers.Any(timer => timer.NeedsFastVerification) ? 1 : 10;
-                _nextMonitorValueRecognitionAt = delaySeconds == 1
+                var needsFastRetry = _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
+                _nextMonitorValueRecognitionAt = needsFastRetry
                     ? DateTimeOffset.UtcNow
-                    : DateTimeOffset.UtcNow.AddSeconds(9);
+                    : DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
             }
         }
     }
