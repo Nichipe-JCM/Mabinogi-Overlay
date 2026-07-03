@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private readonly List<InternalBuffTimer> _internalBuffTimers = new();
     private readonly HashSet<string> _recognizedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedBuffNameKeys = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _pendingInitialBuffMinuteValidation = new(StringComparer.Ordinal);
     private readonly Dictionary<string, BuffIconMatch> _buffIconMatches = new(StringComparer.Ordinal);
     private readonly HashSet<string> _monitorDiagnosticKindsSaved = new(StringComparer.Ordinal);
     private readonly List<Rectangle> _monitorDetectionRects = new();
@@ -120,6 +121,7 @@ public partial class MainWindow : Window
     private Rect? _tuairimAnchor;
     private DateTimeOffset _nextMonitorValueRecognitionAt;
     private int _tuairimPercent;
+    private bool _hasTuairimPercentObservation;
     private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
@@ -370,8 +372,10 @@ public partial class MainWindow : Window
         _buffIconMatches.Clear();
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();
+        _pendingInitialBuffMinuteValidation.Clear();
         _tuairimMonitorRoi = null;
         _tuairimAnchor = null;
+        _hasTuairimPercentObservation = false;
         EnsureEnabledMonitorElementsPlaced();
         UpdateMonitorControlAvailability();
         SetStatus(L.F("{0}. Run slot detection next.", status));
@@ -997,6 +1001,7 @@ public partial class MainWindow : Window
             }
             _recognizedBuffNameKeys.Clear();
             _selectedBuffNameKeys.Clear();
+            _pendingInitialBuffMinuteValidation.Clear();
             _buffMonitorRoi = null;
             _buffIconMatches.Clear();
             RefreshMonitorDetectionVisuals();
@@ -1018,6 +1023,7 @@ public partial class MainWindow : Window
         {
             _tuairimMonitorRoi = null;
             _tuairimAnchor = null;
+            _hasTuairimPercentObservation = false;
             RefreshMonitorDetectionVisuals();
         }
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
@@ -1203,7 +1209,8 @@ public partial class MainWindow : Window
 
         UpdateInternalTimerDebugStatus();
         _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
-        var needsFastVerification = _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
+        var needsFastVerification = _pendingInitialBuffMinuteValidation.Count > 0 ||
+                                    _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
         if (reachedVerificationPoint || needsFastVerification || now >= _nextMonitorValueRecognitionAt)
         {
             var reason = reachedVerificationPoint
@@ -1315,6 +1322,7 @@ public partial class MainWindow : Window
         {
             if (shouldReadBuffs && _buffMonitorRoi is Rect buffRoi)
             {
+                var previousMatches = _buffIconMatches.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
                 var evaluatedMatches = await Task.Run(() =>
                     _monitorTemplateDetection.EvaluateBuffAnchors(frame, _buffIconMatches.Values.ToArray()));
                 if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
@@ -1338,13 +1346,23 @@ public partial class MainWindow : Window
 
                     if (!match.IsActive && match.StateConfidence >= 0.03)
                     {
+                        _pendingInitialBuffMinuteValidation.Remove(nameKey);
                         RegisterBuffZeroConfirmation(nameKey, reason, "inactive");
                         continue;
                     }
                     if (!match.IsActive)
                     {
+                        _pendingInitialBuffMinuteValidation.Remove(nameKey);
                         ResetBuffZeroConfirmation(nameKey);
                         continue;
+                    }
+
+                    var transitionedFromOff = previousMatches.TryGetValue(nameKey, out var previousMatch) &&
+                                              !previousMatch.IsActive &&
+                                              _internalBuffTimers.All(timer => timer.NameKey != nameKey);
+                    if (transitionedFromOff)
+                    {
+                        _pendingInitialBuffMinuteValidation.Add(nameKey);
                     }
 
                     var read = await _monitorValueRecognition.ReadBuffTimeAsync(frame, buffRoi, match.Bounds);
@@ -1379,8 +1397,7 @@ public partial class MainWindow : Window
                 }
                 if (read.Percent is int percent)
                 {
-                    _tuairimPercent = percent;
-                    _internalTimerOverlayWindow?.SetTuairimPercent(percent);
+                    ApplyTuairimPercentObservation(percent, reason);
                 }
                 else
                 {
@@ -1405,12 +1422,32 @@ public partial class MainWindow : Window
             _isMonitorValueRecognitionBusy = false;
             if (generation == _monitorValueRecognitionGeneration)
             {
-                var needsFastRetry = _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
+                var needsFastRetry = _pendingInitialBuffMinuteValidation.Count > 0 ||
+                                     _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
                 _nextMonitorValueRecognitionAt = needsFastRetry
                     ? DateTimeOffset.UtcNow
                     : DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
             }
         }
+    }
+
+    private void ApplyTuairimPercentObservation(int observedPercent, string reason)
+    {
+        observedPercent = Math.Clamp(observedPercent, 0, 100);
+        if (!_hasTuairimPercentObservation)
+        {
+            _hasTuairimPercentObservation = true;
+        }
+        else if (observedPercent != 0 &&
+                 (observedPercent < _tuairimPercent || observedPercent > _tuairimPercent + 5))
+        {
+            _log.Info(
+                $"Tuairim OCR rejected implausible change: reason={reason}, current={_tuairimPercent}, observed={observedPercent}");
+            return;
+        }
+
+        _tuairimPercent = observedPercent;
+        _internalTimerOverlayWindow?.SetTuairimPercent(observedPercent);
     }
 
     private void ApplyBuffTimeObservation(string nameKey, int observedSeconds, string recognizedText, string reason)
@@ -1421,6 +1458,17 @@ public partial class MainWindow : Window
             RegisterBuffZeroConfirmation(nameKey, reason, "ocr-zero");
             return;
         }
+
+        if (timer is null &&
+            _pendingInitialBuffMinuteValidation.Contains(nameKey) &&
+            observedSeconds < 60)
+        {
+            _log.Info(
+                $"Buff OCR rejected short initial activation: reason={reason}, key={nameKey}, observed={observedSeconds}");
+            return;
+        }
+
+        _pendingInitialBuffMinuteValidation.Remove(nameKey);
 
         if (timer is null)
         {
@@ -1517,6 +1565,7 @@ public partial class MainWindow : Window
         if (timer.ConsecutiveZeroConfirmations >= 5)
         {
             _internalBuffTimers.Remove(timer);
+            _pendingInitialBuffMinuteValidation.Remove(nameKey);
             _log.Info($"Buff expired after confirmation: key={nameKey}");
         }
     }
@@ -1817,10 +1866,12 @@ public partial class MainWindow : Window
         _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();
+        _pendingInitialBuffMinuteValidation.Clear();
         _buffIconMatches.Clear();
         _buffMonitorRoi = FromProfileRect(profile.BuffMonitorRoi);
         _tuairimMonitorRoi = FromProfileRect(profile.TuairimMonitorRoi);
         _tuairimAnchor = FromProfileRect(profile.TuairimAnchor);
+        _hasTuairimPercentObservation = false;
         if (_buffMonitorEnabled)
         {
             foreach (var key in (profile.RecognizedBuffNameKeys ?? []).Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
@@ -2701,6 +2752,7 @@ public partial class MainWindow : Window
                 }
                 _tuairimMonitorRoi = roi;
                 _tuairimAnchor = result?.Bounds;
+                _hasTuairimPercentObservation = false;
                 RefreshMonitorDetectionVisuals();
                 if (result is null)
                 {
@@ -4083,6 +4135,8 @@ public partial class MainWindow : Window
     {
         _liveOverlayTimer.Stop();
         _internalTimerDebugTimer.Stop();
+        _pendingInitialBuffMinuteValidation.Clear();
+        _hasTuairimPercentObservation = false;
         _monitorValueRecognitionGeneration++;
         LogCpuRenderStats(final: true);
         _gpuLiveOverlayService?.Dispose();

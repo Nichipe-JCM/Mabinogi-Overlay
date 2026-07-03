@@ -116,12 +116,6 @@ public sealed partial class MonitorValueRecognitionService
             return localizedMinutes * 60 + localizedSeconds;
         }
 
-        var secondOnlyMatch = SecondOnlyRegex().Match(normalized);
-        if (secondOnlyMatch.Success && int.TryParse(secondOnlyMatch.Groups[1].Value, out var seconds))
-        {
-            return seconds;
-        }
-
         var numbers = NumberRegex().Matches(normalized)
             .Select(match => int.TryParse(match.Value, out var value) ? value : -1)
             .Where(value => value >= 0)
@@ -129,6 +123,19 @@ public sealed partial class MonitorValueRecognitionService
         if (numbers.Count >= 2 && numbers[^1] < 60)
         {
             return numbers[^2] * 60 + numbers[^1];
+        }
+
+        // A visible minute unit with no minute digit is a truncated minute/second read,
+        // not a valid seconds-only duration.
+        if (normalized.Contains("\uBD84", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var secondOnlyMatch = SecondOnlyRegex().Match(normalized);
+        if (secondOnlyMatch.Success && int.TryParse(secondOnlyMatch.Groups[1].Value, out var seconds))
+        {
+            return seconds;
         }
 
         if (numbers.Count != 1 || numbers[0] > 60)
