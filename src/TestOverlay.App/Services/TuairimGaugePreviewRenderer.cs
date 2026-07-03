@@ -23,10 +23,10 @@ public static class TuairimGaugePreviewRenderer
                 6,
                 6);
 
-            var labelTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-            var valueTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
-            var label = CreateText(L.T("monitor.tuairim.overlay"), labelTypeface, 12, Brushes.White);
-            var value = CreateText($"{percent}%", valueTypeface, 12, new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)));
+            var labelTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            var valueTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            var label = CreateText(L.T("monitor.tuairim.overlay"), labelTypeface, 11, Brushes.White);
+            var value = CreateText($"{percent}%", valueTypeface, 11, new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)));
             context.DrawText(label, new Point(10, 8));
             context.DrawText(value, new Point(BaseWidth - 10 - value.WidthIncludingTrailingWhitespace, 8));
 

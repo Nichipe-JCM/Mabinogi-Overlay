@@ -10,7 +10,7 @@
         Background="Transparent"
         Topmost="True"
         Focusable="False"
-        FontFamily="Malgun Gothic">
+        FontFamily="Noto Sans KR, Malgun Gothic">
     <Canvas Background="Transparent" Focusable="False" IsHitTestVisible="False">
         <Border x:Name="TimerPanel"
                 Padding="10,8"
@@ -35,15 +35,15 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="TuairimLabel"
                            Foreground="{StaticResource OverlayTextBrush}"
-                           FontSize="12"/>
+                           FontSize="11"/>
                 <TextBlock x:Name="TuairimPercentText"
                            Grid.Column="1"
                            Margin="6,0,0,0"
                            Text="0%"
                            Foreground="{StaticResource OverlayAccentBrush}"
-                           FontFamily="Malgun Gothic"
+                           FontFamily="Noto Sans KR, Malgun Gothic"
                            FontWeight="SemiBold"
-                           FontSize="12"/>
+                           FontSize="11"/>
             </Grid>
         </Border>
     </Canvas>

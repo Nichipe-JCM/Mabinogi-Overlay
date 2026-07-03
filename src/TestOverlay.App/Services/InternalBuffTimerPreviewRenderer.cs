@@ -8,7 +8,7 @@ namespace TestOverlay.App.Services;
 
 public static class InternalBuffTimerPreviewRenderer
 {
-    public const int BaseWidth = 210;
+    public const int BaseWidth = 240;
     public const int RowHeight = 22;
     public const int VerticalPadding = 16;
 
@@ -39,28 +39,34 @@ public static class InternalBuffTimerPreviewRenderer
                 6,
                 6);
 
-            var nameTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-            var timeTypeface = new Typeface(new FontFamily("Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            var nameTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            var timeTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
             for (var index = 0; index < visibleKeys.Count; index++)
             {
                 var key = visibleKeys[index];
                 var y = 8 + index * RowHeight;
                 timerByKey.TryGetValue(key, out var timer);
-                var name = CreateText(BuildDisplayName(key, timer), nameTypeface, 12, Brushes.White);
-                context.DrawText(name, new Point(10, y));
-
                 var hasTimer = timer is not null;
                 var value = hasTimer ? $"{timer!.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}" : "--:--";
                 var brush = hasTimer && timer!.RemainingSeconds <= 30
                     ? new SolidColorBrush(Color.FromRgb(0xFF, 0xB4, 0xAB))
                     : new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4));
-                var time = CreateText(value, timeTypeface, 12, brush);
+                var time = CreateText(value, timeTypeface, 11, brush);
+                var availableNameWidth = BaseWidth - 28 - time.WidthIncludingTrailingWhitespace;
+                var nameText = BuildDisplayName(key, timer);
+                var name = CreateText(nameText, nameTypeface, 11, Brushes.White);
+                if (name.WidthIncludingTrailingWhitespace > availableNameWidth)
+                {
+                    var fittedSize = 11 * availableNameWidth / name.WidthIncludingTrailingWhitespace;
+                    name = CreateText(nameText, nameTypeface, fittedSize, Brushes.White);
+                }
+                context.DrawText(name, new Point(10, y));
                 context.DrawText(time, new Point(BaseWidth - 10 - time.WidthIncludingTrailingWhitespace, y));
             }
 
             if (visibleKeys.Count == 0)
             {
-                var empty = CreateText(L.T("monitor.buff.none.selected"), nameTypeface, 12, Brushes.Gray);
+                var empty = CreateText(L.T("monitor.buff.none.selected"), nameTypeface, 11, Brushes.Gray);
                 context.DrawText(empty, new Point(10, 8));
             }
         }

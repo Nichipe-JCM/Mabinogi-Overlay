@@ -1526,6 +1526,10 @@ public partial class MainWindow : Window
     private void ApplyBuffTimeObservation(string nameKey, int observedSeconds, string recognizedText, string reason)
     {
         var timer = _internalBuffTimers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+        var recognizedTuan =
+            recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal) ||
+            recognizedText.Contains("\uC758 \uB178\uB798", StringComparison.Ordinal) ||
+            recognizedText.Contains("\uC758\uB178\uB798", StringComparison.Ordinal);
         if (observedSeconds <= 0)
         {
             RegisterBuffZeroConfirmation(nameKey, reason, "ocr-zero");
@@ -1551,76 +1555,92 @@ public partial class MainWindow : Window
         else
         {
             timer.ConsecutiveZeroConfirmations = 0;
-            var difference = observedSeconds - timer.RemainingSeconds;
-            if (difference < -3)
+            if (recognizedTuan && !timer.HasTuanExtension && timer.RemainingSeconds <= 5)
             {
-                var now = DateTimeOffset.UtcNow;
-                var continuesDownwardObservation = timer.PendingObservationIsDownward &&
-                                                   timer.PendingObservedSeconds is int pending &&
-                                                   observedSeconds <= pending + 1 &&
-                                                   observedSeconds >= pending - 4;
-                if (continuesDownwardObservation)
+                timer.AwaitingTuanExtensionRefresh = true;
+            }
+            timer.HasTuanExtension |= recognizedTuan;
+
+            if (timer.AwaitingTuanExtensionRefresh &&
+                timer.RemainingSeconds <= 5 &&
+                observedSeconds > 30)
+            {
+                timer.RemainingSeconds = observedSeconds;
+                timer.AwaitingTuanExtensionRefresh = false;
+                ClearPendingTimeObservation(timer);
+                _log.Info(
+                    $"Buff OCR applied Tuan extension immediately: reason={reason}, key={nameKey}, observed={observedSeconds}");
+            }
+            else
+            {
+                var difference = observedSeconds - timer.RemainingSeconds;
+                if (difference < -3)
                 {
-                    timer.PendingObservedSeconds = observedSeconds;
+                    var now = DateTimeOffset.UtcNow;
+                    var continuesDownwardObservation = timer.PendingObservationIsDownward &&
+                                                       timer.PendingObservedSeconds is int pending &&
+                                                       observedSeconds <= pending + 1 &&
+                                                       observedSeconds >= pending - 4;
+                    if (continuesDownwardObservation)
+                    {
+                        timer.PendingObservedSeconds = observedSeconds;
+                        timer.PendingObservationConfirmations++;
+                    }
+                    else
+                    {
+                        timer.PendingObservedSeconds = observedSeconds;
+                        timer.PendingObservationConfirmations = 1;
+                        timer.PendingObservationStartedAt = now;
+                        timer.PendingObservationIsDownward = true;
+                    }
+
+                    var validFor = now - (timer.PendingObservationStartedAt ?? now);
+                    if (validFor >= TimeSpan.FromSeconds(5) && timer.PendingObservationConfirmations >= 5)
+                    {
+                        timer.RemainingSeconds = observedSeconds;
+                        ClearPendingTimeObservation(timer);
+                        _log.Info(
+                            $"Buff OCR accepted sustained downward value: reason={reason}, key={nameKey}, " +
+                            $"observed={observedSeconds}, validMs={validFor.TotalMilliseconds:0}");
+                    }
+                    else
+                    {
+                        _log.Info(
+                            $"Buff OCR validating downward value: reason={reason}, key={nameKey}, " +
+                            $"current={timer.RemainingSeconds}, observed={observedSeconds}, " +
+                            $"count={timer.PendingObservationConfirmations}, validMs={validFor.TotalMilliseconds:0}");
+                    }
+                }
+                else if (difference <= 12)
+                {
+                    timer.RemainingSeconds = observedSeconds;
+                    ClearPendingTimeObservation(timer);
+                }
+                else if (!timer.PendingObservationIsDownward &&
+                         timer.PendingObservedSeconds is int pending &&
+                         Math.Abs(pending - observedSeconds) <= 4)
+                {
                     timer.PendingObservationConfirmations++;
+                    if (timer.PendingObservationConfirmations >= 2)
+                    {
+                        timer.RemainingSeconds = observedSeconds;
+                        ClearPendingTimeObservation(timer);
+                    }
                 }
                 else
                 {
                     timer.PendingObservedSeconds = observedSeconds;
                     timer.PendingObservationConfirmations = 1;
-                    timer.PendingObservationStartedAt = now;
-                    timer.PendingObservationIsDownward = true;
-                }
-
-                var validFor = now - (timer.PendingObservationStartedAt ?? now);
-                if (validFor >= TimeSpan.FromSeconds(5) && timer.PendingObservationConfirmations >= 5)
-                {
-                    timer.RemainingSeconds = observedSeconds;
-                    ClearPendingTimeObservation(timer);
+                    timer.PendingObservationStartedAt = DateTimeOffset.UtcNow;
+                    timer.PendingObservationIsDownward = false;
                     _log.Info(
-                        $"Buff OCR accepted sustained downward value: reason={reason}, key={nameKey}, " +
-                        $"observed={observedSeconds}, validMs={validFor.TotalMilliseconds:0}");
+                        $"Buff OCR deferred: reason={reason}, key={nameKey}, current={timer.RemainingSeconds}, observed={observedSeconds}");
                 }
-                else
-                {
-                    _log.Info(
-                        $"Buff OCR validating downward value: reason={reason}, key={nameKey}, " +
-                        $"current={timer.RemainingSeconds}, observed={observedSeconds}, " +
-                        $"count={timer.PendingObservationConfirmations}, validMs={validFor.TotalMilliseconds:0}");
-                }
-            }
-            else if (difference <= 12)
-            {
-                timer.RemainingSeconds = observedSeconds;
-                ClearPendingTimeObservation(timer);
-            }
-            else if (!timer.PendingObservationIsDownward &&
-                     timer.PendingObservedSeconds is int pending &&
-                     Math.Abs(pending - observedSeconds) <= 4)
-            {
-                timer.PendingObservationConfirmations++;
-                if (timer.PendingObservationConfirmations >= 2)
-                {
-                    timer.RemainingSeconds = observedSeconds;
-                    ClearPendingTimeObservation(timer);
-                }
-            }
-            else
-            {
-                timer.PendingObservedSeconds = observedSeconds;
-                timer.PendingObservationConfirmations = 1;
-                timer.PendingObservationStartedAt = DateTimeOffset.UtcNow;
-                timer.PendingObservationIsDownward = false;
-                _log.Info(
-                    $"Buff OCR deferred: reason={reason}, key={nameKey}, current={timer.RemainingSeconds}, observed={observedSeconds}");
             }
         }
 
         timer.LastRecognizedText = recognizedText;
-        timer.HasTuanExtension |=
-            recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal) ||
-            recognizedText.Contains("\uC758 \uB178\uB798", StringComparison.Ordinal) ||
-            recognizedText.Contains("\uC758\uB178\uB798", StringComparison.Ordinal);
+        timer.HasTuanExtension |= recognizedTuan;
         timer.HasHarmony = recognizedText.Contains("\uD558\uBAA8\uB2C8", StringComparison.Ordinal);
     }
 

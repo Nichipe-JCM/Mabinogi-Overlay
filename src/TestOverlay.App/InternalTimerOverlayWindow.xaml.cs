@@ -96,22 +96,31 @@ public partial class InternalTimerOverlayWindow : Window
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var name = new TextBlock
+            var nameText = new TextBlock
             {
                 Text = InternalBuffTimerPreviewRenderer.BuildDisplayName(
                     nameKey,
                     timerByKey.TryGetValue(nameKey, out var displayTimer) ? displayTimer : null),
-                FontFamily = new FontFamily("Malgun Gothic"),
-                FontSize = 12,
+                FontFamily = new FontFamily("Noto Sans KR, Malgun Gothic"),
+                FontSize = 11,
                 Foreground = (Brush)FindResource("OverlayTextBrush"),
                 VerticalAlignment = VerticalAlignment.Center
+            };
+            var name = new Viewbox
+            {
+                Child = nameText,
+                Stretch = Stretch.Uniform,
+                StretchDirection = StretchDirection.DownOnly,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+                MaxHeight = 16
             };
             var time = new TextBlock
             {
                 Text = displayTimer is not null ? FormatTime(displayTimer.RemainingSeconds) : "--:--",
-                Margin = new Thickness(12, 0, 0, 0),
-                FontFamily = new FontFamily("Malgun Gothic"),
-                FontSize = 12,
+                Margin = new Thickness(8, 0, 0, 0),
+                FontFamily = new FontFamily("Noto Sans KR, Malgun Gothic"),
+                FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = displayTimer is not null && displayTimer.RemainingSeconds <= 30
                     ? (Brush)FindResource("OverlayDangerBrush")
