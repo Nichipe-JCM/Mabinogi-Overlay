@@ -56,6 +56,44 @@
                 <Setter Property="Padding" Value="14,12"/>
             </Style>
 
+            <Style x:Key="MonitorTabItemStyle" TargetType="{x:Type TabItem}">
+                <Setter Property="Foreground" Value="{StaticResource OverlayMutedBrush}"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Margin" Value="0,0,4,0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TabItem}">
+                            <Border x:Name="TabBorder"
+                                    MinHeight="36"
+                                    Padding="14,7"
+                                    Background="#D91B1D20"
+                                    BorderBrush="#663B3F43"
+                                    BorderThickness="1"
+                                    CornerRadius="5,5,0,0"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#FF24272A"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#FF2B2F32"/>
+                                    <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayAccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="InsetPanelStyle" TargetType="{x:Type Border}">
                 <Setter Property="Background" Value="{StaticResource OverlayPanelSoftBrush}"/>
                 <Setter Property="BorderBrush" Value="#55343638"/>

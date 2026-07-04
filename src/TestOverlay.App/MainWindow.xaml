@@ -330,7 +330,10 @@
                           Background="{StaticResource OverlayBorderBrush}"
                           Cursor="SizeWE"/>
 
-            <TabControl Grid.Column="2" Background="Transparent" BorderThickness="0">
+            <TabControl Grid.Column="2"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ItemContainerStyle="{StaticResource MonitorTabItemStyle}">
                 <TabItem Header="Overlay" loc:Localize.HeaderKey="monitor.tab.overlay">
             <Grid>
                 <Grid.RowDefinitions>
@@ -508,9 +511,9 @@
                 <TabItem Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="6*"/>
+                            <RowDefinition Height="13*"/>
                             <RowDefinition Height="8"/>
-                            <RowDefinition Height="4*"/>
+                            <RowDefinition Height="7*"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
@@ -540,6 +543,7 @@
                                                    VerticalAlignment="Center"
                                                    Text="Monitor Battle Overture, March Song, Vivace, and Harvest Song with internal timers."
                                                    loc:Localize.TextKey="monitor.buff.description"
+                                                   TextWrapping="NoWrap"
                                                    TextTrimming="CharacterEllipsis"
                                                    Style="{StaticResource MutedTextStyle}"/>
                                     </Grid>
@@ -685,6 +689,7 @@
                                                    VerticalAlignment="Center"
                                                    Text="Track the Tuairim gauge UI and prepare a notification when its threshold is reached."
                                                    loc:Localize.TextKey="monitor.tuairim.description"
+                                                   TextWrapping="NoWrap"
                                                    TextTrimming="CharacterEllipsis"
                                                    Style="{StaticResource MutedTextStyle}"/>
                                     </Grid>
