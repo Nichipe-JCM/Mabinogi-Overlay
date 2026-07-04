@@ -1027,6 +1027,10 @@ public partial class MainWindow : Window
         UpdateMonitorControlAvailability();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
+        if (_buffMonitorEnabled)
+        {
+            DetectBuffWindowButton_Click(DetectBuffWindowButton, new RoutedEventArgs());
+        }
     }
 
     private void TuairimMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
@@ -1046,6 +1050,10 @@ public partial class MainWindow : Window
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
         UpdateMonitorControlAvailability();
         RefreshInternalTimerOverlay();
+        if (_tuairimMonitorEnabled)
+        {
+            DetectTuairimUiButton_Click(DetectTuairimUiButton, new RoutedEventArgs());
+        }
     }
 
     private void AlertNumberTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
@@ -1060,7 +1068,7 @@ public partial class MainWindow : Window
 
     private void TuairimAlertPercentBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 1, 100, _tuairimAlertPercent);
+        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 90, 100, _tuairimAlertPercent);
         TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
         ScheduleProfileAutoSave();
     }
@@ -1135,7 +1143,7 @@ public partial class MainWindow : Window
             return;
         }
         _buffAlertSeconds = ReadAlertThreshold(BuffAlertSecondsBox.Text, 5, 30, _buffAlertSeconds);
-        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 1, 100, _tuairimAlertPercent);
+        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 90, 100, _tuairimAlertPercent);
         BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
         TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
     }
@@ -1178,7 +1186,7 @@ public partial class MainWindow : Window
     {
         _buffAlertSeconds = profile.BuffAlertSeconds is >= 5 and <= 30 ? profile.BuffAlertSeconds : 30;
         _buffAlertSoundPath = profile.BuffAlertSoundPath ?? string.Empty;
-        _tuairimAlertPercent = profile.TuairimAlertPercent is >= 1 and <= 100 ? profile.TuairimAlertPercent : 95;
+        _tuairimAlertPercent = profile.TuairimAlertPercent is >= 90 and <= 100 ? profile.TuairimAlertPercent : 95;
         _tuairimAlertSoundPath = profile.TuairimAlertSoundPath ?? string.Empty;
         _tuairimAlertFired = false;
         foreach (var timer in _internalBuffTimers)
@@ -1385,6 +1393,8 @@ public partial class MainWindow : Window
 
         var baseEditable = _overlayWindow is null && !_isMonitorDetectionBusy;
         var settingsEditable = baseEditable && _monitorDetectionMode == MonitorDetectionMode.None;
+        StartOverlayButton.IsEnabled = _overlayWindow is null;
+        StopOverlayLayoutButton.IsEnabled = _overlayWindow is not null;
         BuffMonitorEnabledCheckBox.IsEnabled = settingsEditable;
         TuairimMonitorEnabledCheckBox.IsEnabled = settingsEditable;
         BuffAlertSecondsBox.IsEnabled = settingsEditable;
@@ -2385,6 +2395,11 @@ public partial class MainWindow : Window
 
     private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_overlayWindow is not null)
+        {
+            return;
+        }
+
         var hasSlotOverlay = _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.Quickslot);
         var hasBuffOverlay = _buffMonitorEnabled &&
                              _selectedBuffNameKeys.Count > 0 &&

@@ -604,7 +604,7 @@
                                                      Text="30" MaxLength="2" PreviewTextInput="AlertNumberTextBox_PreviewTextInput"
                                                      LostKeyboardFocus="BuffAlertSecondsBox_LostKeyboardFocus"/>
                                             <TextBlock Grid.Row="0" Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                       Text="seconds (5-30)" loc:Localize.TextKey="monitor.buff.alert.seconds.range"
+                                                       Text="seconds (30 ~ 5)" loc:Localize.TextKey="monitor.buff.alert.seconds.range"
                                                        Style="{StaticResource MutedTextStyle}"/>
                                             <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,12,10,0" VerticalAlignment="Center"
                                                        Text="Alert sound" loc:Localize.TextKey="monitor.alert.sound"/>
@@ -703,7 +703,7 @@
                                                      Text="95" MaxLength="3" PreviewTextInput="AlertNumberTextBox_PreviewTextInput"
                                                      LostKeyboardFocus="TuairimAlertPercentBox_LostKeyboardFocus"/>
                                             <TextBlock Grid.Row="0" Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                       Text="percent (1-100)" loc:Localize.TextKey="monitor.tuairim.alert.percent.range"
+                                                       Text="percent (90 ~ 100)" loc:Localize.TextKey="monitor.tuairim.alert.percent.range"
                                                        Style="{StaticResource MutedTextStyle}"/>
                                             <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,12,10,0" VerticalAlignment="Center"
                                                        Text="Alert sound" loc:Localize.TextKey="monitor.alert.sound"/>
