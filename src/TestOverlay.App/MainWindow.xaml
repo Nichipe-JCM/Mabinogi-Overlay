@@ -764,16 +764,22 @@
                                             </Grid>
                                         </StackPanel>
                                     </Border>
-                                    <Button x:Name="DetectTuairimUiButton"
-                                            Grid.Row="1"
-                                            MinWidth="150"
-                                            Height="36"
-                                            Padding="14,0"
-                                            Margin="0,6,0,0"
-                                            HorizontalAlignment="Right"
-                                            Content="Detect Tuairim UI"
-                                            loc:Localize.ContentKey="monitor.tuairim.detect"
-                                            Click="DetectTuairimUiButton_Click"/>
+                                    <WrapPanel Grid.Row="1" Margin="0,6,0,0" HorizontalAlignment="Right">
+                                        <Button x:Name="MonitorTestModeButton"
+                                                MinWidth="120"
+                                                Height="36"
+                                                Padding="14,0"
+                                                Content="Test mode"
+                                                Click="MonitorTestModeButton_Click"/>
+                                        <Button x:Name="DetectTuairimUiButton"
+                                                MinWidth="150"
+                                                Height="36"
+                                                Padding="14,0"
+                                                Margin="6,0,0,0"
+                                                Content="Detect Tuairim UI"
+                                                loc:Localize.ContentKey="monitor.tuairim.detect"
+                                                Click="DetectTuairimUiButton_Click"/>
+                                    </WrapPanel>
                                 </Grid>
                             </Grid>
                         </Border>

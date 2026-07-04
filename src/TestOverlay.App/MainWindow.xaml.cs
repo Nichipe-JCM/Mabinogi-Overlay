@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     private const string BuffSoundModeIndividual = "individual";
     private const string TuairimAlertFrequencyOnce = "once";
     private const string TuairimAlertFrequencyEveryPercent = "every-percent";
+    private const int TuairimNormalChargeSecondsPerPercent = 6;
+    private const int TuairimFullEffectSeconds = 20;
     private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
@@ -143,6 +145,14 @@ public partial class MainWindow : Window
     private string _tuairimAlertFrequency = TuairimAlertFrequencyOnce;
     private bool _tuairimAlertFired;
     private bool _isUpdatingMonitorAlertSettings;
+    private bool _monitorTestMode;
+    private bool _monitorTestPreviousBuffEnabled;
+    private bool _monitorTestPreviousTuairimEnabled;
+    private string[] _monitorTestPreviousRecognizedBuffs = [];
+    private string[] _monitorTestPreviousSelectedBuffs = [];
+    private double _monitorTestPreviousLayoutCanvasHeight;
+    private int _monitorTestTuairimChargeSeconds;
+    private int _monitorTestTuairimFullSeconds;
     private string _lastStatusMessage = string.Empty;
 
     public MainWindow()
@@ -262,6 +272,7 @@ public partial class MainWindow : Window
         }
         UpdateMonitorDetectionButtonPresentation();
         RefreshMonitorAlertSettingsControls();
+        UpdateMonitorTestButtonPresentation();
 
         if (!string.IsNullOrEmpty(_lastStatusMessage) && StatusText is not null)
         {
@@ -1070,6 +1081,121 @@ public partial class MainWindow : Window
         }
     }
 
+    private void MonitorTestModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_monitorTestMode)
+        {
+            ExitMonitorTestMode();
+        }
+        else
+        {
+            EnterMonitorTestMode();
+        }
+    }
+
+    private void EnterMonitorTestMode()
+    {
+        FlushProfileAutoSave();
+        _monitorTestPreviousBuffEnabled = _buffMonitorEnabled;
+        _monitorTestPreviousTuairimEnabled = _tuairimMonitorEnabled;
+        _monitorTestPreviousRecognizedBuffs = _recognizedBuffNameKeys.ToArray();
+        _monitorTestPreviousSelectedBuffs = _selectedBuffNameKeys.ToArray();
+        _monitorTestPreviousLayoutCanvasHeight = _layoutCanvasHeight;
+        _monitorTestMode = true;
+        _monitorValueRecognitionGeneration++;
+        SetMonitorDetectionMode(MonitorDetectionMode.None);
+
+        _buffMonitorEnabled = true;
+        _tuairimMonitorEnabled = true;
+        BuffMonitorEnabledCheckBox.IsChecked = true;
+        TuairimMonitorEnabledCheckBox.IsChecked = true;
+        _recognizedBuffNameKeys.Clear();
+        _selectedBuffNameKeys.Clear();
+        _recognizedBuffNameKeys.Add("monitor.buff.battle.overture");
+        _recognizedBuffNameKeys.Add("monitor.buff.march.song");
+        _selectedBuffNameKeys.Add("monitor.buff.battle.overture");
+        _selectedBuffNameKeys.Add("monitor.buff.march.song");
+
+        _internalBuffTimers.Clear();
+        _internalBuffTimers.Add(new InternalBuffTimer("monitor.buff.battle.overture", 35));
+        _internalBuffTimers.Add(new InternalBuffTimer("monitor.buff.march.song", 40) { HasHarmony = true });
+        _tuairimPercent = 88;
+        _hasTuairimPercentObservation = true;
+        _lastAcceptedTuairimPercentAt = DateTimeOffset.UtcNow;
+        _tuairimAlertFired = false;
+        _monitorTestTuairimChargeSeconds = 0;
+        _monitorTestTuairimFullSeconds = 0;
+
+        SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, enabled: true, scheduleAutoSave: false);
+        SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, enabled: true, scheduleAutoSave: false);
+        UpdateBuffSelectionCheckStates();
+        RefreshInternalTimerElementPreviews();
+        RefreshInternalTimerOverlay();
+        _internalTimerOverlayWindow?.SetTuairimPercent(_tuairimPercent);
+        _internalTimerDebugTimer.Start();
+        UpdateMonitorControlAvailability();
+        UpdateMonitorTestButtonPresentation();
+        _log.Info("Monitor test mode started: Battle Overture=35s, March Song[Harmony]=40s, Tuairim=88%.");
+        SetStatus("monitor.test.started");
+    }
+
+    private void ExitMonitorTestMode()
+    {
+        _monitorTestMode = false;
+        _monitorValueRecognitionGeneration++;
+        _internalBuffTimers.Clear();
+        ResetTuairimPercentRecognitionState();
+        _tuairimPercent = 0;
+        _monitorTestTuairimChargeSeconds = 0;
+        _monitorTestTuairimFullSeconds = 0;
+
+        _buffMonitorEnabled = _monitorTestPreviousBuffEnabled;
+        _tuairimMonitorEnabled = _monitorTestPreviousTuairimEnabled;
+        BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
+        TuairimMonitorEnabledCheckBox.IsChecked = _tuairimMonitorEnabled;
+        _recognizedBuffNameKeys.Clear();
+        _selectedBuffNameKeys.Clear();
+        foreach (var nameKey in _monitorTestPreviousRecognizedBuffs)
+        {
+            _recognizedBuffNameKeys.Add(nameKey);
+        }
+        foreach (var nameKey in _monitorTestPreviousSelectedBuffs)
+        {
+            _selectedBuffNameKeys.Add(nameKey);
+        }
+        _monitorTestPreviousRecognizedBuffs = [];
+        _monitorTestPreviousSelectedBuffs = [];
+
+        SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled, scheduleAutoSave: false);
+        SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled, scheduleAutoSave: false);
+        _layoutCanvasHeight = _monitorTestPreviousLayoutCanvasHeight;
+        UpdateBuffSelectionCheckStates();
+        RefreshInternalTimerElementPreviews();
+        RefreshInternalTimerOverlay();
+        if (_overlayWindow is null)
+        {
+            _internalTimerDebugTimer.Stop();
+        }
+        else
+        {
+            _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
+            _ = SynchronizeMonitorValuesAsync("test-mode-ended");
+        }
+        UpdateMonitorControlAvailability();
+        UpdateMonitorTestButtonPresentation();
+        _log.Info("Monitor test mode stopped and temporary monitor values were cleared.");
+        SetStatus("monitor.test.stopped");
+    }
+
+    private void UpdateMonitorTestButtonPresentation()
+    {
+        if (MonitorTestModeButton is null)
+        {
+            return;
+        }
+        MonitorTestModeButton.Content = L.T(_monitorTestMode ? "monitor.test.stop" : "monitor.test.start");
+    }
+
     private void AlertNumberTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
         e.Handled = e.Text.Any(character => !char.IsDigit(character));
 
@@ -1559,7 +1685,9 @@ public partial class MainWindow : Window
         }
 
         var baseEditable = _overlayWindow is null && !_isMonitorDetectionBusy;
-        var settingsEditable = baseEditable && _monitorDetectionMode == MonitorDetectionMode.None;
+        var settingsEditable = baseEditable &&
+                               _monitorDetectionMode == MonitorDetectionMode.None &&
+                               !_monitorTestMode;
         StartOverlayButton.IsEnabled = _overlayWindow is null;
         StopOverlayLayoutButton.IsEnabled = _overlayWindow is not null;
         BuffMonitorEnabledCheckBox.IsEnabled = settingsEditable;
@@ -1567,9 +1695,11 @@ public partial class MainWindow : Window
         BuffAlertSettingsPanel.IsEnabled = settingsEditable;
         TuairimAlertSettingsPanel.IsEnabled = settingsEditable;
         DetectBuffWindowButton.IsEnabled = baseEditable &&
+                                           !_monitorTestMode &&
                                            _buffMonitorEnabled &&
                                            _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.BuffWindow;
         DetectTuairimUiButton.IsEnabled = baseEditable &&
+                                         !_monitorTestMode &&
                                          _tuairimMonitorEnabled &&
                                          _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.Tuairim;
         foreach (var checkBox in BuffSelectionCheckBoxes())
@@ -1590,12 +1720,18 @@ public partial class MainWindow : Window
         foreach (var timer in _internalBuffTimers)
         {
             var previousSeconds = timer.RemainingSeconds;
-            timer.RemainingSeconds = Math.Max(1, timer.RemainingSeconds - 1);
+            timer.RemainingSeconds = Math.Max(_monitorTestMode ? 0 : 1, timer.RemainingSeconds - 1);
             TryFireBuffAlert(timer, previousSeconds, timer.RemainingSeconds);
             reachedVerificationPoint |= previousSeconds > 30 && timer.RemainingSeconds <= 30;
         }
 
         _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
+        if (_monitorTestMode)
+        {
+            AdvanceMonitorTestTuairim();
+            RefreshInternalTimerElementPreviews();
+            return;
+        }
         var needsFastVerification = _pendingInitialBuffMinuteValidation.Count > 0 ||
                                     _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
         if (reachedVerificationPoint || needsFastVerification || now >= _nextMonitorValueRecognitionAt)
@@ -1604,6 +1740,38 @@ public partial class MainWindow : Window
                 ? "threshold-30"
                 : needsFastVerification ? "fast-verification" : "periodic";
             await SynchronizeMonitorValuesAsync(reason);
+        }
+    }
+
+    private void AdvanceMonitorTestTuairim()
+    {
+        var previousPercent = _tuairimPercent;
+        if (_tuairimPercent >= 100)
+        {
+            _monitorTestTuairimFullSeconds++;
+            if (_monitorTestTuairimFullSeconds >= TuairimFullEffectSeconds)
+            {
+                _tuairimPercent = 0;
+                _monitorTestTuairimFullSeconds = 0;
+                _monitorTestTuairimChargeSeconds = 0;
+                _tuairimAlertFired = false;
+            }
+        }
+        else
+        {
+            _monitorTestTuairimChargeSeconds++;
+            if (_monitorTestTuairimChargeSeconds >= TuairimNormalChargeSecondsPerPercent)
+            {
+                _monitorTestTuairimChargeSeconds = 0;
+                _tuairimPercent++;
+                TryFireTuairimAlert(previousPercent, _tuairimPercent, hadAcceptedObservation: true);
+            }
+        }
+
+        if (_tuairimPercent != previousPercent)
+        {
+            _lastAcceptedTuairimPercentAt = DateTimeOffset.UtcNow;
+            _internalTimerOverlayWindow?.SetTuairimPercent(_tuairimPercent);
         }
     }
 
@@ -1653,6 +1821,7 @@ public partial class MainWindow : Window
         };
         _internalTimerOverlayWindow.Show();
         _internalTimerOverlayWindow.UpdateLayout();
+        _internalTimerOverlayWindow.SetTuairimPercent(_tuairimPercent);
         _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
         _monitorValueRecognitionGeneration++;
         _internalTimerDebugTimer.Start();
@@ -1670,7 +1839,7 @@ public partial class MainWindow : Window
 
     private async Task SynchronizeMonitorValuesAsync(string reason)
     {
-        if (_isMonitorValueRecognitionBusy || _overlayWindow is null)
+        if (_monitorTestMode || _isMonitorValueRecognitionBusy || _overlayWindow is null)
         {
             return;
         }
@@ -2264,7 +2433,7 @@ public partial class MainWindow : Window
 
     private void ScheduleProfileAutoSave()
     {
-        if (_isLoadingProfile || !IsLoaded)
+        if (_isLoadingProfile || _monitorTestMode || !IsLoaded)
         {
             return;
         }
