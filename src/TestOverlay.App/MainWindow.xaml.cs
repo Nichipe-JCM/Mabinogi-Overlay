@@ -1496,7 +1496,7 @@ public partial class MainWindow : Window
 
             var individual = _buffAlertSoundMode == BuffSoundModeIndividual;
             BuffAlertSoundLabel1.Text = individual
-                ? L.T(InternalBuffTimerPreviewRenderer.BuffNameKeys[0])
+                ? L.T("monitor.buff.sound.battle")
                 : L.T("monitor.alert.sound.mode.global");
             BuffAlertSoundRow2.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
             BuffAlertSoundRow3.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
