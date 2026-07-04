@@ -508,9 +508,9 @@
                 <TabItem Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="7*"/>
-                            <RowDefinition Height="14"/>
-                            <RowDefinition Height="3*"/>
+                            <RowDefinition Height="6*"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="4*"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
@@ -544,12 +544,11 @@
                                                    Style="{StaticResource MutedTextStyle}"/>
                                     </Grid>
                                 </Border>
-                                <Grid Grid.Row="1" Margin="16">
+                                <Grid Grid.Row="1" Margin="12,8">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
-                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Border Grid.Row="0" Style="{StaticResource InsetPanelStyle}">
                                         <StackPanel>
@@ -583,13 +582,13 @@
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
-                                    <Border x:Name="BuffAlertSettingsPanel" Grid.Row="1" Margin="0,14,0,0" Style="{StaticResource InsetPanelStyle}">
+                                    <Border x:Name="BuffAlertSettingsPanel" Grid.Row="1" Margin="0,6,0,0" Style="{StaticResource InsetPanelStyle}">
                                         <StackPanel>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/><ColumnDefinition Width="72"/>
                                                     <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="160"/>
+                                                    <ColumnDefinition Width="190"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"
                                                            Text="Alert at" loc:Localize.TextKey="monitor.buff.alert.seconds"/>
@@ -601,7 +600,7 @@
                                                            Style="{StaticResource MutedTextStyle}"/>
                                                 <TextBlock Grid.Column="3" Margin="0,0,10,0" VerticalAlignment="Center"
                                                            Text="Sound mode" loc:Localize.TextKey="monitor.alert.sound.mode"/>
-                                                <ComboBox x:Name="BuffAlertSoundModeCombo" Grid.Column="4" Height="32"
+                                                <ComboBox x:Name="BuffAlertSoundModeCombo" Grid.Column="4" Height="36" Padding="10,3"
                                                           SelectionChanged="BuffAlertSoundModeCombo_SelectionChanged">
                                                     <ComboBoxItem Tag="global" Content="Global" loc:Localize.ContentKey="monitor.alert.sound.mode.global"/>
                                                     <ComboBoxItem Tag="individual" Content="Per buff" loc:Localize.ContentKey="monitor.alert.sound.mode.individual"/>
@@ -648,25 +647,11 @@
                                             </Grid>
                                         </StackPanel>
                                     </Border>
-                                    <Border Grid.Row="2" Margin="0,14,0,0" Style="{StaticResource InsetPanelStyle}">
-                                        <StackPanel>
-                                            <TextBlock Text="Internal timer debug" loc:Localize.TextKey="monitor.timer.debug.title" Style="{StaticResource PanelTitleStyle}"/>
-                                            <TextBlock Margin="0,6,0,0"
-                                                       Text="Load temporary timer values to verify the overlay timer presentation."
-                                                       loc:Localize.TextKey="monitor.timer.debug.description"
-                                                       Style="{StaticResource MutedTextStyle}"/>
-                                            <TextBlock x:Name="InternalTimerDebugStatusText" Margin="0,8,0,0" Style="{StaticResource MonoSummaryStyle}"/>
-                                        </StackPanel>
-                                    </Border>
-                                    <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,14,0,0">
+                                    <WrapPanel Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,6,0,0">
                                         <Button x:Name="DetectBuffWindowButton" MinWidth="150" Height="36" Padding="14,0"
                                                 Content="Detect buff window"
                                                 loc:Localize.ContentKey="monitor.buff.detect"
                                                 Click="DetectBuffWindowButton_Click"/>
-                                        <Button x:Name="LoadInternalTimerTestDataButton" MinWidth="154" Height="36" Padding="14,0" Margin="8,0,0,0"
-                                                Content="Load timer test data"
-                                                loc:Localize.ContentKey="monitor.timer.debug.load"
-                                                Click="LoadInternalTimerTestDataButton_Click"/>
                                     </WrapPanel>
                                 </Grid>
                             </Grid>
@@ -703,7 +688,7 @@
                                                    Style="{StaticResource MutedTextStyle}"/>
                                     </Grid>
                                 </Border>
-                                <Grid Grid.Row="1" Margin="16">
+                                <Grid Grid.Row="1" Margin="12,8">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
@@ -719,7 +704,7 @@
                                                 <ColumnDefinition Width="72"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="190"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
@@ -735,7 +720,7 @@
                                                        Style="{StaticResource MutedTextStyle}"/>
                                             <TextBlock Grid.Row="0" Grid.Column="3" Margin="16,0,10,0" VerticalAlignment="Center"
                                                        Text="Alert frequency" loc:Localize.TextKey="monitor.tuairim.alert.frequency"/>
-                                            <ComboBox x:Name="TuairimAlertFrequencyCombo" Grid.Row="0" Grid.Column="4" Height="32"
+                                            <ComboBox x:Name="TuairimAlertFrequencyCombo" Grid.Row="0" Grid.Column="4" Height="36" Padding="10,3"
                                                       SelectionChanged="TuairimAlertFrequencyCombo_SelectionChanged">
                                                 <ComboBoxItem Tag="once" Content="Once" loc:Localize.ContentKey="monitor.tuairim.alert.frequency.once"/>
                                                 <ComboBoxItem Tag="every-percent" Content="Every 1%" loc:Localize.ContentKey="monitor.tuairim.alert.frequency.every.percent"/>
@@ -761,7 +746,7 @@
                                             MinWidth="150"
                                             Height="36"
                                             Padding="14,0"
-                                            Margin="0,14,0,0"
+                                            Margin="0,6,0,0"
                                             HorizontalAlignment="Right"
                                             Content="Detect Tuairim UI"
                                             loc:Localize.ContentKey="monitor.tuairim.detect"

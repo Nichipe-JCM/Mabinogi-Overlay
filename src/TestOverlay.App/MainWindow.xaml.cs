@@ -217,7 +217,6 @@ public partial class MainWindow : Window
         CaptureZoomText.Text = "100%";
         UpdateSectionGapLabels();
         UpdateLayoutSummary();
-        UpdateInternalTimerDebugStatus();
         UpdateMonitorControlAvailability();
         RefreshMonitorAlertSettingsControls();
     }
@@ -241,7 +240,6 @@ public partial class MainWindow : Window
         UpdateSizeLabels();
         UpdateSectionGapLabels();
         UpdateLayoutSummary();
-        UpdateInternalTimerDebugStatus();
         RefreshInternalTimerElementPreviews();
         foreach (var candidate in _candidates.Where(candidate => candidate.IsBuiltIn))
         {
@@ -1571,7 +1569,6 @@ public partial class MainWindow : Window
         DetectBuffWindowButton.IsEnabled = baseEditable &&
                                            _buffMonitorEnabled &&
                                            _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.BuffWindow;
-        LoadInternalTimerTestDataButton.IsEnabled = settingsEditable && _buffMonitorEnabled;
         DetectTuairimUiButton.IsEnabled = baseEditable &&
                                          _tuairimMonitorEnabled &&
                                          _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.Tuairim;
@@ -1586,26 +1583,6 @@ public partial class MainWindow : Window
         UpdateBuffSelectionCheckStates();
     }
 
-    private void LoadInternalTimerTestDataButton_Click(object sender, RoutedEventArgs e)
-    {
-        _internalBuffTimers.Clear();
-        _internalBuffTimers.AddRange(
-        [
-            new InternalBuffTimer("monitor.buff.battle.overture", 120),
-            new InternalBuffTimer("monitor.buff.march.song", 95),
-            new InternalBuffTimer("monitor.buff.vivace", 70),
-            new InternalBuffTimer("monitor.buff.harvest.song", 45)
-        ]);
-        _buffMonitorEnabled = true;
-        BuffMonitorEnabledCheckBox.IsChecked = true;
-        SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, enabled: true);
-        ApplyRecognizedBuffs(InternalBuffTimerPreviewRenderer.BuffNameKeys);
-        UpdateInternalTimerDebugStatus();
-        RefreshInternalTimerElementPreviews();
-        RefreshInternalTimerOverlay();
-        SetStatus("monitor.timer.debug.loaded");
-    }
-
     private async void InternalTimerDebugTimer_Tick(object? sender, EventArgs e)
     {
         var now = DateTimeOffset.UtcNow;
@@ -1618,7 +1595,6 @@ public partial class MainWindow : Window
             reachedVerificationPoint |= previousSeconds > 30 && timer.RemainingSeconds <= 30;
         }
 
-        UpdateInternalTimerDebugStatus();
         _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
         var needsFastVerification = _pendingInitialBuffMinuteValidation.Count > 0 ||
                                     _internalBuffTimers.Any(timer => timer.NeedsFastVerification);
@@ -1820,7 +1796,6 @@ public partial class MainWindow : Window
                     $"bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
             }
 
-            UpdateInternalTimerDebugStatus();
             _internalTimerOverlayWindow?.SetTimers(_internalBuffTimers);
             RefreshInternalTimerElementPreviews();
         }
@@ -2148,22 +2123,6 @@ public partial class MainWindow : Window
 
     private static string SanitizeDiagnosticName(string value) =>
         new(value.Select(character => char.IsLetterOrDigit(character) ? character : '-').ToArray());
-
-    private void UpdateInternalTimerDebugStatus()
-    {
-        if (InternalTimerDebugStatusText is null)
-        {
-            return;
-        }
-
-        InternalTimerDebugStatusText.Text = _internalBuffTimers.Count == 0
-            ? L.T("monitor.timer.debug.empty")
-            : string.Join(
-                " | ",
-                _internalBuffTimers.Select(timer =>
-                    $"{InternalBuffTimerPreviewRenderer.BuildDisplayName(timer.NameKey, timer)} " +
-                    $"{timer.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}"));
-    }
 
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
