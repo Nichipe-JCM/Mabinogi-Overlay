@@ -61,6 +61,7 @@ public partial class MainWindow : Window
     private readonly HashSet<string> _selectedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _pendingInitialBuffMinuteValidation = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _buffAlertSoundPaths = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _buffAlertVolumes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, BuffIconMatch> _buffIconMatches = new(StringComparer.Ordinal);
     private readonly HashSet<string> _monitorDiagnosticKindsSaved = new(StringComparer.Ordinal);
     private readonly List<Rectangle> _monitorDetectionRects = new();
@@ -139,9 +140,11 @@ public partial class MainWindow : Window
     private DateTimeOffset? _lastAcceptedTuairimPercentAt;
     private int _buffAlertSeconds = 30;
     private string _buffAlertSoundPath = string.Empty;
+    private int _buffAlertVolume = 100;
     private string _buffAlertSoundMode = BuffSoundModeGlobal;
     private int _tuairimAlertPercent = 95;
     private string _tuairimAlertSoundPath = string.Empty;
+    private int _tuairimAlertVolume = 100;
     private string _tuairimAlertFrequency = TuairimAlertFrequencyOnce;
     private bool _tuairimAlertFired;
     private bool _isUpdatingMonitorAlertSettings;
@@ -1251,6 +1254,24 @@ public partial class MainWindow : Window
         ScheduleProfileAutoSave();
     }
 
+    private void BuffAlertVolumeBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is not TextBox textBox || !TryReadSoundSlotTagIndex(textBox.Tag, out var index))
+        {
+            return;
+        }
+        SetBuffAlertVolume(index, ReadAlertVolume(textBox.Text, GetBuffAlertVolume(index)));
+        RefreshMonitorAlertSettingsControls();
+        ScheduleProfileAutoSave();
+    }
+
+    private void TuairimAlertVolumeBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        _tuairimAlertVolume = ReadAlertVolume(TuairimAlertVolumeBox.Text, _tuairimAlertVolume);
+        TuairimAlertVolumeBox.Text = _tuairimAlertVolume.ToString();
+        ScheduleProfileAutoSave();
+    }
+
     private void BuffAlertSoundModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isUpdatingMonitorAlertSettings ||
@@ -1332,12 +1353,16 @@ public partial class MainWindow : Window
     {
         if (TryReadSoundSlotIndex(sender, out var index))
         {
-            PlayMonitorAlertSound(GetBuffAlertPlayer(index), GetBuffAlertSoundPath(index), $"buff-test:{index}");
+            PlayMonitorAlertSound(
+                GetBuffAlertPlayer(index),
+                GetBuffAlertSoundPath(index),
+                GetBuffAlertVolume(index),
+                $"buff-test:{index}");
         }
     }
 
     private void TestTuairimAlertSoundButton_Click(object sender, RoutedEventArgs e) =>
-        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, "tuairim-test");
+        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, _tuairimAlertVolume, "tuairim-test");
 
     private string? ChooseMonitorAlertSound()
     {
@@ -1357,6 +1382,12 @@ public partial class MainWindow : Window
         return sender is Button { Tag: var tag } &&
                int.TryParse(tag?.ToString(), out index) &&
                index is >= 0 and < 4;
+    }
+
+    private static bool TryReadSoundSlotTagIndex(object? tag, out int index)
+    {
+        index = -1;
+        return int.TryParse(tag?.ToString(), out index) && index is >= 0 and < 4;
     }
 
     private string GetBuffAlertSoundPath(int index)
@@ -1382,10 +1413,38 @@ public partial class MainWindow : Window
         _buffAlertSoundPaths[InternalBuffTimerPreviewRenderer.BuffNameKeys[index]] = path;
     }
 
+    private int GetBuffAlertVolume(int index)
+    {
+        if (_buffAlertSoundMode == BuffSoundModeGlobal)
+        {
+            return index == 0 ? _buffAlertVolume : 100;
+        }
+        return _buffAlertVolumes.GetValueOrDefault(InternalBuffTimerPreviewRenderer.BuffNameKeys[index], 100);
+    }
+
+    private void SetBuffAlertVolume(int index, int volume)
+    {
+        volume = Math.Clamp(volume, 0, 100);
+        if (_buffAlertSoundMode == BuffSoundModeGlobal)
+        {
+            if (index == 0)
+            {
+                _buffAlertVolume = volume;
+            }
+            return;
+        }
+        _buffAlertVolumes[InternalBuffTimerPreviewRenderer.BuffNameKeys[index]] = volume;
+    }
+
     private string ResolveBuffAlertSoundPath(string nameKey) =>
         _buffAlertSoundMode == BuffSoundModeIndividual
             ? _buffAlertSoundPaths.GetValueOrDefault(nameKey, string.Empty)
             : _buffAlertSoundPath;
+
+    private int ResolveBuffAlertVolume(string nameKey) =>
+        _buffAlertSoundMode == BuffSoundModeIndividual
+            ? _buffAlertVolumes.GetValueOrDefault(nameKey, 100)
+            : _buffAlertVolume;
 
     private MediaPlayer GetBuffAlertPlayer(int index) =>
         _buffAlertSoundMode == BuffSoundModeIndividual
@@ -1400,6 +1459,9 @@ public partial class MainWindow : Window
     private static int ReadAlertThreshold(string? text, int minimum, int maximum, int fallback) =>
         int.TryParse(text, out var value) && value >= minimum && value <= maximum ? value : fallback;
 
+    private static int ReadAlertVolume(string? text, int fallback) =>
+        int.TryParse(text, out var value) && value is >= 0 and <= 100 ? value : fallback;
+
     private void CommitMonitorAlertThresholdInputs()
     {
         if (BuffAlertSecondsBox is null)
@@ -1408,6 +1470,12 @@ public partial class MainWindow : Window
         }
         _buffAlertSeconds = ReadAlertThreshold(BuffAlertSecondsBox.Text, 5, 30, _buffAlertSeconds);
         _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 90, 100, _tuairimAlertPercent);
+        var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4 };
+        for (var index = 0; index < volumeBoxes.Length; index++)
+        {
+            SetBuffAlertVolume(index, ReadAlertVolume(volumeBoxes[index].Text, GetBuffAlertVolume(index)));
+        }
+        _tuairimAlertVolume = ReadAlertVolume(TuairimAlertVolumeBox.Text, _tuairimAlertVolume);
         BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
         TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
     }
@@ -1437,15 +1505,18 @@ public partial class MainWindow : Window
             var pathBoxes = new[] { BuffAlertSoundPathBox1, BuffAlertSoundPathBox2, BuffAlertSoundPathBox3, BuffAlertSoundPathBox4 };
             var clearButtons = new[] { ClearBuffAlertSoundButton1, ClearBuffAlertSoundButton2, ClearBuffAlertSoundButton3, ClearBuffAlertSoundButton4 };
             var testButtons = new[] { TestBuffAlertSoundButton1, TestBuffAlertSoundButton2, TestBuffAlertSoundButton3, TestBuffAlertSoundButton4 };
+            var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4 };
             for (var index = 0; index < pathBoxes.Length; index++)
             {
                 var path = GetBuffAlertSoundPath(index);
                 pathBoxes[index].Text = path;
+                volumeBoxes[index].Text = GetBuffAlertVolume(index).ToString();
                 clearButtons[index].IsEnabled = !string.IsNullOrWhiteSpace(path);
                 testButtons[index].IsEnabled = File.Exists(path);
             }
 
             TuairimAlertSoundPathBox.Text = _tuairimAlertSoundPath;
+            TuairimAlertVolumeBox.Text = _tuairimAlertVolume.ToString();
             ClearTuairimAlertSoundButton.IsEnabled = !string.IsNullOrWhiteSpace(_tuairimAlertSoundPath);
             TestTuairimAlertSoundButton.IsEnabled = File.Exists(_tuairimAlertSoundPath);
         }
@@ -1484,19 +1555,26 @@ public partial class MainWindow : Window
     {
         _buffAlertSeconds = profile.BuffAlertSeconds is >= 5 and <= 30 ? profile.BuffAlertSeconds : 30;
         _buffAlertSoundPath = profile.BuffAlertSoundPath ?? string.Empty;
+        _buffAlertVolume = profile.BuffAlertVolume is >= 0 and <= 100 ? profile.BuffAlertVolume : 100;
         _buffAlertSoundMode = profile.BuffAlertSoundMode == BuffSoundModeIndividual
             ? BuffSoundModeIndividual
             : BuffSoundModeGlobal;
         _buffAlertSoundPaths.Clear();
+        _buffAlertVolumes.Clear();
         foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys)
         {
             if (profile.BuffAlertSoundPaths?.TryGetValue(nameKey, out var path) == true)
             {
                 _buffAlertSoundPaths[nameKey] = path ?? string.Empty;
             }
+            if (profile.BuffAlertVolumes?.TryGetValue(nameKey, out var volume) == true)
+            {
+                _buffAlertVolumes[nameKey] = Math.Clamp(volume, 0, 100);
+            }
         }
         _tuairimAlertPercent = profile.TuairimAlertPercent is >= 90 and <= 100 ? profile.TuairimAlertPercent : 95;
         _tuairimAlertSoundPath = profile.TuairimAlertSoundPath ?? string.Empty;
+        _tuairimAlertVolume = profile.TuairimAlertVolume is >= 0 and <= 100 ? profile.TuairimAlertVolume : 100;
         _tuairimAlertFrequency = profile.TuairimAlertFrequency == TuairimAlertFrequencyEveryPercent
             ? TuairimAlertFrequencyEveryPercent
             : TuairimAlertFrequencyOnce;
@@ -1527,6 +1605,7 @@ public partial class MainWindow : Window
         PlayMonitorAlertSound(
             ResolveBuffAlertPlayer(timer.NameKey),
             ResolveBuffAlertSoundPath(timer.NameKey),
+            ResolveBuffAlertVolume(timer.NameKey),
             $"buff:{timer.NameKey}");
     }
 
@@ -1550,7 +1629,11 @@ public partial class MainWindow : Window
                     $"Tuairim incremental alert: threshold={_tuairimAlertPercent}, " +
                     $"previous={previousPercent}, current={currentPercent}");
                 _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
-                PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, $"tuairim:{currentPercent}");
+                PlayMonitorAlertSound(
+                    _tuairimAlertPlayer,
+                    _tuairimAlertSoundPath,
+                    _tuairimAlertVolume,
+                    $"tuairim:{currentPercent}");
             }
             return;
         }
@@ -1564,10 +1647,10 @@ public partial class MainWindow : Window
             $"Tuairim alert threshold reached: threshold={_tuairimAlertPercent}, " +
             $"previous={previousPercent}, current={currentPercent}");
         _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
-        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, "tuairim");
+        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, _tuairimAlertVolume, "tuairim");
     }
 
-    private void PlayMonitorAlertSound(MediaPlayer player, string path, string alertKind)
+    private void PlayMonitorAlertSound(MediaPlayer player, string path, int volume, string alertKind)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
@@ -1579,9 +1662,9 @@ public partial class MainWindow : Window
             player.Stop();
             player.Close();
             player.Open(new Uri(path, UriKind.Absolute));
-            player.Volume = 1;
+            player.Volume = Math.Clamp(volume, 0, 100) / 100.0;
             player.Play();
-            _log.Info($"Monitor alert sound played: kind={alertKind}, path={path}");
+            _log.Info($"Monitor alert sound played: kind={alertKind}, volume={volume}, path={path}");
         }
         catch (Exception exception)
         {
@@ -2396,10 +2479,13 @@ public partial class MainWindow : Window
             TuairimMonitorEnabled = _tuairimMonitorEnabled,
             BuffAlertSeconds = _buffAlertSeconds,
             BuffAlertSoundPath = _buffAlertSoundPath,
+            BuffAlertVolume = _buffAlertVolume,
             BuffAlertSoundMode = _buffAlertSoundMode,
             BuffAlertSoundPaths = new Dictionary<string, string>(_buffAlertSoundPaths, StringComparer.Ordinal),
+            BuffAlertVolumes = new Dictionary<string, int>(_buffAlertVolumes, StringComparer.Ordinal),
             TuairimAlertPercent = _tuairimAlertPercent,
             TuairimAlertSoundPath = _tuairimAlertSoundPath,
+            TuairimAlertVolume = _tuairimAlertVolume,
             TuairimAlertFrequency = _tuairimAlertFrequency,
             RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
                 .Where(_recognizedBuffNameKeys.Contains)

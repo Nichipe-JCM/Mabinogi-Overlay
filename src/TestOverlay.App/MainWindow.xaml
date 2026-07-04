@@ -627,40 +627,50 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="130"/><ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="56"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock x:Name="BuffAlertSoundLabel1" VerticalAlignment="Center" Text="Global"/>
                                                 <TextBox x:Name="BuffAlertSoundPathBox1" Grid.Column="1" Margin="0,0,8,0" Height="32" Padding="8,4" IsReadOnly="True"
                                                          ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                                                <Button Grid.Column="2" Tag="0" MinWidth="74" Height="32" Padding="10,0" Content="Browse"
-                                                        loc:Localize.ContentKey="Browse" Click="BrowseBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="ClearBuffAlertSoundButton1" Grid.Column="3" Tag="0" Margin="6,0,0,0" MinWidth="66" Height="32" Padding="10,0"
-                                                        Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="TestBuffAlertSoundButton1" Grid.Column="4" Tag="0" Margin="6,0,0,0" MinWidth="86" Height="32" Padding="10,0"
-                                                        Content="Test sound" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <Button Grid.Column="2" Tag="0" MinWidth="54" Height="32" Padding="9,0" Content="Open"
+                                                        loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="ClearBuffAlertSoundButton1" Grid.Column="3" Tag="0" Margin="6,0,0,0" Width="34" Height="32"
+                                                        Content="X" FontWeight="Bold" Click="ClearBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="TestBuffAlertSoundButton1" Grid.Column="4" Tag="0" Margin="6,0,0,0" MinWidth="58" Height="32" Padding="9,0"
+                                                        Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <TextBlock Grid.Column="5" Margin="8,0,6,0" VerticalAlignment="Center" Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
+                                                <TextBox x:Name="BuffAlertVolumeBox1" Grid.Column="6" Tag="0" Height="32" Padding="7,4" MaxLength="3"
+                                                         PreviewTextInput="AlertNumberTextBox_PreviewTextInput" LostKeyboardFocus="BuffAlertVolumeBox_LostKeyboardFocus"/>
                                             </Grid>
                                             <Grid x:Name="BuffAlertSoundRow2" Margin="0,8,0,0" Visibility="Collapsed">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="56"/></Grid.ColumnDefinitions>
                                                 <TextBlock VerticalAlignment="Center" Text="March Song" loc:Localize.TextKey="monitor.buff.march.song"/>
                                                 <TextBox x:Name="BuffAlertSoundPathBox2" Grid.Column="1" Margin="0,0,8,0" Height="32" Padding="8,4" IsReadOnly="True" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                                                <Button Grid.Column="2" Tag="1" MinWidth="74" Height="32" Padding="10,0" Content="Browse" loc:Localize.ContentKey="Browse" Click="BrowseBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="ClearBuffAlertSoundButton2" Grid.Column="3" Tag="1" Margin="6,0,0,0" MinWidth="66" Height="32" Padding="10,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="TestBuffAlertSoundButton2" Grid.Column="4" Tag="1" Margin="6,0,0,0" MinWidth="86" Height="32" Padding="10,0" Content="Test sound" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <Button Grid.Column="2" Tag="1" MinWidth="54" Height="32" Padding="9,0" Content="Open" loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="ClearBuffAlertSoundButton2" Grid.Column="3" Tag="1" Margin="6,0,0,0" Width="34" Height="32" Content="X" FontWeight="Bold" Click="ClearBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="TestBuffAlertSoundButton2" Grid.Column="4" Tag="1" Margin="6,0,0,0" MinWidth="58" Height="32" Padding="9,0" Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <TextBlock Grid.Column="5" Margin="8,0,6,0" VerticalAlignment="Center" Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
+                                                <TextBox x:Name="BuffAlertVolumeBox2" Grid.Column="6" Tag="1" Height="32" Padding="7,4" MaxLength="3" PreviewTextInput="AlertNumberTextBox_PreviewTextInput" LostKeyboardFocus="BuffAlertVolumeBox_LostKeyboardFocus"/>
                                             </Grid>
                                             <Grid x:Name="BuffAlertSoundRow3" Margin="0,8,0,0" Visibility="Collapsed">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="56"/></Grid.ColumnDefinitions>
                                                 <TextBlock VerticalAlignment="Center" Text="Vivace" loc:Localize.TextKey="monitor.buff.vivace"/>
                                                 <TextBox x:Name="BuffAlertSoundPathBox3" Grid.Column="1" Margin="0,0,8,0" Height="32" Padding="8,4" IsReadOnly="True" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                                                <Button Grid.Column="2" Tag="2" MinWidth="74" Height="32" Padding="10,0" Content="Browse" loc:Localize.ContentKey="Browse" Click="BrowseBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="ClearBuffAlertSoundButton3" Grid.Column="3" Tag="2" Margin="6,0,0,0" MinWidth="66" Height="32" Padding="10,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="TestBuffAlertSoundButton3" Grid.Column="4" Tag="2" Margin="6,0,0,0" MinWidth="86" Height="32" Padding="10,0" Content="Test sound" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <Button Grid.Column="2" Tag="2" MinWidth="54" Height="32" Padding="9,0" Content="Open" loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="ClearBuffAlertSoundButton3" Grid.Column="3" Tag="2" Margin="6,0,0,0" Width="34" Height="32" Content="X" FontWeight="Bold" Click="ClearBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="TestBuffAlertSoundButton3" Grid.Column="4" Tag="2" Margin="6,0,0,0" MinWidth="58" Height="32" Padding="9,0" Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <TextBlock Grid.Column="5" Margin="8,0,6,0" VerticalAlignment="Center" Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
+                                                <TextBox x:Name="BuffAlertVolumeBox3" Grid.Column="6" Tag="2" Height="32" Padding="7,4" MaxLength="3" PreviewTextInput="AlertNumberTextBox_PreviewTextInput" LostKeyboardFocus="BuffAlertVolumeBox_LostKeyboardFocus"/>
                                             </Grid>
                                             <Grid x:Name="BuffAlertSoundRow4" Margin="0,8,0,0" Visibility="Collapsed">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="56"/></Grid.ColumnDefinitions>
                                                 <TextBlock VerticalAlignment="Center" Text="Harvest Song" loc:Localize.TextKey="monitor.buff.harvest.song"/>
                                                 <TextBox x:Name="BuffAlertSoundPathBox4" Grid.Column="1" Margin="0,0,8,0" Height="32" Padding="8,4" IsReadOnly="True" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                                                <Button Grid.Column="2" Tag="3" MinWidth="74" Height="32" Padding="10,0" Content="Browse" loc:Localize.ContentKey="Browse" Click="BrowseBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="ClearBuffAlertSoundButton4" Grid.Column="3" Tag="3" Margin="6,0,0,0" MinWidth="66" Height="32" Padding="10,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearBuffAlertSoundSlotButton_Click"/>
-                                                <Button x:Name="TestBuffAlertSoundButton4" Grid.Column="4" Tag="3" Margin="6,0,0,0" MinWidth="86" Height="32" Padding="10,0" Content="Test sound" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <Button Grid.Column="2" Tag="3" MinWidth="54" Height="32" Padding="9,0" Content="Open" loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="ClearBuffAlertSoundButton4" Grid.Column="3" Tag="3" Margin="6,0,0,0" Width="34" Height="32" Content="X" FontWeight="Bold" Click="ClearBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="TestBuffAlertSoundButton4" Grid.Column="4" Tag="3" Margin="6,0,0,0" MinWidth="58" Height="32" Padding="9,0" Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <TextBlock Grid.Column="5" Margin="8,0,6,0" VerticalAlignment="Center" Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
+                                                <TextBox x:Name="BuffAlertVolumeBox4" Grid.Column="6" Tag="3" Height="32" Padding="7,4" MaxLength="3" PreviewTextInput="AlertNumberTextBox_PreviewTextInput" LostKeyboardFocus="BuffAlertVolumeBox_LostKeyboardFocus"/>
                                             </Grid>
                                         </StackPanel>
                                     </Border>
@@ -746,6 +756,8 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="56"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"
                                                            Text="Alert sound" loc:Localize.TextKey="monitor.alert.sound"/>
@@ -753,14 +765,19 @@
                                                          Margin="0,0,8,0" Height="32" Padding="8,4" IsReadOnly="True"
                                                          ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                                                 <Button x:Name="BrowseTuairimAlertSoundButton" Grid.Column="2"
-                                                        MinWidth="74" Height="32" Padding="10,0" Content="Browse"
-                                                        loc:Localize.ContentKey="Browse" Click="BrowseTuairimAlertSoundButton_Click"/>
+                                                        MinWidth="54" Height="32" Padding="9,0" Content="Open"
+                                                        loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseTuairimAlertSoundButton_Click"/>
                                                 <Button x:Name="ClearTuairimAlertSoundButton" Grid.Column="3" Margin="6,0,0,0"
-                                                        MinWidth="66" Height="32" Padding="10,0" Content="Clear"
-                                                        loc:Localize.ContentKey="Clear" Click="ClearTuairimAlertSoundButton_Click"/>
+                                                        Width="34" Height="32" Content="X" FontWeight="Bold"
+                                                        Click="ClearTuairimAlertSoundButton_Click"/>
                                                 <Button x:Name="TestTuairimAlertSoundButton" Grid.Column="4" Margin="6,0,0,0"
-                                                        MinWidth="86" Height="32" Padding="10,0" Content="Test sound"
+                                                        MinWidth="58" Height="32" Padding="9,0" Content="Test"
                                                         loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestTuairimAlertSoundButton_Click"/>
+                                                <TextBlock Grid.Column="5" Margin="8,0,6,0" VerticalAlignment="Center"
+                                                           Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
+                                                <TextBox x:Name="TuairimAlertVolumeBox" Grid.Column="6" Height="32" Padding="7,4" MaxLength="3"
+                                                         PreviewTextInput="AlertNumberTextBox_PreviewTextInput"
+                                                         LostKeyboardFocus="TuairimAlertVolumeBox_LostKeyboardFocus"/>
                                             </Grid>
                                         </StackPanel>
                                     </Border>

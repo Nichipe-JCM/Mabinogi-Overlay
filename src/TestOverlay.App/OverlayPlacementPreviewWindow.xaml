@@ -33,13 +33,19 @@
                 </ControlTemplate>
             </Thumb.Template>
         </Thumb>
-        <Button Width="22"
-                Height="22"
-                Margin="0,4,4,0"
+        <Button Width="28"
+                Height="28"
+                Margin="0,6,6,0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Content="X"
-                FontSize="11"
+                Panel.ZIndex="10"
+                Background="#F024272A"
+                Foreground="#89DED4"
+                BorderBrush="#E689DED4"
+                BorderThickness="1"
+                FontSize="14"
+                FontWeight="Bold"
                 Padding="0"
                 Click="CloseButton_Click"/>
     </Grid>
