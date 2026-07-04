@@ -32,9 +32,15 @@ public sealed class OverlayProfile
 
     public string BuffAlertSoundPath { get; set; } = string.Empty;
 
+    public string BuffAlertSoundMode { get; set; } = "global";
+
+    public Dictionary<string, string> BuffAlertSoundPaths { get; set; } = [];
+
     public int TuairimAlertPercent { get; set; } = 95;
 
     public string TuairimAlertSoundPath { get; set; } = string.Empty;
+
+    public string TuairimAlertFrequency { get; set; } = "once";
 
     public List<string> RecognizedBuffNameKeys { get; set; } = [];
 
