@@ -4,9 +4,9 @@ public sealed class OverlayProfile
 {
     public string Name { get; set; } = "default";
 
-    public double CanvasWidth { get; set; } = 360;
+    public double CanvasWidth { get; set; } = 720;
 
-    public double CanvasHeight { get; set; } = 160;
+    public double CanvasHeight { get; set; } = 320;
 
     public double ScreenLeft { get; set; } = 120;
 

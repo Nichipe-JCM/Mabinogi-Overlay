@@ -46,5 +46,15 @@
                            FontSize="11"/>
             </Grid>
         </Border>
+        <Border x:Name="AlertPanel"
+                Padding="10,8"
+                Background="#F0111315"
+                BorderBrush="{StaticResource OverlayDangerBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Visibility="Collapsed"
+                IsHitTestVisible="False">
+            <StackPanel x:Name="AlertRows"/>
+        </Border>
     </Canvas>
 </Window>

@@ -117,8 +117,8 @@ public partial class MainWindow : Window
     private int _cpuStatsErrors;
     private int _currentSectionIndex;
     private int _nextSectionId = 1;
-    private double _layoutCanvasWidth = 360;
-    private double _layoutCanvasHeight = 160;
+    private double _layoutCanvasWidth = 720;
+    private double _layoutCanvasHeight = 320;
     private double _overlayLeft = 120;
     private double _overlayTop = 120;
     private double _overlayOpacity = 1;
@@ -146,6 +146,7 @@ public partial class MainWindow : Window
     private bool _tuairimAlertFired;
     private bool _isUpdatingMonitorAlertSettings;
     private bool _monitorTestMode;
+    private int _monitorTestScenario;
     private bool _monitorTestPreviousBuffEnabled;
     private bool _monitorTestPreviousTuairimEnabled;
     private string[] _monitorTestPreviousRecognizedBuffs = [];
@@ -1049,6 +1050,7 @@ public partial class MainWindow : Window
             RefreshMonitorDetectionVisuals();
         }
         SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled);
+        SynchronizeAlertNotificationElement();
         UpdateMonitorControlAvailability();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
@@ -1073,6 +1075,7 @@ public partial class MainWindow : Window
             RefreshMonitorDetectionVisuals();
         }
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
+        SynchronizeAlertNotificationElement();
         UpdateMonitorControlAvailability();
         RefreshInternalTimerOverlay();
         if (_tuairimMonitorEnabled)
@@ -1083,17 +1086,38 @@ public partial class MainWindow : Window
 
     private void MonitorTestModeButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_monitorTestMode)
+        if (_monitorTestMode && _monitorTestScenario == 1)
         {
             ExitMonitorTestMode();
         }
         else
         {
-            EnterMonitorTestMode();
+            SwitchMonitorTestMode(1);
         }
     }
 
-    private void EnterMonitorTestMode()
+    private void MonitorTestMode2Button_Click(object sender, RoutedEventArgs e)
+    {
+        if (_monitorTestMode && _monitorTestScenario == 2)
+        {
+            ExitMonitorTestMode();
+        }
+        else
+        {
+            SwitchMonitorTestMode(2);
+        }
+    }
+
+    private void SwitchMonitorTestMode(int scenario)
+    {
+        if (_monitorTestMode)
+        {
+            ExitMonitorTestMode();
+        }
+        EnterMonitorTestMode(scenario);
+    }
+
+    private void EnterMonitorTestMode(int scenario)
     {
         FlushProfileAutoSave();
         _monitorTestPreviousBuffEnabled = _buffMonitorEnabled;
@@ -1102,6 +1126,7 @@ public partial class MainWindow : Window
         _monitorTestPreviousSelectedBuffs = _selectedBuffNameKeys.ToArray();
         _monitorTestPreviousLayoutCanvasHeight = _layoutCanvasHeight;
         _monitorTestMode = true;
+        _monitorTestScenario = scenario;
         _monitorValueRecognitionGeneration++;
         SetMonitorDetectionMode(MonitorDetectionMode.None);
 
@@ -1117,31 +1142,40 @@ public partial class MainWindow : Window
         _selectedBuffNameKeys.Add("monitor.buff.march.song");
 
         _internalBuffTimers.Clear();
-        _internalBuffTimers.Add(new InternalBuffTimer("monitor.buff.battle.overture", 35));
-        _internalBuffTimers.Add(new InternalBuffTimer("monitor.buff.march.song", 40) { HasHarmony = true });
-        _tuairimPercent = 88;
+        var battleSeconds = scenario == 2 ? 32 : 35;
+        var marchSeconds = scenario == 2 ? 34 : 40;
+        _internalBuffTimers.Add(new InternalBuffTimer("monitor.buff.battle.overture", battleSeconds));
+        _internalBuffTimers.Add(new InternalBuffTimer("monitor.buff.march.song", marchSeconds) { HasHarmony = true });
+        _tuairimPercent = scenario == 2 ? 89 : 88;
         _hasTuairimPercentObservation = true;
         _lastAcceptedTuairimPercentAt = DateTimeOffset.UtcNow;
         _tuairimAlertFired = false;
-        _monitorTestTuairimChargeSeconds = 0;
+        _monitorTestTuairimChargeSeconds = scenario == 2 ? TuairimNormalChargeSecondsPerPercent - 1 : 0;
         _monitorTestTuairimFullSeconds = 0;
 
         SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, enabled: true, scheduleAutoSave: false);
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, enabled: true, scheduleAutoSave: false);
+        SynchronizeAlertNotificationElement(scheduleAutoSave: false);
         UpdateBuffSelectionCheckStates();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
         _internalTimerOverlayWindow?.SetTuairimPercent(_tuairimPercent);
-        _internalTimerDebugTimer.Start();
+        if (_overlayWindow is not null)
+        {
+            _internalTimerDebugTimer.Start();
+        }
         UpdateMonitorControlAvailability();
         UpdateMonitorTestButtonPresentation();
-        _log.Info("Monitor test mode started: Battle Overture=35s, March Song[Harmony]=40s, Tuairim=88%.");
+        _log.Info(
+            $"Monitor test mode {scenario} started: Battle Overture={battleSeconds}s, " +
+            $"March Song[Harmony]={marchSeconds}s, Tuairim={_tuairimPercent}%.");
         SetStatus("monitor.test.started");
     }
 
     private void ExitMonitorTestMode()
     {
         _monitorTestMode = false;
+        _monitorTestScenario = 0;
         _monitorValueRecognitionGeneration++;
         _internalBuffTimers.Clear();
         ResetTuairimPercentRecognitionState();
@@ -1168,6 +1202,7 @@ public partial class MainWindow : Window
 
         SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled, scheduleAutoSave: false);
         SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled, scheduleAutoSave: false);
+        SynchronizeAlertNotificationElement(scheduleAutoSave: false);
         _layoutCanvasHeight = _monitorTestPreviousLayoutCanvasHeight;
         UpdateBuffSelectionCheckStates();
         RefreshInternalTimerElementPreviews();
@@ -1189,11 +1224,14 @@ public partial class MainWindow : Window
 
     private void UpdateMonitorTestButtonPresentation()
     {
-        if (MonitorTestModeButton is null)
+        if (MonitorTestModeButton is null || MonitorTestMode2Button is null)
         {
             return;
         }
-        MonitorTestModeButton.Content = L.T(_monitorTestMode ? "monitor.test.stop" : "monitor.test.start");
+        MonitorTestModeButton.Content = L.T(
+            _monitorTestMode && _monitorTestScenario == 1 ? "monitor.test.stop" : "monitor.test.start");
+        MonitorTestMode2Button.Content = L.T(
+            _monitorTestMode && _monitorTestScenario == 2 ? "monitor.test.stop" : "monitor.test.start.second");
     }
 
     private void AlertNumberTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
@@ -1485,6 +1523,7 @@ public partial class MainWindow : Window
         _log.Info(
             $"Buff alert threshold reached: key={timer.NameKey}, threshold={_buffAlertSeconds}, " +
             $"previous={previousSeconds}, current={currentSeconds}");
+        _internalTimerOverlayWindow?.ShowBuffAlert(timer.NameKey, currentSeconds);
         PlayMonitorAlertSound(
             ResolveBuffAlertPlayer(timer.NameKey),
             ResolveBuffAlertSoundPath(timer.NameKey),
@@ -1510,6 +1549,7 @@ public partial class MainWindow : Window
                 _log.Info(
                     $"Tuairim incremental alert: threshold={_tuairimAlertPercent}, " +
                     $"previous={previousPercent}, current={currentPercent}");
+                _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
                 PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, $"tuairim:{currentPercent}");
             }
             return;
@@ -1523,6 +1563,7 @@ public partial class MainWindow : Window
         _log.Info(
             $"Tuairim alert threshold reached: threshold={_tuairimAlertPercent}, " +
             $"previous={previousPercent}, current={currentPercent}");
+        _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
         PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, "tuairim");
     }
 
@@ -1801,7 +1842,10 @@ public partial class MainWindow : Window
         var tuairimSlot = _tuairimMonitorEnabled
             ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.TuairimGauge)
             : null;
-        if (timerSlot is null && tuairimSlot is null)
+        var alertSlot = (_buffMonitorEnabled || _tuairimMonitorEnabled)
+            ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.AlertNotification)
+            : null;
+        if (timerSlot is null && tuairimSlot is null && alertSlot is null)
         {
             return;
         }
@@ -1813,6 +1857,7 @@ public partial class MainWindow : Window
             _overlayOpacity,
             timerSlot,
             tuairimSlot,
+            alertSlot,
             _internalBuffTimers,
             _selectedBuffNameKeys)
         {
@@ -2606,6 +2651,11 @@ public partial class MainWindow : Window
             var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
             loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
         }
+        if (_buffMonitorEnabled || _tuairimMonitorEnabled)
+        {
+            var alertCandidate = EnsureAlertNotificationCandidate();
+            loadedCandidates[alertCandidate.Id] = alertCandidate;
+        }
 
         foreach (var savedSection in profile.Sections)
         {
@@ -2752,7 +2802,8 @@ public partial class MainWindow : Window
             _activeRenderMode = _appSettings.OverlayRenderMode;
             var captureBackend = CurrentCaptureBackend;
             var hasMonitorOverlay = hasBuffOverlay || hasTuairimOverlay;
-            if ((hasSlotOverlay || hasMonitorOverlay) &&
+            var requiresLiveCapture = hasSlotOverlay || (hasMonitorOverlay && !_monitorTestMode);
+            if (requiresLiveCapture &&
                 captureBackend != CaptureBackend.Wgc &&
                 _selectedWindow is null)
             {
@@ -2760,7 +2811,7 @@ public partial class MainWindow : Window
                 SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
                 return;
             }
-            if ((hasSlotOverlay || hasMonitorOverlay) &&
+            if (requiresLiveCapture &&
                 captureBackend == CaptureBackend.Wgc &&
                 _wgcSelection is null)
             {
@@ -2775,7 +2826,10 @@ public partial class MainWindow : Window
             {
                 rendererMode = "monitor.internal.overlay";
             }
-            else if (_activeRenderMode == OverlayRenderMode.GpuDxgi && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
+            else if (hasSlotOverlay &&
+                     _activeRenderMode == OverlayRenderMode.GpuDxgi &&
+                     captureBackend == CaptureBackend.Wgc &&
+                     _wgcSelection is not null)
             {
                 try
                 {
@@ -2808,12 +2862,13 @@ public partial class MainWindow : Window
                 rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
                 _log.Info($"GPU/DXGI renderer requested with captureBackend={captureBackend}. Falling back to CPU/WPF renderer.");
             }
-            else if (captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
+            else if (requiresLiveCapture && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
             {
                 _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
             }
 
             if (hasMonitorOverlay &&
+                !_monitorTestMode &&
                 captureBackend == CaptureBackend.Wgc &&
                 _wgcSelection is not null &&
                 (_gpuLiveOverlayService is not null || !hasSlotOverlay))
@@ -4247,6 +4302,29 @@ public partial class MainWindow : Window
         return candidate;
     }
 
+    private SlotCandidate EnsureAlertNotificationCandidate()
+    {
+        var existing = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.AlertNotification);
+        if (existing is not null)
+        {
+            ResizeMonitorElement(
+                existing,
+                AlertNotificationPreviewRenderer.BaseWidth,
+                AlertNotificationPreviewRenderer.BaseHeight);
+            return existing;
+        }
+
+        var candidate = new SlotCandidate(
+            -3,
+            new Rect(0, 0, AlertNotificationPreviewRenderer.BaseWidth, AlertNotificationPreviewRenderer.BaseHeight),
+            100,
+            OverlayElementKind.AlertNotification,
+            "monitor.alert.element",
+            isBuiltIn: true);
+        AddCandidate(candidate);
+        return candidate;
+    }
+
     private void SynchronizeMonitorElementDimensions()
     {
         var timerCandidate = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.InternalBuffTimer);
@@ -4265,6 +4343,15 @@ public partial class MainWindow : Window
                 tuairimCandidate,
                 TuairimGaugePreviewRenderer.BaseWidth,
                 TuairimGaugePreviewRenderer.BaseHeight);
+        }
+
+        var alertCandidate = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.AlertNotification);
+        if (alertCandidate is not null)
+        {
+            ResizeMonitorElement(
+                alertCandidate,
+                AlertNotificationPreviewRenderer.BaseWidth,
+                AlertNotificationPreviewRenderer.BaseHeight);
         }
     }
 
@@ -4343,12 +4430,23 @@ public partial class MainWindow : Window
         {
             EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave);
         }
+        if (_buffMonitorEnabled || _tuairimMonitorEnabled)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave);
+        }
     }
+
+    private void SynchronizeAlertNotificationElement(bool scheduleAutoSave = true) =>
+        SetMonitorElementEnabled(
+            OverlayElementKind.AlertNotification,
+            _buffMonitorEnabled || _tuairimMonitorEnabled,
+            scheduleAutoSave);
 
     private bool IsMonitorElementEnabled(OverlayElementKind kind) => kind switch
     {
         OverlayElementKind.InternalBuffTimer => _buffMonitorEnabled,
         OverlayElementKind.TuairimGauge => _tuairimMonitorEnabled,
+        OverlayElementKind.AlertNotification => _buffMonitorEnabled || _tuairimMonitorEnabled,
         _ => false
     };
 
@@ -4358,6 +4456,7 @@ public partial class MainWindow : Window
         {
             OverlayElementKind.InternalBuffTimer => EnsureInternalTimerCandidate(),
             OverlayElementKind.TuairimGauge => EnsureTuairimGaugeCandidate(),
+            OverlayElementKind.AlertNotification => EnsureAlertNotificationCandidate(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only monitor elements can be auto-placed.")
         };
         var existingSlot = _overlaySlots.FirstOrDefault(slot => slot.Kind == kind);
@@ -4394,6 +4493,7 @@ public partial class MainWindow : Window
             _internalBuffTimers,
             _selectedBuffNameKeys),
         OverlayElementKind.TuairimGauge => TuairimGaugePreviewRenderer.Render(_tuairimPercent),
+        OverlayElementKind.AlertNotification => AlertNotificationPreviewRenderer.Render(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A quickslot requires a captured image crop.")
     };
 
@@ -4692,6 +4792,11 @@ public partial class MainWindow : Window
         {
             var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
             restoredById[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
+        }
+        if (_buffMonitorEnabled || _tuairimMonitorEnabled)
+        {
+            var alertCandidate = EnsureAlertNotificationCandidate();
+            restoredById[alertCandidate.Id] = alertCandidate;
         }
 
         CandidateList.SelectedItem = selected;

@@ -4,5 +4,6 @@ public enum OverlayElementKind
 {
     Quickslot,
     InternalBuffTimer,
-    TuairimGauge
+    TuairimGauge,
+    AlertNotification
 }

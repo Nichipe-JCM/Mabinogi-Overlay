@@ -771,6 +771,13 @@
                                                 Padding="14,0"
                                                 Content="Test mode"
                                                 Click="MonitorTestModeButton_Click"/>
+                                        <Button x:Name="MonitorTestMode2Button"
+                                                MinWidth="120"
+                                                Height="36"
+                                                Padding="14,0"
+                                                Margin="6,0,0,0"
+                                                Content="Test mode 2"
+                                                Click="MonitorTestMode2Button_Click"/>
                                         <Button x:Name="DetectTuairimUiButton"
                                                 MinWidth="150"
                                                 Height="36"

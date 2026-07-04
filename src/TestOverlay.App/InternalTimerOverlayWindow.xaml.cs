@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using TestOverlay.App.Models;
 using TestOverlay.App.Native;
 using TestOverlay.App.Services;
@@ -13,6 +14,11 @@ public partial class InternalTimerOverlayWindow : Window
     private HwndSource? _source;
     private IReadOnlyList<InternalBuffTimer> _timers = [];
     private IReadOnlyCollection<string> _visibleBuffNameKeys = [];
+    private readonly Dictionary<string, ActiveAlert> _activeAlerts = new(StringComparer.Ordinal);
+    private readonly DispatcherTimer _alertBlinkTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
+    private double _alertPanelBaseOpacity = 1;
+    private bool _alertPanelAvailable;
+    private bool _alertBlinkVisible = true;
 
     public InternalTimerOverlayWindow(
         double width,
@@ -20,6 +26,7 @@ public partial class InternalTimerOverlayWindow : Window
         double defaultOpacity,
         OverlaySlot? timerSlot,
         OverlaySlot? tuairimSlot,
+        OverlaySlot? alertSlot,
         IReadOnlyList<InternalBuffTimer> timers,
         IReadOnlyCollection<string> visibleBuffNameKeys)
     {
@@ -38,6 +45,7 @@ public partial class InternalTimerOverlayWindow : Window
             TuairimGaugePreviewRenderer.BaseWidth,
             TuairimGaugePreviewRenderer.BaseHeight,
             defaultOpacity);
+        ConfigureAlertPanel(alertSlot, defaultOpacity);
         Focusable = false;
         ShowActivated = false;
         ShowInTaskbar = false;
@@ -45,6 +53,7 @@ public partial class InternalTimerOverlayWindow : Window
         _visibleBuffNameKeys = visibleBuffNameKeys.ToArray();
         SetTimers(timers);
         SetTuairimPercent(0);
+        _alertBlinkTimer.Tick += AlertBlinkTimer_Tick;
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
     }
 
@@ -53,6 +62,22 @@ public partial class InternalTimerOverlayWindow : Window
         percent = Math.Clamp(percent, 0, 100);
         TuairimPercentText.Text = $"{percent}%";
     }
+
+    public void ShowBuffAlert(string nameKey, int remainingSeconds) =>
+        ShowAlert(new ActiveAlert(
+            $"buff:{nameKey}",
+            nameKey,
+            Math.Max(0, remainingSeconds),
+            IsTuairim: false,
+            DateTimeOffset.UtcNow.AddSeconds(5)));
+
+    public void ShowTuairimAlert(int percent) =>
+        ShowAlert(new ActiveAlert(
+            "tuairim",
+            null,
+            Math.Clamp(percent, 0, 100),
+            IsTuairim: true,
+            DateTimeOffset.UtcNow.AddSeconds(5)));
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -65,6 +90,7 @@ public partial class InternalTimerOverlayWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _alertBlinkTimer.Stop();
         LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
         if (_source is not null)
         {
@@ -137,7 +163,11 @@ public partial class InternalTimerOverlayWindow : Window
     }
 
     private void LocalizationService_LanguageChanged(object? sender, EventArgs e) =>
-        Dispatcher.Invoke(RenderTimers);
+        Dispatcher.Invoke(() =>
+        {
+            RenderTimers();
+            RenderAlertRows();
+        });
 
     private static string FormatTime(int seconds) => $"{seconds / 60:00}:{seconds % 60:00}";
 
@@ -166,6 +196,114 @@ public partial class InternalTimerOverlayWindow : Window
         Canvas.SetTop(panel, slot.OverlayRect.Y);
         panel.Visibility = Visibility.Visible;
     }
+
+    private void ConfigureAlertPanel(OverlaySlot? slot, double defaultOpacity)
+    {
+        if (slot is null)
+        {
+            AlertPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var scale = Math.Clamp(
+            Math.Min(
+                slot.OverlayRect.Width / AlertNotificationPreviewRenderer.BaseWidth,
+                slot.OverlayRect.Height / AlertNotificationPreviewRenderer.BaseHeight),
+            0.1,
+            10);
+        AlertPanel.Width = AlertNotificationPreviewRenderer.BaseWidth;
+        _alertPanelBaseOpacity = slot.EffectiveOpacity(defaultOpacity);
+        AlertPanel.LayoutTransform = new ScaleTransform(scale, scale);
+        Canvas.SetLeft(AlertPanel, slot.OverlayRect.X);
+        Canvas.SetTop(AlertPanel, slot.OverlayRect.Y);
+        AlertPanel.Visibility = Visibility.Collapsed;
+        _alertPanelAvailable = true;
+    }
+
+    private void ShowAlert(ActiveAlert alert)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => ShowAlert(alert));
+            return;
+        }
+        if (!_alertPanelAvailable)
+        {
+            return;
+        }
+
+        _activeAlerts[alert.Id] = alert;
+        _alertBlinkVisible = true;
+        RenderAlertRows();
+        AlertPanel.Opacity = _alertPanelBaseOpacity;
+        AlertPanel.Visibility = Visibility.Visible;
+        if (!_alertBlinkTimer.IsEnabled)
+        {
+            _alertBlinkTimer.Start();
+        }
+    }
+
+    private void AlertBlinkTimer_Tick(object? sender, EventArgs e)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var expired = _activeAlerts.Values
+            .Where(alert => alert.ExpiresAt <= now)
+            .Select(alert => alert.Id)
+            .ToArray();
+        foreach (var id in expired)
+        {
+            _activeAlerts.Remove(id);
+        }
+
+        if (_activeAlerts.Count == 0)
+        {
+            _alertBlinkTimer.Stop();
+            AlertPanel.Visibility = Visibility.Collapsed;
+            AlertRows.Children.Clear();
+            return;
+        }
+
+        if (expired.Length > 0)
+        {
+            RenderAlertRows();
+        }
+        _alertBlinkVisible = !_alertBlinkVisible;
+        AlertPanel.Opacity = _alertPanelBaseOpacity * (_alertBlinkVisible ? 1 : 0.22);
+    }
+
+    private void RenderAlertRows()
+    {
+        if (AlertRows is null)
+        {
+            return;
+        }
+
+        AlertRows.Children.Clear();
+        foreach (var alert in _activeAlerts.Values)
+        {
+            var message = alert.IsTuairim
+                ? L.F("monitor.alert.visual.tuairim", alert.Value)
+                : L.F("monitor.alert.visual.buff", L.T(alert.NameKey!), alert.Value);
+            AlertRows.Children.Add(new TextBlock
+            {
+                Text = message,
+                Height = AlertNotificationPreviewRenderer.RowHeight,
+                Foreground = (Brush)FindResource("OverlayDangerBrush"),
+                FontFamily = new FontFamily("Noto Sans KR, Malgun Gothic"),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+        }
+    }
+
+    private sealed record ActiveAlert(
+        string Id,
+        string? NameKey,
+        int Value,
+        bool IsTuairim,
+        DateTimeOffset ExpiresAt);
 
     private static void ApplyClickThroughStyles(nint handle)
     {
