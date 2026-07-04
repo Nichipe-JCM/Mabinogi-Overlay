@@ -111,7 +111,7 @@ public partial class InternalTimerOverlayWindow : Window
                 Child = nameText,
                 Stretch = Stretch.Uniform,
                 StretchDirection = StretchDirection.DownOnly,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
                 MaxHeight = 16
             };

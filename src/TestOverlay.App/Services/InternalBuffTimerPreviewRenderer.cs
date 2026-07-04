@@ -8,7 +8,7 @@ namespace TestOverlay.App.Services;
 
 public static class InternalBuffTimerPreviewRenderer
 {
-    public const int BaseWidth = 240;
+    public const int BaseWidth = 200;
     public const int RowHeight = 22;
     public const int VerticalPadding = 16;
 
