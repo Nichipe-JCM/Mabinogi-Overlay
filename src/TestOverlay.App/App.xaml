@@ -61,13 +61,13 @@
                 <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Margin" Value="0,0,4,0"/>
+                <Setter Property="Margin" Value="0"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type TabItem}">
                             <Border x:Name="TabBorder"
                                     MinHeight="36"
-                                    Padding="14,7"
+                                    Padding="10,7"
                                     Background="#D91B1D20"
                                     BorderBrush="#663B3F43"
                                     BorderThickness="1"

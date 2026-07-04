@@ -562,27 +562,39 @@
                                             <WrapPanel Margin="0,10,0,0">
                                                 <CheckBox x:Name="BattleOvertureBuffCheckBox"
                                                           Margin="0,0,18,0"
-                                                          Content="Battle Overture"
-                                                          loc:Localize.ContentKey="monitor.buff.battle.overture"
                                                           Tag="monitor.buff.battle.overture"
-                                                          Click="BuffSelectionCheckBox_Click"/>
+                                                          Click="BuffSelectionCheckBox_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/BattlefieldOn.png" Stretch="Uniform"/>
+                                                        <TextBlock VerticalAlignment="Center" Text="Battle Overture" loc:Localize.TextKey="monitor.buff.battle.overture"/>
+                                                    </StackPanel>
+                                                </CheckBox>
                                                 <CheckBox x:Name="MarchSongBuffCheckBox"
                                                           Margin="0,0,18,0"
-                                                          Content="March Song"
-                                                          loc:Localize.ContentKey="monitor.buff.march.song"
                                                           Tag="monitor.buff.march.song"
-                                                          Click="BuffSelectionCheckBox_Click"/>
+                                                          Click="BuffSelectionCheckBox_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/MarchOn.png" Stretch="Uniform"/>
+                                                        <TextBlock VerticalAlignment="Center" Text="March Song" loc:Localize.TextKey="monitor.buff.march.song"/>
+                                                    </StackPanel>
+                                                </CheckBox>
                                                 <CheckBox x:Name="VivaceBuffCheckBox"
                                                           Margin="0,0,18,0"
-                                                          Content="Vivace"
-                                                          loc:Localize.ContentKey="monitor.buff.vivace"
                                                           Tag="monitor.buff.vivace"
-                                                          Click="BuffSelectionCheckBox_Click"/>
+                                                          Click="BuffSelectionCheckBox_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/VivaceOn.png" Stretch="Uniform"/>
+                                                        <TextBlock VerticalAlignment="Center" Text="Vivace" loc:Localize.TextKey="monitor.buff.vivace"/>
+                                                    </StackPanel>
+                                                </CheckBox>
                                                 <CheckBox x:Name="HarvestSongBuffCheckBox"
-                                                          Content="Harvest Song"
-                                                          loc:Localize.ContentKey="monitor.buff.harvest.song"
                                                           Tag="monitor.buff.harvest.song"
-                                                          Click="BuffSelectionCheckBox_Click"/>
+                                                          Click="BuffSelectionCheckBox_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/RichyearOn.png" Stretch="Uniform"/>
+                                                        <TextBlock VerticalAlignment="Center" Text="Harvest Song" loc:Localize.TextKey="monitor.buff.harvest.song"/>
+                                                    </StackPanel>
+                                                </CheckBox>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
