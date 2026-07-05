@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -15,7 +15,7 @@ using Windows.UI.Notifications;
 
 namespace TestOverlay.App;
 
-public partial class ErinTimerWindow : Window
+public partial class ErinTimerWindow : UserControl, IDisposable
 {
     private const int RealSecondsPerGameDay = 36 * 60;
     private const int GameSecondsPerDay = 24 * 60 * 60;
@@ -25,16 +25,15 @@ public partial class ErinTimerWindow : Window
     private const uint FlashTimerNoForeground = 12;
 
     private readonly ErinTimerSettingsStore _store = new();
-    private readonly AppLog _log;
+    private AppLog? _log;
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly MediaPlayer _mediaPlayer = new();
     private readonly ErinTimerSettings _settings;
     private bool _initializing = true;
     private long? _previousAbsoluteGameSeconds;
 
-    public ErinTimerWindow(AppLog log)
+    public ErinTimerWindow()
     {
-        _log = log;
         _settings = _store.Load();
         InitializeComponent();
         DataContext = this;
@@ -54,24 +53,27 @@ public partial class ErinTimerWindow : Window
         _initializing = false;
 
         _clockTimer.Tick += ClockTimer_Tick;
-        Loaded += ErinTimerWindow_Loaded;
-        Closing += ErinTimerWindow_Closing;
+        _clockTimer.Start();
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
-        _log.Info($"Erin timer opened: alarms={_settings.Alarms.Count}, settings={_store.SettingsPath}");
     }
 
     public ObservableCollection<ErinAlarmRow> Alarms { get; } = [];
+    public event Action<string>? NoticeRequested;
 
-    private void ErinTimerWindow_Loaded(object sender, RoutedEventArgs e) => _clockTimer.Start();
+    public void AttachLog(AppLog log)
+    {
+        _log = log;
+        _log.Info($"Erin timer initialized: alarms={_settings.Alarms.Count}, settings={_store.SettingsPath}");
+    }
 
-    private void ErinTimerWindow_Closing(object? sender, CancelEventArgs e)
+    public void Dispose()
     {
         _clockTimer.Stop();
         _mediaPlayer.Stop();
         _mediaPlayer.Close();
         LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
         SaveSettings();
-        _log.Info("Erin timer closed.");
+        _log?.Info("Erin timer disposed.");
     }
 
     private void LocalizationService_LanguageChanged(object? sender, EventArgs e) =>
@@ -170,7 +172,7 @@ public partial class ErinTimerWindow : Window
             ? alarm.CustomAudioFile
             : _settings.AudioFile;
         PlayAudio(audioFile);
-        _log.Info($"Erin alarm fired: id={alarm.Id}, time={alarmTime}, repeat={alarm.Repeat}, customSound={alarm.CustomSoundEnabled}");
+        _log?.Info($"Erin alarm fired: id={alarm.Id}, name={alarm.Name}, time={alarmTime}, repeat={alarm.Repeat}, customSound={alarm.CustomSoundEnabled}");
     }
 
     private void PlayAudio(string? audioFile)
@@ -190,7 +192,7 @@ public partial class ErinTimerWindow : Window
         }
         catch (Exception exception)
         {
-            _log.Error("Failed to play Erin timer audio.", exception);
+            _log?.Error("Failed to play Erin timer audio.", exception);
         }
     }
 
@@ -206,13 +208,19 @@ public partial class ErinTimerWindow : Window
         }
         catch (Exception exception)
         {
-            _log.Error("Failed to show Erin timer desktop notification.", exception);
+            _log?.Error("Failed to show Erin timer desktop notification.", exception);
         }
     }
 
     private void FlashTaskbar()
     {
-        var handle = new WindowInteropHelper(this).Handle;
+        var hostWindow = Window.GetWindow(this);
+        if (hostWindow is null)
+        {
+            return;
+        }
+
+        var handle = new WindowInteropHelper(hostWindow).Handle;
         if (handle == nint.Zero)
         {
             return;
@@ -239,13 +247,14 @@ public partial class ErinTimerWindow : Window
 
         if (_settings.Alarms.Any(alarm => alarm.Hour == hour && alarm.Minute == minute))
         {
-            MessageBox.Show(this, L.T("erin.duplicate.alarm.message"), L.T("erin.duplicate.alarm"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            NoticeRequested?.Invoke(L.T("erin.duplicate.alarm.message"));
             return;
         }
 
         var alarm = new ErinAlarm
         {
             Id = _settings.Alarms.Count == 0 ? 1 : _settings.Alarms.Max(item => item.Id) + 1,
+            Name = NewAlarmNameBox.Text.Trim(),
             Hour = hour,
             Minute = minute,
             Repeat = NewAlarmRepeatCheckBox.IsChecked == true,
@@ -258,11 +267,77 @@ public partial class ErinTimerWindow : Window
         AlarmListBox.SelectedItem = Alarms.FirstOrDefault(row => row.Id == alarm.Id);
     }
 
+    private void UpdateAlarmButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AlarmListBox.SelectedItem is not ErinAlarmRow selected ||
+            HourCombo.SelectedItem is not string hourText || MinuteCombo.SelectedItem is not string minuteText ||
+            !int.TryParse(hourText, out var hour) || !int.TryParse(minuteText, out var minute))
+        {
+            NoticeRequested?.Invoke(L.T("erin.select.alarm.update.message"));
+            return;
+        }
+
+        if (_settings.Alarms.Any(alarm => alarm.Id != selected.Id && alarm.Hour == hour && alarm.Minute == minute))
+        {
+            NoticeRequested?.Invoke(L.T("erin.duplicate.alarm.message"));
+            return;
+        }
+
+        selected.Model.Name = NewAlarmNameBox.Text.Trim();
+        selected.Model.Hour = hour;
+        selected.Model.Minute = minute;
+        selected.Model.Repeat = NewAlarmRepeatCheckBox.IsChecked == true;
+        SortAlarms();
+        SaveSettings();
+        RefreshAlarmRows(selected.Id);
+    }
+
+    private void AlarmListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AlarmListBox.SelectedItem is not ErinAlarmRow selected)
+        {
+            return;
+        }
+
+        NewAlarmNameBox.Text = selected.Model.Name;
+        HourCombo.SelectedItem = selected.Model.Hour.ToString("00");
+        MinuteCombo.SelectedItem = selected.Model.Minute.ToString("00");
+        NewAlarmRepeatCheckBox.IsChecked = selected.Model.Repeat;
+    }
+
+    private void NewAlarmNameBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateAlarmNamePlaceholder();
+
+    private void NewAlarmNameBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => UpdateAlarmNamePlaceholder();
+
+    private void NewAlarmNameBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => UpdateAlarmNamePlaceholder();
+
+    private void UpdateAlarmNamePlaceholder()
+    {
+        if (AlarmNamePlaceholder is null || NewAlarmNameBox is null)
+        {
+            return;
+        }
+
+        AlarmNamePlaceholder.Visibility = string.IsNullOrEmpty(NewAlarmNameBox.Text) && !NewAlarmNameBox.IsKeyboardFocusWithin
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void AlarmListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement(AlarmListBox, e.OriginalSource as DependencyObject) is not ListBoxItem)
+        {
+            AlarmListBox.SelectedItem = null;
+            NewAlarmNameBox.Clear();
+            NewAlarmRepeatCheckBox.IsChecked = false;
+        }
+    }
+
     private void DeleteAlarmButton_Click(object sender, RoutedEventArgs e)
     {
         if (AlarmListBox.SelectedItem is not ErinAlarmRow selected)
         {
-            MessageBox.Show(this, L.T("erin.select.alarm.message"), L.T("erin.select.alarm"), MessageBoxButton.OK, MessageBoxImage.Information);
+            NoticeRequested?.Invoke(L.T("erin.select.alarm.message"));
             return;
         }
 
@@ -352,7 +427,7 @@ public partial class ErinTimerWindow : Window
             CheckFileExists = true,
             Multiselect = false
         };
-        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+        return dialog.ShowDialog(Window.GetWindow(this)) == true ? dialog.FileName : null;
     }
 
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -514,12 +589,12 @@ public partial class ErinTimerWindow : Window
         }
         catch (Exception exception)
         {
-            _log.Error("Failed to save Erin timer settings.", exception);
+            _log?.Error("Failed to save Erin timer settings.", exception);
         }
     }
 
     private void MediaPlayer_MediaFailed(object? sender, ExceptionEventArgs e) =>
-        _log.Error("Erin timer media playback failed.", e.ErrorException);
+        _log?.Error("Erin timer media playback failed.", e.ErrorException);
 
     private static string FormatGameTime(int gameSeconds) =>
         $"{gameSeconds / 3600:00}:{gameSeconds % 3600 / 60:00}";
@@ -534,6 +609,10 @@ public partial class ErinTimerWindow : Window
         public ErinAlarm Model { get; }
 
         public int Id => Model.Id;
+
+        public string Name => string.IsNullOrWhiteSpace(Model.Name)
+            ? L.F("erin.alarm.default.name.arg", Model.Id)
+            : Model.Name;
 
         public string TimeText => $"{Model.Hour:00}:{Model.Minute:00}";
 

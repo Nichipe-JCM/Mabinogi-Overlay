@@ -94,6 +94,48 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="HiddenDebugTabItemStyle" TargetType="{x:Type TabItem}">
+                <Setter Property="Width" Value="0"/>
+                <Setter Property="Height" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TabItem}"/>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="DebugTabToggleStyle" TargetType="{x:Type ToggleButton}">
+                <Setter Property="Background" Value="#D91B1D20"/>
+                <Setter Property="Foreground" Value="{StaticResource OverlayMutedBrush}"/>
+                <Setter Property="BorderBrush" Value="#663B3F43"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ToggleButton}">
+                            <Border x:Name="Border" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="5,5,0,0">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="#FF24272A"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="#FF2B2F32"/>
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayAccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="InsetPanelStyle" TargetType="{x:Type Border}">
                 <Setter Property="Background" Value="{StaticResource OverlayPanelSoftBrush}"/>
                 <Setter Property="BorderBrush" Value="#55343638"/>

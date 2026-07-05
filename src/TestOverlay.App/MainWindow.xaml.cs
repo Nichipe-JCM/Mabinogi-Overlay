@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly ObservableCollection<SlotCandidate> _candidates = new();
     private readonly ObservableCollection<QuickslotSection> _sections = new();
     private readonly List<OverlaySlot> _overlaySlots = new();
@@ -84,7 +85,6 @@ public partial class MainWindow : Window
     private WgcSelectionResult? _wgcSelection;
     private OverlayWindow? _overlayWindow;
     private InternalTimerOverlayWindow? _internalTimerOverlayWindow;
-    private ErinTimerWindow? _erinTimerWindow;
     private GpuLiveOverlayService? _gpuLiveOverlayService;
     private SlotCandidate? _draggingCandidate;
     private Point _candidateDragStartPosition;
@@ -207,6 +207,13 @@ public partial class MainWindow : Window
         _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         _profileAutoSaveTimer.Tick += (_, _) => FlushProfileAutoSave();
         _internalTimerDebugTimer.Tick += InternalTimerDebugTimer_Tick;
+        _inAppNoticeTimer.Tick += (_, _) =>
+        {
+            _inAppNoticeTimer.Stop();
+            InAppNoticeBorder.Visibility = Visibility.Collapsed;
+        };
+        ErinTimerPanel.AttachLog(_log);
+        ErinTimerPanel.NoticeRequested += ShowInAppNotice;
         _buffAlertPlayer.MediaFailed += (_, args) => _log.Error("Buff alert media playback failed.", args.ErrorException);
         foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys)
         {
@@ -220,7 +227,7 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
-            _erinTimerWindow?.Close();
+            ErinTimerPanel.Dispose();
             CloseAlertPlayers();
             StopOverlay(setStatus: false);
         };
@@ -892,12 +899,7 @@ public partial class MainWindow : Window
     {
         if (_overlayWindow is not null)
         {
-            MessageBox.Show(
-                this,
-                L.T("Stop the overlay before opening Manage Layout."),
-                L.T("Overlay is running"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            ShowInAppNotice(L.T("Stop the overlay before opening Manage Layout."));
             SetStatus("Stop the overlay before opening Manage Layout.");
             return;
         }
@@ -1018,22 +1020,15 @@ public partial class MainWindow : Window
             L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
     }
 
-    private void ErinTimerButton_Click(object sender, RoutedEventArgs e)
+    private void DebugTabToggle_Click(object sender, RoutedEventArgs e) =>
+        RightPanelTabs.SelectedItem = DebugTabItem;
+
+    private void ShowInAppNotice(string message)
     {
-        if (_erinTimerWindow is { IsLoaded: true })
-        {
-            if (_erinTimerWindow.WindowState == WindowState.Minimized)
-            {
-                _erinTimerWindow.WindowState = WindowState.Normal;
-            }
-
-            _erinTimerWindow.Activate();
-            return;
-        }
-
-        _erinTimerWindow = new ErinTimerWindow(_log);
-        _erinTimerWindow.Closed += (_, _) => _erinTimerWindow = null;
-        _erinTimerWindow.Show();
+        InAppNoticeText.Text = message;
+        InAppNoticeBorder.Visibility = Visibility.Visible;
+        _inAppNoticeTimer.Stop();
+        _inAppNoticeTimer.Start();
     }
 
     private void BuffMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)

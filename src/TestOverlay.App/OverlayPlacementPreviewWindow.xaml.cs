@@ -9,6 +9,8 @@ namespace TestOverlay.App;
 
 public partial class OverlayPlacementPreviewWindow : Window
 {
+    private const double ControlHeaderHeight = 34;
+    private const double MinimumOverlayHeight = 80;
     private readonly IReadOnlyList<OverlaySlot> _slots;
     private readonly Action<double, double, double, double> _placementChanged;
     private readonly double _defaultSlotOpacity;
@@ -27,9 +29,9 @@ public partial class OverlayPlacementPreviewWindow : Window
         _placementChanged = placementChanged;
         _defaultSlotOpacity = Math.Clamp(opacity, 0, 1);
         Left = left;
-        Top = top;
+        Top = top - ControlHeaderHeight;
         Width = Math.Max(MinWidth, width);
-        Height = Math.Max(MinHeight, height);
+        Height = Math.Max(MinHeight, height + ControlHeaderHeight);
         Opacity = 1;
         RenderSlots();
         LocationChanged += (_, _) => NotifyPlacementChanged();
@@ -44,7 +46,7 @@ public partial class OverlayPlacementPreviewWindow : Window
     {
         PreviewCanvas.Children.Clear();
         PreviewCanvas.Width = Width;
-        PreviewCanvas.Height = Height;
+        PreviewCanvas.Height = Math.Max(MinimumOverlayHeight, Height - ControlHeaderHeight);
 
         foreach (var slot in _slots)
         {
@@ -77,12 +79,16 @@ public partial class OverlayPlacementPreviewWindow : Window
     private void ResizeThumb_DragDelta(object sender, DragDeltaEventArgs e)
     {
         Width = Math.Max(MinWidth, Width + e.HorizontalChange);
-        Height = Math.Max(MinHeight, Height + e.VerticalChange);
+        Height = Math.Max(MinimumOverlayHeight + ControlHeaderHeight, Height + e.VerticalChange);
         NotifyPlacementChanged();
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
     private void NotifyPlacementChanged() =>
-        _placementChanged(Math.Round(Left), Math.Round(Top), Math.Round(Width), Math.Round(Height));
+        _placementChanged(
+            Math.Round(Left),
+            Math.Round(Top + ControlHeaderHeight),
+            Math.Round(Width),
+            Math.Round(Height - ControlHeaderHeight));
 }

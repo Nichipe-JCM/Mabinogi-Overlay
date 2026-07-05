@@ -63,6 +63,7 @@ public sealed class ErinTimerSettingsStore
             normalized.Add(new ErinAlarm
             {
                 Id = id,
+                Name = (alarm.Name ?? string.Empty).Trim(),
                 Hour = hour,
                 Minute = minute,
                 Repeat = alarm.Repeat,

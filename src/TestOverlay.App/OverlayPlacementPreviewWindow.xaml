@@ -10,9 +10,10 @@
         ShowInTaskbar="False"
         Topmost="True"
         MinWidth="120"
-        MinHeight="80">
+        MinHeight="114">
     <Grid>
         <Border x:Name="PreviewBorder"
+                Margin="0,34,0,0"
                 BorderBrush="#00A6FF"
                 BorderThickness="2"
                 Background="#2200A6FF"
@@ -35,7 +36,7 @@
         </Thumb>
         <Button Width="28"
                 Height="28"
-                Margin="0,6,6,0"
+                Margin="0,2,0,0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Content="X"
