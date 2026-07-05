@@ -287,6 +287,7 @@ erin.select.alarm = 알람 선택
 erin.select.alarm.message = 삭제할 알람을 선택해 주세요.
 erin.alarm.reached.arg = 에린 시간 {0}이 되었습니다.
 erin.alarm.name.placeholder = 알람 이름 설정
+erin.alarm.add = 알람 추가
 erin.alarm.default.name.arg = 알람 {0}
 erin.update = 수정
 erin.select.alarm.update.message = 수정할 알람을 선택해 주세요.

@@ -99,7 +99,7 @@
                 <Grid Grid.Row="1" Margin="10,10,10,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="158"/>
+                        <ColumnDefinition Width="180"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
@@ -113,20 +113,20 @@
                                    IsHitTestVisible="False" Foreground="{StaticResource OverlayMutedBrush}"
                                    Text="Set alarm name" loc:Localize.TextKey="erin.alarm.name.placeholder"/>
                     </Grid>
-                    <Grid Grid.Column="1" Margin="10,0,0,0">
+                    <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="66"/>
-                            <ColumnDefinition Width="20"/>
-                            <ColumnDefinition Width="66"/>
+                            <ColumnDefinition Width="74"/>
+                            <ColumnDefinition Width="22"/>
+                            <ColumnDefinition Width="74"/>
                         </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="HourCombo" Grid.Column="0" Height="34"/>
+                        <ComboBox x:Name="HourCombo" Grid.Column="0" Height="36" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="1" Text=":" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <ComboBox x:Name="MinuteCombo" Grid.Column="2" Height="34"/>
+                        <ComboBox x:Name="MinuteCombo" Grid.Column="2" Height="36" VerticalAlignment="Center"/>
                     </Grid>
                     <CheckBox x:Name="NewAlarmRepeatCheckBox" Grid.Column="2" Margin="10,0"
                               Content="Repeat" loc:Localize.ContentKey="erin.repeat" VerticalAlignment="Center"/>
                     <Button Grid.Column="3" MinWidth="58" Height="34" Padding="10,0"
-                            Content="Add" loc:Localize.ContentKey="Add" Click="AddAlarmButton_Click"/>
+                            Content="Add alarm" loc:Localize.ContentKey="erin.alarm.add" Click="AddAlarmButton_Click"/>
                     <StackPanel Grid.Column="4" Orientation="Horizontal">
                         <Button MinWidth="58" Height="34" Padding="10,0" Margin="6,0,0,0"
                                 Content="Update" loc:Localize.ContentKey="erin.update" Click="UpdateAlarmButton_Click"/>

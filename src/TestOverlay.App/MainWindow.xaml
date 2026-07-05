@@ -346,7 +346,7 @@
                         BorderThickness="0"
                         ItemContainerStyle="{StaticResource MonitorTabItemStyle}">
                 <TabItem Header="Overlay" loc:Localize.HeaderKey="monitor.tab.overlay">
-            <Grid>
+            <Grid Margin="0,5,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="1.35*"/>
                     <RowDefinition Height="14"/>
@@ -528,7 +528,7 @@
                 </TabItem>
 
                 <TabItem Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
-                    <Grid>
+                    <Grid Margin="0,5,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="13*"/>
                             <RowDefinition Height="8"/>
@@ -817,12 +817,12 @@
                 </TabItem>
 
                 <TabItem Header="Erin Timer" loc:Localize.HeaderKey="erin.timer">
-                    <local:ErinTimerWindow x:Name="ErinTimerPanel"/>
+                    <local:ErinTimerWindow x:Name="ErinTimerPanel" Margin="0,5,0,0"/>
                 </TabItem>
 
                 <TabItem x:Name="DebugTabItem" Header="Debug" loc:Localize.HeaderKey="debug.tab"
                          Style="{StaticResource HiddenDebugTabItemStyle}">
-                    <Border Style="{StaticResource GlassCardStyle}">
+                    <Border Margin="0,5,0,0" Style="{StaticResource GlassCardStyle}">
                         <StackPanel Margin="16">
                             <TextBlock Text="Debug" loc:Localize.TextKey="debug.tab" Style="{StaticResource SectionTitleStyle}"/>
                             <WrapPanel Margin="0,14,0,0">

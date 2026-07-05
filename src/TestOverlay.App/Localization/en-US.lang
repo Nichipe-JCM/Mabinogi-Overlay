@@ -287,6 +287,7 @@ erin.select.alarm = Select alarm
 erin.select.alarm.message = Select an alarm to delete.
 erin.alarm.reached.arg = Erin time {0} has been reached.
 erin.alarm.name.placeholder = Set alarm name
+erin.alarm.add = Add alarm
 erin.alarm.default.name.arg = Alarm {0}
 erin.update = Update
 erin.select.alarm.update.message = Select an alarm to update.
