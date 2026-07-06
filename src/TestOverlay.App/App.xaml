@@ -94,6 +94,29 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="RightPanelTabControlStyle" TargetType="{x:Type TabControl}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TabControl}">
+                            <Grid KeyboardNavigation.TabNavigation="Local">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="5"/>
+                                    <RowDefinition Height="5"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TabPanel Grid.Row="0" IsItemsHost="True" KeyboardNavigation.TabIndex="1"/>
+                                <Border Grid.Row="1" Background="{StaticResource OverlayBorderBrush}"/>
+                                <ContentPresenter Grid.Row="3"
+                                                  Content="{TemplateBinding SelectedContent}"
+                                                  ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                                  ContentStringFormat="{TemplateBinding SelectedContentStringFormat}"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="HiddenDebugTabItemStyle" TargetType="{x:Type TabItem}">
                 <Setter Property="Width" Value="0"/>
                 <Setter Property="Height" Value="0"/>
