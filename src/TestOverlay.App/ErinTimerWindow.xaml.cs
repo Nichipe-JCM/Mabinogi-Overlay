@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -347,8 +346,27 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         RefreshAlarmRows();
     }
 
-    private void AlarmRowChanged(ErinAlarmRow row)
+    private void AlarmEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
+        if (sender is not CheckBox { DataContext: ErinAlarmRow row } checkBox)
+        {
+            return;
+        }
+
+        row.Model.Enabled = checkBox.IsChecked == true;
+        SaveSettings();
+        RefreshAlarmSummary();
+        UpdateClock(checkAlarms: false);
+    }
+
+    private void AlarmRepeatCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: ErinAlarmRow row } checkBox)
+        {
+            return;
+        }
+
+        row.Model.Repeat = checkBox.IsChecked == true;
         SaveSettings();
         RefreshAlarmSummary();
         UpdateClock(checkAlarms: false);
@@ -494,7 +512,7 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         Alarms.Clear();
         foreach (var alarm in _settings.Alarms)
         {
-            Alarms.Add(new ErinAlarmRow(alarm, AlarmRowChanged));
+            Alarms.Add(new ErinAlarmRow(alarm));
         }
 
         AlarmListBox.SelectedItem = selectedId is null ? null : Alarms.FirstOrDefault(row => row.Id == selectedId);
@@ -587,14 +605,11 @@ public partial class ErinTimerWindow : UserControl, IDisposable
     private static string FormatGameTime(int gameSeconds) =>
         $"{gameSeconds / 3600:00}:{gameSeconds % 3600 / 60:00}";
 
-    public sealed class ErinAlarmRow : INotifyPropertyChanged
+    public sealed class ErinAlarmRow
     {
-        private readonly Action<ErinAlarmRow> _changed;
-
-        public ErinAlarmRow(ErinAlarm model, Action<ErinAlarmRow> changed)
+        public ErinAlarmRow(ErinAlarm model)
         {
             Model = model;
-            _changed = changed;
         }
 
         public ErinAlarm Model { get; }
@@ -610,36 +625,14 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         public bool Enabled
         {
             get => Model.Enabled;
-            set
-            {
-                if (Model.Enabled == value)
-                {
-                    return;
-                }
-
-                Model.Enabled = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Enabled)));
-                _changed(this);
-            }
+            set => Model.Enabled = value;
         }
 
         public bool Repeat
         {
             get => Model.Repeat;
-            set
-            {
-                if (Model.Repeat == value)
-                {
-                    return;
-                }
-
-                Model.Repeat = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Repeat)));
-                _changed(this);
-            }
+            set => Model.Repeat = value;
         }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
 
         public string SoundLabel => Model.CustomSoundEnabled && !string.IsNullOrWhiteSpace(Model.CustomAudioFile)
             ? Path.GetFileName(Model.CustomAudioFile)
