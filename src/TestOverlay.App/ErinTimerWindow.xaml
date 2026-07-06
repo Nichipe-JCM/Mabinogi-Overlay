@@ -6,16 +6,16 @@
     <Grid Margin="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
+            <RowDefinition Height="5"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="8"/>
+            <RowDefinition Height="5"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1.2*"/>
-                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="0.8*"/>
             </Grid.ColumnDefinitions>
 
@@ -162,14 +162,14 @@
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Foreground" Value="#55595D"/>
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Enabled}" Value="True">
+                                                    <DataTrigger Binding="{Binding IsChecked, ElementName=AlarmEnabledCheckBox}" Value="True">
                                                         <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <CheckBox Grid.Column="1" Margin="0,0,8,0" IsChecked="{Binding Enabled, Mode=TwoWay}"
+                                    <CheckBox x:Name="AlarmEnabledCheckBox" Grid.Column="1" Margin="0,0,8,0" IsChecked="{Binding Enabled, Mode=TwoWay}"
                                               Click="AlarmEnabledCheckBox_Click" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>

@@ -348,21 +348,23 @@ public partial class ErinTimerWindow : UserControl, IDisposable
 
     private void AlarmEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox { DataContext: ErinAlarmRow row })
+        if (sender is CheckBox { DataContext: ErinAlarmRow row } checkBox)
         {
-            row.Model.Enabled = row.Enabled;
+            row.Model.Enabled = checkBox.IsChecked == true;
             SaveSettings();
             RefreshAlarmSummary();
+            UpdateClock(checkAlarms: false);
         }
     }
 
     private void AlarmRepeatCheckBox_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox { DataContext: ErinAlarmRow row })
+        if (sender is CheckBox { DataContext: ErinAlarmRow row } checkBox)
         {
-            row.Model.Repeat = row.Repeat;
+            row.Model.Repeat = checkBox.IsChecked == true;
             SaveSettings();
             RefreshAlarmSummary();
+            UpdateClock(checkAlarms: false);
         }
     }
 
