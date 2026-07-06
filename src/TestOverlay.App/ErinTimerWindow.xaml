@@ -157,7 +157,18 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Margin="0,0,6,0" Text="&#x23F0;"
-                                               FontFamily="Segoe UI Emoji, Segoe UI Symbol" FontSize="14" VerticalAlignment="Center"/>
+                                               FontFamily="Segoe UI Symbol" FontSize="14" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#55595D"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Enabled}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <CheckBox Grid.Column="1" Margin="0,0,8,0" IsChecked="{Binding Enabled, Mode=TwoWay}"
                                               Click="AlarmEnabledCheckBox_Click" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
