@@ -35,8 +35,7 @@ public partial class SettingsWindow : Window
             new(OverlayRenderMode.CpuComposited, L.T("Improved CPU/Composited"))
         };
         RenderModeCombo.ItemsSource = renderModes;
-        RenderModeCombo.SelectedItem = renderModes.FirstOrDefault(option => option.Mode == selectedRenderMode)
-                                       ?? renderModes[0];
+        SelectRenderMode(selectedRenderMode);
 
         var captureBackends = new List<CaptureBackendOption>
         {
@@ -45,8 +44,7 @@ public partial class SettingsWindow : Window
             new(CaptureBackend.GdiBitBlt, L.T("GDI BitBlt"))
         };
         CaptureBackendCombo.ItemsSource = captureBackends;
-        CaptureBackendCombo.SelectedItem = captureBackends.FirstOrDefault(option => option.Backend == selectedCaptureBackend)
-                                           ?? captureBackends.First(option => option.Backend == CaptureBackend.DxgiDesktopDuplication);
+        SelectCaptureBackend(selectedCaptureBackend);
 
         var languages = new List<LanguageOption>
         {
@@ -54,8 +52,7 @@ public partial class SettingsWindow : Window
             new(LocalizationService.Korean, L.T("language.korean"))
         };
         LanguageCombo.ItemsSource = languages;
-        LanguageCombo.SelectedItem = languages.FirstOrDefault(option =>
-            string.Equals(option.Language, LocalizationService.NormalizeLanguage(selectedLanguage), StringComparison.OrdinalIgnoreCase)) ?? languages[0];
+        SelectLanguage(selectedLanguage);
     }
 
     public string ProfileDirectory { get; private set; }
@@ -110,6 +107,38 @@ public partial class SettingsWindow : Window
         window.ShowDialog();
     }
 
+    private void ResetSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var firstConfirm = MessageBox.Show(
+            this,
+            L.T("reset.settings.confirm.message"),
+            L.T("reset.settings"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (firstConfirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var secondConfirm = MessageBox.Show(
+            this,
+            L.T("reset.settings.second.confirm.message"),
+            L.T("reset.settings"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (secondConfirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        ProfileDirectoryBox.Text = _defaultProfileDirectory;
+        SelectRenderMode(OverlayRenderMode.GpuDxgi);
+        SelectCaptureBackend(CaptureBackend.DxgiDesktopDuplication);
+        SelectLanguage(LocalizationService.English);
+    }
+
     private void Commit()
     {
         var directory = ProfileDirectoryBox.Text.Trim();
@@ -141,6 +170,29 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+    }
+
+    private void SelectRenderMode(OverlayRenderMode mode)
+    {
+        RenderModeCombo.SelectedItem = RenderModeCombo.Items.OfType<RenderModeOption>()
+            .FirstOrDefault(option => option.Mode == mode)
+            ?? RenderModeCombo.Items.OfType<RenderModeOption>().FirstOrDefault();
+    }
+
+    private void SelectCaptureBackend(CaptureBackend backend)
+    {
+        CaptureBackendCombo.SelectedItem = CaptureBackendCombo.Items.OfType<CaptureBackendOption>()
+            .FirstOrDefault(option => option.Backend == backend)
+            ?? CaptureBackendCombo.Items.OfType<CaptureBackendOption>()
+                .FirstOrDefault(option => option.Backend == CaptureBackend.DxgiDesktopDuplication);
+    }
+
+    private void SelectLanguage(string language)
+    {
+        var normalized = LocalizationService.NormalizeLanguage(language);
+        LanguageCombo.SelectedItem = LanguageCombo.Items.OfType<LanguageOption>()
+            .FirstOrDefault(option => string.Equals(option.Language, normalized, StringComparison.OrdinalIgnoreCase))
+            ?? LanguageCombo.Items.OfType<LanguageOption>().FirstOrDefault();
     }
 
     private sealed record RenderModeOption(OverlayRenderMode Mode, string Label);

@@ -98,13 +98,14 @@
                         <TextBlock Text="Runtime" loc:Localize.TextKey="Runtime" Style="{StaticResource SectionTitleStyle}"/>
                     </Border>
 
-                    <Border Grid.Row="1" Margin="14" MinHeight="126" Style="{StaticResource InsetPanelStyle}">
+                    <Border Grid.Row="1" Margin="14" MinHeight="190" Style="{StaticResource InsetPanelStyle}">
                         <StackPanel>
                             <TextBlock Text="Overlay renderer" loc:Localize.TextKey="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                             <TextBlock Margin="0,8,0,0"
-                                       Text="Renderer mode is saved in settings.json and applies when the overlay starts."
-                                       loc:Localize.TextKey="Renderer mode is saved in settings.json and applies when the overlay starts."
+                                       Text="Renderer mode controls how the running overlay draws refreshed slot images. GPU/DXGI usually gives the smoothest overlay rendering, Improved CPU/Composited keeps more work on the CPU, and Existing CPU/WPF is a compatibility fallback. The selected mode is saved in settings.json and applies when the overlay starts."
+                                       loc:Localize.TextKey="renderer.mode.description"
+                                       TextWrapping="Wrap"
                                        Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
                     </Border>
@@ -135,10 +136,14 @@
             </Border>
         </Grid>
 
-        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,14,0,0">
+        <Grid Grid.Row="3" Margin="0,14,0,0">
+            <Button MinWidth="132" Height="34" Padding="14,0" HorizontalAlignment="Left"
+                    Content="Reset settings" loc:Localize.ContentKey="Reset settings" Click="ResetSettingsButton_Click"/>
+            <WrapPanel HorizontalAlignment="Right">
             <Button MinWidth="88" Height="34" Padding="14,0" Content="OK" loc:Localize.ContentKey="OK" Click="OkButton_Click"/>
             <Button MinWidth="88" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" IsCancel="True"/>
-        </WrapPanel>
+            </WrapPanel>
+        </Grid>
     </Grid>
 </Window>
 
