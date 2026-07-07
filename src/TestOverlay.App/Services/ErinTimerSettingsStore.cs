@@ -60,17 +60,13 @@ public sealed class ErinTimerSettingsStore
             var id = alarm.Id > 0 && usedIds.Add(alarm.Id) ? alarm.Id : NextAvailableId(usedIds, ref nextId);
             nextId = Math.Max(nextId, id + 1);
             var customAudioFile = ExistingFileOrNull(alarm.CustomAudioFile);
-            normalized.Add(new ErinAlarm
-            {
-                Id = id,
-                Name = (alarm.Name ?? string.Empty).Trim(),
-                Hour = hour,
-                Minute = minute,
-                Repeat = alarm.Repeat,
-                Enabled = alarm.Enabled,
-                CustomSoundEnabled = alarm.CustomSoundEnabled && customAudioFile is not null,
-                CustomAudioFile = customAudioFile
-            });
+            alarm.Id = id;
+            alarm.Name = (alarm.Name ?? string.Empty).Trim();
+            alarm.Hour = hour;
+            alarm.Minute = minute;
+            alarm.CustomSoundEnabled = alarm.CustomSoundEnabled && customAudioFile is not null;
+            alarm.CustomAudioFile = customAudioFile;
+            normalized.Add(alarm);
         }
 
         settings.Alarms = normalized.OrderBy(alarm => alarm.Hour).ThenBy(alarm => alarm.Minute).ToList();
