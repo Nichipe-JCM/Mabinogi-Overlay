@@ -1,78 +1,78 @@
-# MVP Manual Test Checklist
+# Manual Verification Checklist
 
-Use this checklist on the target Windows machine with Mabinogi running in windowed or borderless-windowed mode.
+Run this checklist on the target Windows machine with Mabinogi in windowed or borderless-windowed mode. The user performs runtime verification; automated build verification alone does not confirm capture accuracy or click-through behavior.
 
 ## Build
 
 ```powershell
-dotnet build MabinogiOverlay.sln
+dotnet build src\TestOverlay.App\TestOverlay.App.csproj
 ```
 
-Expected result:
+Expected: zero build errors.
 
-- Build succeeds with zero errors.
+## Capture and quickslot workflow
 
-## Window Verification and Capture
+1. Open Mabinogi and make the intended quickslot sections visible.
+2. Start the app and confirm the exact `Client.exe` entry is prioritized in the window list.
+3. Run `Auto capture`. If it cannot find the game, run `Manual capture` and choose the game window.
+4. Confirm that the preview shows the expected client image.
+5. Click `Auto detect section`, then drag an ROI around one horizontal or vertical quickslot section.
+6. Confirm that detected candidates remain inside the selected ROI and are added as a new section rather than replacing previous sections.
+7. Correct candidates with selection, drag, arrow-key nudging, manual add/delete, or manual section controls.
+8. Select desired candidates and use `Add to overlay`.
 
-1. Run the app.
-2. Click `Refresh`.
-3. Confirm a Mabinogi-like window appears in the game window list.
-4. Click `Verify WGC`.
-5. In the Windows Graphics Capture picker, choose the Mabinogi game window.
-6. Confirm the status text says WGC verified a Mabinogi window.
-7. Click `Capture`.
+Expected:
 
-Expected result:
+- Existing sections and overlay slots remain intact when a new section is detected.
+- Candidate selection, multi-selection, undo/redo, and deletion remain usable.
+- Candidate source rectangles match the intended slot interior after calibration.
 
-- The capture preview shows the selected game window.
-- Capture should not proceed before WGC verification.
+## Layout and quickslot overlay
 
-## Slot Candidate Flow
+1. Open `Manage Layout`.
+2. Drag slots, use grid snap, test multi-selection, and adjust canvas size, global scale, opacity, and slot overrides.
+3. Open screen preview and place the overlay on the target monitor.
+4. Apply and close the editor.
+5. Choose a capture backend and renderer in Settings.
+6. Click `Overlay start`.
+7. Click through the visible overlay onto the game and verify the game retains focus.
+8. Verify that the configured stop hotkey and `Overlay stop` both end the session.
 
-1. Adjust min and max slot size if needed.
-2. Click `Detect Slots`.
-3. Review candidate rectangles over the capture.
-4. Check only the slots that should appear in the overlay.
-5. Click `Place Selected`.
+Expected:
 
-Expected result:
+- Overlay is always on top, click-through, and non-activating.
+- Quickslots refresh from the selected live capture path.
+- GPU/DXGI works only with WGC; other backend combinations can fall back to CPU/WPF.
 
-- Selected slots appear in the overlay canvas preview.
-- The user can drag placed slots freely inside the canvas.
+## Buff and Tuairim monitor
 
-## Overlay Flow
+1. Open the Buff/Tuairim tab.
+2. Enable buff monitoring, detect the buff window ROI, and verify the discovered buff choices.
+3. Enable Tuairim monitoring and detect its UI ROI.
+4. Select desired buff entries, thresholds, alert frequency, sounds, and volumes.
+5. Add the monitor elements to the layout and start the overlay.
+6. Observe a normal timer decrement, a buff refresh, a buff disappearance, a Tuairim increase, and a Tuairim reset when available.
 
-1. Set overlay width and height.
-2. Set screen X and Y, or click `Default Pos`.
-3. Set opacity.
-4. Set a stop hotkey such as `Ctrl+Shift+F8`.
-5. Click `Start`.
+Expected:
 
-Expected result:
+- A single unreadable OCR frame does not immediately remove a buff or reset its timer.
+- Buff expiry requires repeated confirmation.
+- Tuairim stays within 0-100 and does not accept an unconfirmed decrease.
+- Alert sound and visual notification fire at the configured threshold.
 
-- The overlay appears always on top.
-- The overlay is click-through and does not consume mouse clicks.
-- The base application window remains normal, not always-on-top.
-- The overlay contents refresh from the live game window.
+## Erin timer
 
-## Stop and Restore
+1. Open the Erin Timer tab.
+2. Create a named alarm, select its time, and enable it.
+3. Toggle the alarm off and on, then switch tabs.
+4. Close and reopen the application.
 
-1. Press the configured stop hotkey.
-2. Start again.
-3. Click `Stop Overlay`.
+Expected:
 
-Expected result:
+- Enabled state changes the next-alarm summary immediately.
+- Disabled alarms are not scheduled.
+- Alarm configuration persists after reopening the app.
 
-- Both the hotkey and the base UI button close the overlay.
-- The base UI remains open and usable.
+## Logs and bug reports
 
-## Profile
-
-1. After placing slots, click `Save`.
-2. Restart or clear the current layout.
-3. Capture the game window again.
-4. Click `Load`.
-
-Expected result:
-
-- Canvas size, screen position, opacity, hotkey, and slot layout are restored.
+When a failure occurs, use Settings > Log and collect the current session log from `Logs/app.log`. For detection or OCR issues, include the selected capture backend, renderer, game resolution/UI scale, a screenshot if possible, and the steps that caused the issue.

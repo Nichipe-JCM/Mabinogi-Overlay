@@ -8,6 +8,8 @@ It is designed for players who want clearer cooldown visibility without modifyin
 
 Korean documentation is available at [docs/README.ko.md](docs/README.ko.md).
 
+Development handoff and architecture notes are available at [docs/CODEX_PROJECT_HANDOFF.md](docs/CODEX_PROJECT_HANDOFF.md).
+
 ## Disclaimer
 
 Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
@@ -52,6 +54,9 @@ This program was developed with assistance from OpenAI Codex and ChatGPT.
 - Portable profile storage with selectable save folder.
 - Profile creation, explicit loading, and automatic saving after layout changes.
 - Dedicated profile and overlay control sections in the main window.
+- Optional buff-duration monitoring for Battlefield, March, Vivace, and Song of rich year.
+- Optional Tuairim gauge monitoring with threshold-based sound and visual alerts.
+- An integrated Erin time tab with persistent alarms.
 
 ## Technology Stack
 
@@ -63,6 +68,7 @@ This program was developed with assistance from OpenAI Codex and ChatGPT.
 - **Graphics interop:** Direct3D 11, DXGI, Direct2D, DirectComposition
 - **Native integration:** Win32 window styles, global hotkey registration, click-through overlay behavior
 - **Storage:** JSON profiles and settings via `System.Text.Json`
+- **Text recognition:** Windows OCR with image-mask fallbacks for monitored values
 
 ## License
 
@@ -73,6 +79,8 @@ Third-party dependencies remain under their own licenses. The current primary Nu
 ## Notes
 
 This app is a beta version. Some features may still contain bugs. Please report bugs through GitHub Issues.
+
+The buff/Tuairim monitor and Erin timer are active development features on the current branch. Their accuracy depends on game UI scale, capture backend, map brightness, and installed Windows OCR language support.
 
 WGC capture may show the Windows capture border depending on system behavior. DXGI and GDI are available for comparison, but WGC is still the most reliable option for capturing the selected game window during setup.
 
