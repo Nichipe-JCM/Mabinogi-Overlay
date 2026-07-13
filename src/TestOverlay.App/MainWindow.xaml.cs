@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     private readonly MediaPlayer _tuairimAlertPlayer = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly ProfileStore _profileStore;
+    private readonly ProfileSession _profileSession;
     private AppSettings _appSettings;
     private readonly AppLog _log = new();
     private readonly object _detectLogSync = new();
@@ -71,11 +72,23 @@ public partial class MainWindow : Window
     private SectionSettings[] _sectionSettings => _workspace.SectionSettings;
     private readonly Stack<CandidateEditSnapshot> _undoStack = new();
     private readonly Stack<CandidateEditSnapshot> _redoStack = new();
-    private IReadOnlyList<string> _profileNames = ["default"];
-    private string _selectedProfileName = "default";
+    private IReadOnlyList<string> _profileNames => _profileSession.ProfileNames;
+    private string _selectedProfileName
+    {
+        get => _profileSession.SelectedProfileName;
+        set => _profileSession.SelectedProfileName = value;
+    }
     private bool _isUpdatingProfileSelection;
-    private bool _isLoadingProfile;
-    private bool _isProfileDirty;
+    private bool _isLoadingProfile
+    {
+        get => _profileSession.IsLoading;
+        set => _profileSession.IsLoading = value;
+    }
+    private bool _isProfileDirty
+    {
+        get => _profileSession.IsDirty;
+        set => _profileSession.IsDirty = value;
+    }
     private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage;
     private GameWindowInfo? _selectedWindow;
@@ -218,6 +231,7 @@ public partial class MainWindow : Window
         }
         LocalizationService.Instance.SetLanguage(_appSettings.Language);
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
+        _profileSession = new ProfileSession(_profileStore);
         _detectSessionLogPath = System.IO.Path.Combine(
             _log.LogDirectory,
             $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
@@ -2513,104 +2527,46 @@ public partial class MainWindow : Window
     {
         SaveCurrentSectionSettings();
         CommitMonitorAlertThresholdInputs();
-        return new OverlayProfile
-        {
-            Name = profileName,
-            CanvasWidth = _layoutCanvasWidth,
-            CanvasHeight = _layoutCanvasHeight,
-            ScreenLeft = _overlayLeft,
-            ScreenTop = _overlayTop,
-            Opacity = _overlayOpacity,
-            StopHotkey = _stopHotkey,
-            RefreshIntervalMs = RefreshIntervalFromFps(_refreshFps),
-            RefreshFps = _refreshFps,
-            LayoutSlotScale = ReadLayoutSlotScale(),
-            GridSnapSize = _layoutGridSnapSize,
-            BuffMonitorEnabled = _buffMonitorEnabled,
-            TuairimMonitorEnabled = _tuairimMonitorEnabled,
-            BuffAlertSeconds = _buffAlertSeconds,
-            BuffAlertSoundPath = _buffAlertSoundPath,
-            BuffAlertVolume = _buffAlertVolume,
-            BuffAlertSoundMode = _buffAlertSoundMode,
-            BuffAlertSoundPaths = new Dictionary<string, string>(_buffAlertSoundPaths, StringComparer.Ordinal),
-            BuffAlertVolumes = new Dictionary<string, int>(_buffAlertVolumes, StringComparer.Ordinal),
-            TuairimAlertPercent = _tuairimAlertPercent,
-            TuairimAlertSoundPath = _tuairimAlertSoundPath,
-            TuairimAlertVolume = _tuairimAlertVolume,
-            TuairimAlertFrequency = _tuairimAlertFrequency,
-            RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
-                .Where(_recognizedBuffNameKeys.Contains)
-                .ToList(),
-            SelectedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
-                .Where(_selectedBuffNameKeys.Contains)
-                .ToList(),
-            BuffMonitorRoi = ToProfileRect(_buffMonitorRoi),
-            BuffAnchors = _buffIconMatches.Values
-                .OrderBy(match => match.Bounds.Y)
-                .Select(match => new OverlayProfileBuffAnchor
-                {
-                    NameKey = match.NameKey,
-                    Bounds = ToProfileRect(match.Bounds)!,
-                    StructureScore = match.StructureScore,
-                    IsActive = match.IsActive,
-                    StateConfidence = match.StateConfidence
-                })
-                .ToList(),
-            TuairimMonitorRoi = ToProfileRect(_tuairimMonitorRoi),
-            TuairimAnchor = ToProfileRect(_tuairimAnchor),
-            SlotInnerSize = Math.Min(ReadSlotInnerWidth(), ReadSlotInnerHeight()),
-            SlotInnerWidth = ReadSlotInnerWidth(),
-            SlotInnerHeight = ReadSlotInnerHeight(),
-            SelectedSectionPattern = Math.Clamp(SectionPatternCombo.SelectedIndex, 0, _sectionSettings.Length - 1),
-            SectionSettings = _sectionSettings
-                .Select((settings, index) => new OverlayProfileSectionSettings
-                {
-                    PatternIndex = index,
-                    PatternName = GetSectionPatternName(index),
-                    SmallGapX = settings.SmallGapX,
-                    SmallGapY = settings.SmallGapY,
-                    LargeGap = settings.LargeGap
-                })
-                .ToList(),
-            Candidates = _candidates.Select(candidate => new OverlayProfileCandidate
+        var profile = OverlayProfileMapper.CreateWorkspaceProfile(
+            profileName,
+            _workspace,
+            ReadSlotInnerWidth(),
+            ReadSlotInnerHeight(),
+            RefreshIntervalFromFps(_refreshFps));
+
+        profile.BuffMonitorEnabled = _buffMonitorEnabled;
+        profile.TuairimMonitorEnabled = _tuairimMonitorEnabled;
+        profile.BuffAlertSeconds = _buffAlertSeconds;
+        profile.BuffAlertSoundPath = _buffAlertSoundPath;
+        profile.BuffAlertVolume = _buffAlertVolume;
+        profile.BuffAlertSoundMode = _buffAlertSoundMode;
+        profile.BuffAlertSoundPaths = new Dictionary<string, string>(_buffAlertSoundPaths, StringComparer.Ordinal);
+        profile.BuffAlertVolumes = new Dictionary<string, int>(_buffAlertVolumes, StringComparer.Ordinal);
+        profile.TuairimAlertPercent = _tuairimAlertPercent;
+        profile.TuairimAlertSoundPath = _tuairimAlertSoundPath;
+        profile.TuairimAlertVolume = _tuairimAlertVolume;
+        profile.TuairimAlertFrequency = _tuairimAlertFrequency;
+        profile.RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
+            .Where(_recognizedBuffNameKeys.Contains)
+            .ToList();
+        profile.SelectedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
+            .Where(_selectedBuffNameKeys.Contains)
+            .ToList();
+        profile.BuffMonitorRoi = ToProfileRect(_buffMonitorRoi);
+        profile.BuffAnchors = _buffIconMatches.Values
+            .OrderBy(match => match.Bounds.Y)
+            .Select(match => new OverlayProfileBuffAnchor
             {
-                Id = candidate.Id,
-                SourceX = candidate.SourceRect.X,
-                SourceY = candidate.SourceRect.Y,
-                SourceWidth = candidate.SourceRect.Width,
-                SourceHeight = candidate.SourceRect.Height,
-                Score = candidate.Score,
-                IsSelected = candidate.IsSelected,
-                Kind = candidate.Kind,
-                DisplayNameKey = candidate.DisplayNameKey,
-                IsBuiltIn = candidate.IsBuiltIn
-            }).ToList(),
-            Sections = _sections.Select(section => new OverlayProfileSection
-            {
-                Id = section.Id,
-                SeedCandidateId = section.Seed.Id,
-                PatternIndex = section.PatternIndex,
-                SmallGapX = section.Settings.SmallGapX,
-                SmallGapY = section.Settings.SmallGapY,
-                LargeGap = section.Settings.LargeGap,
-                CandidateIds = section.Candidates.Select(candidate => candidate.Id).ToList()
-            }).ToList(),
-            Slots = _overlaySlots.Select(slot => new OverlayProfileSlot
-            {
-                SourceCandidateId = slot.Source.Id,
-                SourceX = slot.Source.SourceRect.X,
-                SourceY = slot.Source.SourceRect.Y,
-                SourceWidth = slot.Source.SourceRect.Width,
-                SourceHeight = slot.Source.SourceRect.Height,
-                OverlayX = slot.OverlayRect.X,
-                OverlayY = slot.OverlayRect.Y,
-                OverlayWidth = slot.OverlayRect.Width,
-                OverlayHeight = slot.OverlayRect.Height,
-                Opacity = slot.Opacity,
-                HasOpacityOverride = slot.HasOpacityOverride,
-                Scale = slot.Scale
-            }).ToList()
-        };
+                NameKey = match.NameKey,
+                Bounds = ToProfileRect(match.Bounds)!,
+                StructureScore = match.StructureScore,
+                IsActive = match.IsActive,
+                StateConfidence = match.StateConfidence
+            })
+            .ToList();
+        profile.TuairimMonitorRoi = ToProfileRect(_tuairimMonitorRoi);
+        profile.TuairimAnchor = ToProfileRect(_tuairimAnchor);
+        return profile;
     }
 
     private void ScheduleProfileAutoSave()
@@ -2695,17 +2651,10 @@ public partial class MainWindow : Window
         try
         {
             RefreshProfileList(profileName);
-            _layoutCanvasWidth = Math.Max(120, profile.CanvasWidth);
-        _layoutCanvasHeight = Math.Max(80, profile.CanvasHeight);
-        _overlayLeft = profile.ScreenLeft;
-        _overlayTop = profile.ScreenTop;
-        _overlayOpacity = Math.Clamp(profile.Opacity, 0, 1);
-        _stopHotkey = profile.StopHotkey;
-        _refreshFps = CoerceRefreshFps(profile.RefreshFps > 0
-            ? profile.RefreshFps
-            : FpsFromInterval(profile.RefreshIntervalMs));
-        _layoutSlotScale = Math.Clamp(profile.LayoutSlotScale, 0.1, 10);
-        _layoutGridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
+            var refreshFps = CoerceRefreshFps(profile.RefreshFps > 0
+                ? profile.RefreshFps
+                : FpsFromInterval(profile.RefreshIntervalMs));
+            OverlayProfileMapper.ApplyLayoutAndSectionSettings(profile, _workspace, refreshFps);
         _buffMonitorEnabled = profile.BuffMonitorEnabled;
         _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
         ApplyMonitorAlertSettings(profile);
@@ -2753,7 +2702,7 @@ public partial class MainWindow : Window
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
         SlotWidthBox.Text = ReadSlotDimensionText(profileWidth, ReadSlotInnerWidth());
         SlotHeightBox.Text = ReadSlotDimensionText(profileHeight, ReadSlotInnerHeight());
-        ApplyProfileSectionSettings(profile);
+        ApplyProfileSectionSettingsToControls();
 
         _overlaySlots.Clear();
         _candidates.Clear();
@@ -5394,22 +5343,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyProfileSectionSettings(OverlayProfile profile)
+    private void ApplyProfileSectionSettingsToControls()
     {
-        foreach (var saved in profile.SectionSettings)
-        {
-            if (saved.PatternIndex < 0 || saved.PatternIndex >= _sectionSettings.Length)
-            {
-                continue;
-            }
-
-            _sectionSettings[saved.PatternIndex] = new SectionSettings(
-                Math.Clamp(saved.SmallGapX, 2, 30),
-                Math.Clamp(saved.SmallGapY, 2, 30),
-                Math.Clamp(saved.LargeGap, 2, 60));
-        }
-
-        _currentSectionIndex = Math.Clamp(profile.SelectedSectionPattern, 0, _sectionSettings.Length - 1);
         _isUpdatingSectionControls = true;
         try
         {
@@ -5434,25 +5369,7 @@ public partial class MainWindow : Window
 
     private void RefreshProfileList(string? selectedProfileName = null)
     {
-        var names = _profileStore.ListProfileNames().ToList();
-        if (names.Count == 0)
-        {
-            names.Add("default");
-        }
-
-        var selected = string.IsNullOrWhiteSpace(selectedProfileName)
-            ? ReadSelectedProfileName()
-            : selectedProfileName.Trim();
-        if (!names.Contains(selected, StringComparer.OrdinalIgnoreCase))
-        {
-            names.Add(selected);
-            names = names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
-        }
-
-        _profileNames = names;
-        _selectedProfileName = names.FirstOrDefault(name => string.Equals(name, selected, StringComparison.OrdinalIgnoreCase))
-                               ?? names.FirstOrDefault()
-                               ?? "default";
+        _profileSession.RefreshProfileNames(selectedProfileName);
         _isUpdatingProfileSelection = true;
         try
         {
