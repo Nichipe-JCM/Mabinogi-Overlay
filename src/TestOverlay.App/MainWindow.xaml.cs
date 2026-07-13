@@ -54,9 +54,10 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
-    private readonly ObservableCollection<SlotCandidate> _candidates = new();
-    private readonly ObservableCollection<QuickslotSection> _sections = new();
-    private readonly List<OverlaySlot> _overlaySlots = new();
+    private readonly OverlayWorkspaceState _workspace = new();
+    private ObservableCollection<SlotCandidate> _candidates => _workspace.Candidates;
+    private ObservableCollection<QuickslotSection> _sections => _workspace.Sections;
+    private List<OverlaySlot> _overlaySlots => _workspace.OverlaySlots;
     private readonly List<InternalBuffTimer> _internalBuffTimers = new();
     private readonly HashSet<string> _recognizedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedBuffNameKeys = new(StringComparer.Ordinal);
@@ -67,11 +68,7 @@ public partial class MainWindow : Window
     private readonly HashSet<string> _monitorDiagnosticKindsSaved = new(StringComparer.Ordinal);
     private readonly List<Rectangle> _monitorDetectionRects = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
-    private readonly SectionSettings[] _sectionSettings =
-    [
-        new(2, 5, 16),
-        new(2, 5, 2)
-    ];
+    private SectionSettings[] _sectionSettings => _workspace.SectionSettings;
     private readonly Stack<CandidateEditSnapshot> _undoStack = new();
     private readonly Stack<CandidateEditSnapshot> _redoStack = new();
     private IReadOnlyList<string> _profileNames = ["default"];
@@ -103,7 +100,11 @@ public partial class MainWindow : Window
     private int _monitorValueRecognitionGeneration;
     private DebugDetectionExpectation _debugDetectionExpectation = DebugDetectionExpectation.TopGrouped1();
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
-    private QuickslotSection? _selectedSection;
+    private QuickslotSection? _selectedSection
+    {
+        get => _workspace.SelectedSection;
+        set => _workspace.SelectedSection = value;
+    }
     private bool _isLiveRefreshInProgress;
     private bool _isUpdatingSectionControls;
     private bool _isUpdatingSectionSelection;
@@ -116,17 +117,61 @@ public partial class MainWindow : Window
     private int _cpuStatsFrames;
     private int _cpuStatsSkippedBusy;
     private int _cpuStatsErrors;
-    private int _currentSectionIndex;
-    private int _nextSectionId = 1;
-    private double _layoutCanvasWidth = 720;
-    private double _layoutCanvasHeight = 320;
-    private double _overlayLeft = 120;
-    private double _overlayTop = 120;
-    private double _overlayOpacity = 1;
-    private string _stopHotkey = "Ctrl+Shift+F8";
-    private int _refreshFps = 30;
-    private double _layoutSlotScale = 1.5;
-    private double _layoutGridSnapSize = 10;
+    private int _currentSectionIndex
+    {
+        get => _workspace.CurrentSectionIndex;
+        set => _workspace.CurrentSectionIndex = value;
+    }
+    private int _nextSectionId
+    {
+        get => _workspace.NextSectionId;
+        set => _workspace.NextSectionId = value;
+    }
+    private double _layoutCanvasWidth
+    {
+        get => _workspace.Layout.CanvasWidth;
+        set => _workspace.Layout.CanvasWidth = value;
+    }
+    private double _layoutCanvasHeight
+    {
+        get => _workspace.Layout.CanvasHeight;
+        set => _workspace.Layout.CanvasHeight = value;
+    }
+    private double _overlayLeft
+    {
+        get => _workspace.Layout.ScreenLeft;
+        set => _workspace.Layout.ScreenLeft = value;
+    }
+    private double _overlayTop
+    {
+        get => _workspace.Layout.ScreenTop;
+        set => _workspace.Layout.ScreenTop = value;
+    }
+    private double _overlayOpacity
+    {
+        get => _workspace.Layout.Opacity;
+        set => _workspace.Layout.Opacity = value;
+    }
+    private string _stopHotkey
+    {
+        get => _workspace.Layout.StopHotkey;
+        set => _workspace.Layout.StopHotkey = value;
+    }
+    private int _refreshFps
+    {
+        get => _workspace.Layout.RefreshFps;
+        set => _workspace.Layout.RefreshFps = value;
+    }
+    private double _layoutSlotScale
+    {
+        get => _workspace.Layout.SlotScale;
+        set => _workspace.Layout.SlotScale = value;
+    }
+    private double _layoutGridSnapSize
+    {
+        get => _workspace.Layout.GridSnapSize;
+        set => _workspace.Layout.GridSnapSize = value;
+    }
     private bool _buffMonitorEnabled;
     private bool _tuairimMonitorEnabled;
     private Rect? _buffMonitorRoi;
@@ -5421,8 +5466,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string GetSectionPatternName(int index) =>
-        index == 1 ? SectionPattern.Vertical().Name : SectionPattern.TopGrouped().Name;
+    private static string GetSectionPatternName(int index) => SectionPattern.NameFor(index);
 
     private void UpdateLayoutSummary()
     {
@@ -5452,95 +5496,4 @@ public partial class MainWindow : Window
         Tuairim
     }
 
-    private sealed class QuickslotSection
-    {
-        public QuickslotSection(int id, SlotCandidate seed, int patternIndex, SectionSettings settings, List<SlotCandidate> candidates)
-        {
-            Id = id;
-            Seed = seed;
-            PatternIndex = patternIndex;
-            Settings = settings;
-            Candidates = candidates;
-        }
-
-        public int Id { get; }
-
-        public SlotCandidate Seed { get; }
-
-        public int PatternIndex { get; }
-
-        public SectionSettings Settings { get; set; }
-
-        public List<SlotCandidate> Candidates { get; }
-
-        public string Label => $"#{Id:00} {GetSectionPatternName(PatternIndex)} ({Candidates.Count})";
-
-        public void RefreshLabel()
-        {
-        }
-    }
-
-    private sealed record SectionSettings(double SmallGapX, double SmallGapY, double LargeGap);
-
-    private sealed record CandidateEditSnapshot(
-        List<CandidateState> Candidates,
-        List<SectionState> Sections,
-        int SelectedSectionId,
-        int NextSectionId,
-        int SelectedId);
-
-    private sealed record CandidateState(
-        int Id,
-        double X,
-        double Y,
-        double Width,
-        double Height,
-        double Score,
-        bool IsSelected,
-        OverlayElementKind Kind,
-        string? DisplayNameKey,
-        bool IsBuiltIn);
-
-    private sealed record SectionState(
-        int Id,
-        int SeedId,
-        int PatternIndex,
-        double SmallGapX,
-        double SmallGapY,
-        double LargeGap,
-        List<int> CandidateIds);
-
-    private sealed record SectionPattern(
-        string Name,
-        int GroupColumns,
-        int GroupRows,
-        int GroupColumnsCount,
-        int GroupRowsCount,
-        Func<double, double> InnerGapX,
-        Func<double, double> InnerGapY,
-        Func<double, double> GroupGapX,
-        Func<double, double> GroupGapY)
-    {
-        public static SectionPattern TopGrouped() => new(
-            "top grouped 4x2 x3",
-            4,
-            2,
-            3,
-            1,
-            smallGap => smallGap,
-            smallGap => smallGap,
-            largeGap => largeGap,
-            _ => 0);
-
-        public static SectionPattern Vertical() => new(
-            "vertical 2x8",
-            2,
-            8,
-            1,
-            1,
-            smallGap => smallGap,
-            smallGap => smallGap,
-            _ => 0,
-            _ => 0);
-    }
 }
