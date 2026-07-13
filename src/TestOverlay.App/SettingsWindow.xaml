@@ -115,7 +115,7 @@
                             <TextBlock Text="Capture method" loc:Localize.TextKey="Capture method" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="CaptureBackendCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                             <TextBlock Margin="0,8,0,0"
-                                       Text="Choose how the running overlay refreshes its slot images. DXGI captures the monitor and is the default low-friction option. GDI is a compatibility fallback. WGC captures the selected game window more directly, but Windows may show a yellow capture border while it is active."
+                                       Text="Choose how the running overlay refreshes its slot images. DXGI captures the monitor and is the default low-friction option. GDI is a compatibility fallback. WGC captures the selected game window more directly. On supported Windows versions, the app requests borderless capture permission and hides the yellow border when allowed; the border may remain if permission is denied or unsupported."
                                        loc:Localize.TextKey="capture.method.description"
                                        Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>
