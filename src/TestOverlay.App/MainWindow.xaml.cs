@@ -22,23 +22,17 @@ public partial class MainWindow : Window
     private const int DebugDetectRuns = 100;
     private const double MinimumOverlaySlotSize = 1;
     private const int MonitorRecognitionIntervalSeconds = 2;
-    private const string BuffSoundModeGlobal = "global";
-    private const string BuffSoundModeIndividual = "individual";
-    private const string TuairimAlertFrequencyOnce = "once";
-    private const string TuairimAlertFrequencyEveryPercent = "every-percent";
     private const int TuairimNormalChargeSecondsPerPercent = 6;
     private const int TuairimFullEffectSeconds = 20;
     private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
     private readonly CaptureSessionCoordinator _captureSession;
+    private readonly OverlayRuntimeController _overlayRuntime;
+    private readonly AlertAudioService _alertAudio;
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
-    private readonly CpuCompositedOverlayRenderer _cpuCompositedRenderer = new();
     private readonly MonitorTemplateDetectionService _monitorTemplateDetection = new();
     private readonly MonitorValueRecognitionService _monitorValueRecognition = new();
-    private readonly MediaPlayer _buffAlertPlayer = new();
-    private readonly Dictionary<string, MediaPlayer> _individualBuffAlertPlayers = new(StringComparer.Ordinal);
-    private readonly MediaPlayer _tuairimAlertPlayer = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly ProfileStore _profileStore;
     private readonly ProfileSession _profileSession;
@@ -46,7 +40,6 @@ public partial class MainWindow : Window
     private readonly AppLog _log = new();
     private readonly object _detectLogSync = new();
     private readonly string _detectSessionLogPath;
-    private readonly DispatcherTimer _liveOverlayTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
@@ -59,8 +52,6 @@ public partial class MainWindow : Window
     private readonly HashSet<string> _recognizedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedBuffNameKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _pendingInitialBuffMinuteValidation = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _buffAlertSoundPaths = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, int> _buffAlertVolumes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, BuffIconMatch> _buffIconMatches = new(StringComparer.Ordinal);
     private readonly HashSet<string> _monitorDiagnosticKindsSaved = new(StringComparer.Ordinal);
     private readonly List<Rectangle> _monitorDetectionRects = new();
@@ -83,13 +74,10 @@ public partial class MainWindow : Window
         get => _profileSession.IsDirty;
         set => _profileSession.IsDirty = value;
     }
-    private HotkeyService? _hotkeyService;
     private BitmapSource? _capturedImage => _captureSession.CapturedImage;
     private GameWindowInfo? _selectedWindow => _captureSession.SelectedWindow;
     private WgcSelectionResult? _wgcSelection => _captureSession.WgcSelection;
-    private OverlayWindow? _overlayWindow;
     private InternalTimerOverlayWindow? _internalTimerOverlayWindow;
-    private GpuLiveOverlayService? _gpuLiveOverlayService;
     private SlotCandidate? _draggingCandidate;
     private Point _candidateDragStartPosition;
     private Dictionary<SlotCandidate, Point> _candidateDragOrigins = new();
@@ -112,18 +100,9 @@ public partial class MainWindow : Window
         get => _workspace.SelectedSection;
         set => _workspace.SelectedSection = value;
     }
-    private bool _isLiveRefreshInProgress;
     private bool _isUpdatingSectionControls;
     private bool _isUpdatingSectionSelection;
     private bool _isReleasingCaptureIntentionally;
-    private readonly Stopwatch _cpuRenderClock = new();
-    private OverlayRenderMode _activeRenderMode = OverlayRenderMode.CpuWpf;
-    private long _cpuStatsLastLogTicks;
-    private long _cpuStatsTicks;
-    private long _cpuStatsMaxTicks;
-    private int _cpuStatsFrames;
-    private int _cpuStatsSkippedBusy;
-    private int _cpuStatsErrors;
     private int _currentSectionIndex
     {
         get => _workspace.CurrentSectionIndex;
@@ -190,14 +169,6 @@ public partial class MainWindow : Window
     private int? _pendingTuairimPercent;
     private int _pendingTuairimPercentConfirmations;
     private DateTimeOffset? _lastAcceptedTuairimPercentAt;
-    private int _buffAlertSeconds = 30;
-    private string _buffAlertSoundPath = string.Empty;
-    private int _buffAlertVolume = 100;
-    private string _buffAlertSoundMode = BuffSoundModeGlobal;
-    private int _tuairimAlertPercent = 95;
-    private string _tuairimAlertSoundPath = string.Empty;
-    private int _tuairimAlertVolume = 100;
-    private string _tuairimAlertFrequency = TuairimAlertFrequencyOnce;
     private bool _tuairimAlertFired;
     private bool _isUpdatingMonitorAlertSettings;
     private bool _monitorTestMode;
@@ -214,6 +185,14 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _captureSession = new CaptureSessionCoordinator(_log);
+        _overlayRuntime = new OverlayRuntimeController(_captureSession, _log);
+        _alertAudio = new AlertAudioService(_log, InternalBuffTimerPreviewRenderer.BuffNameKeys);
+        _overlayRuntime.StopRequested += () => Dispatcher.BeginInvoke(() => StopOverlay());
+        _overlayRuntime.RuntimeFailed += exception => Dispatcher.BeginInvoke(() =>
+        {
+            StopOverlay(setStatus: false);
+            SetStatus(L.F("Live overlay refresh failed: {0}", exception.Message));
+        });
         _candidateWorkspace = new CandidateWorkspace(_workspace);
         _appSettings = _settingsStore.Load();
         if (_settingsStore.LastLoadRecoveredFromBackup)
@@ -267,7 +246,6 @@ public partial class MainWindow : Window
             RebuildSelectedSection();
             ScheduleProfileAutoSave();
         };
-        _liveOverlayTimer.Tick += LiveOverlayTimer_Tick;
         _profileAutoSaveTimer.Tick += (_, _) => FlushProfileAutoSave();
         _internalTimerDebugTimer.Tick += InternalTimerDebugTimer_Tick;
         _inAppNoticeTimer.Tick += (_, _) =>
@@ -277,22 +255,15 @@ public partial class MainWindow : Window
         };
         ErinTimerPanel.AttachLog(_log);
         ErinTimerPanel.NoticeRequested += ShowInAppNotice;
-        _buffAlertPlayer.MediaFailed += (_, args) => _log.Error("Buff alert media playback failed.", args.ErrorException);
-        foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys)
-        {
-            var player = new MediaPlayer();
-            player.MediaFailed += (_, args) => _log.Error($"Buff alert media playback failed: key={nameKey}.", args.ErrorException);
-            _individualBuffAlertPlayers[nameKey] = player;
-        }
-        _tuairimAlertPlayer.MediaFailed += (_, args) => _log.Error("Tuairim alert media playback failed.", args.ErrorException);
         Loaded += MainWindow_Loaded;
         Closing += (_, _) => FlushProfileAutoSave();
         Closed += (_, _) =>
         {
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
             ErinTimerPanel.Dispose();
-            CloseAlertPlayers();
+            _alertAudio.Dispose();
             StopOverlay(setStatus: false);
+            _overlayRuntime.Dispose();
         };
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
         CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
@@ -920,7 +891,7 @@ public partial class MainWindow : Window
 
     private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_overlayWindow is not null)
+        if (_overlayRuntime.IsRunning)
         {
             ShowInAppNotice(L.T("Stop the overlay before opening Manage Layout."));
             SetStatus("Stop the overlay before opening Manage Layout.");
@@ -1183,7 +1154,7 @@ public partial class MainWindow : Window
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
         _internalTimerOverlayWindow?.SetTuairimPercent(_tuairimPercent);
-        if (_overlayWindow is not null)
+        if (_overlayRuntime.IsRunning)
         {
             _internalTimerDebugTimer.Start();
         }
@@ -1230,7 +1201,7 @@ public partial class MainWindow : Window
         UpdateBuffSelectionCheckStates();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
-        if (_overlayWindow is null)
+        if (!_overlayRuntime.IsRunning)
         {
             _internalTimerDebugTimer.Stop();
         }
@@ -1262,15 +1233,25 @@ public partial class MainWindow : Window
 
     private void BuffAlertSecondsBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        _buffAlertSeconds = ReadAlertThreshold(BuffAlertSecondsBox.Text, 5, 30, _buffAlertSeconds);
-        BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
+        var settings = _alertAudio.Settings;
+        settings.BuffAlertSeconds = ReadAlertThreshold(
+            BuffAlertSecondsBox.Text,
+            5,
+            30,
+            settings.BuffAlertSeconds);
+        BuffAlertSecondsBox.Text = settings.BuffAlertSeconds.ToString();
         ScheduleProfileAutoSave();
     }
 
     private void TuairimAlertPercentBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 90, 100, _tuairimAlertPercent);
-        TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
+        var settings = _alertAudio.Settings;
+        settings.TuairimAlertPercent = ReadAlertThreshold(
+            TuairimAlertPercentBox.Text,
+            90,
+            100,
+            settings.TuairimAlertPercent);
+        TuairimAlertPercentBox.Text = settings.TuairimAlertPercent.ToString();
         ScheduleProfileAutoSave();
     }
 
@@ -1280,15 +1261,16 @@ public partial class MainWindow : Window
         {
             return;
         }
-        SetBuffAlertVolume(index, ReadAlertVolume(textBox.Text, GetBuffAlertVolume(index)));
+        _alertAudio.SetBuffVolume(index, ReadAlertVolume(textBox.Text, _alertAudio.GetBuffVolume(index)));
         RefreshMonitorAlertSettingsControls();
         ScheduleProfileAutoSave();
     }
 
     private void TuairimAlertVolumeBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        _tuairimAlertVolume = ReadAlertVolume(TuairimAlertVolumeBox.Text, _tuairimAlertVolume);
-        TuairimAlertVolumeBox.Text = _tuairimAlertVolume.ToString();
+        var settings = _alertAudio.Settings;
+        settings.TuairimVolume = ReadAlertVolume(TuairimAlertVolumeBox.Text, settings.TuairimVolume);
+        TuairimAlertVolumeBox.Text = settings.TuairimVolume.ToString();
         ScheduleProfileAutoSave();
     }
 
@@ -1299,7 +1281,9 @@ public partial class MainWindow : Window
         {
             return;
         }
-        _buffAlertSoundMode = mode == BuffSoundModeIndividual ? BuffSoundModeIndividual : BuffSoundModeGlobal;
+        _alertAudio.Settings.BuffSoundMode = mode == MonitorAlertSettings.IndividualMode
+            ? MonitorAlertSettings.IndividualMode
+            : MonitorAlertSettings.GlobalMode;
         RefreshMonitorAlertSettingsControls();
         ScheduleProfileAutoSave();
     }
@@ -1311,9 +1295,9 @@ public partial class MainWindow : Window
         {
             return;
         }
-        _tuairimAlertFrequency = frequency == TuairimAlertFrequencyEveryPercent
-            ? TuairimAlertFrequencyEveryPercent
-            : TuairimAlertFrequencyOnce;
+        _alertAudio.Settings.TuairimFrequency = frequency == MonitorAlertSettings.EveryPercentFrequency
+            ? MonitorAlertSettings.EveryPercentFrequency
+            : MonitorAlertSettings.OnceFrequency;
         _tuairimAlertFired = false;
         ScheduleProfileAutoSave();
     }
@@ -1329,7 +1313,7 @@ public partial class MainWindow : Window
         {
             return;
         }
-        SetBuffAlertSoundPath(index, path);
+        _alertAudio.SetBuffPath(index, path);
         RefreshMonitorAlertSettingsControls();
         ScheduleProfileAutoSave();
     }
@@ -1341,7 +1325,7 @@ public partial class MainWindow : Window
         {
             return;
         }
-        _tuairimAlertSoundPath = path;
+        _alertAudio.Settings.TuairimPath = path;
         RefreshMonitorAlertSettingsControls();
         ScheduleProfileAutoSave();
     }
@@ -1352,19 +1336,14 @@ public partial class MainWindow : Window
         {
             return;
         }
-        SetBuffAlertSoundPath(index, string.Empty);
-        var player = GetBuffAlertPlayer(index);
-        player.Stop();
-        player.Close();
+        _alertAudio.ClearBuff(index);
         RefreshMonitorAlertSettingsControls();
         ScheduleProfileAutoSave();
     }
 
     private void ClearTuairimAlertSoundButton_Click(object sender, RoutedEventArgs e)
     {
-        _tuairimAlertSoundPath = string.Empty;
-        _tuairimAlertPlayer.Stop();
-        _tuairimAlertPlayer.Close();
+        _alertAudio.ClearTuairim();
         RefreshMonitorAlertSettingsControls();
         ScheduleProfileAutoSave();
     }
@@ -1373,16 +1352,12 @@ public partial class MainWindow : Window
     {
         if (TryReadSoundSlotIndex(sender, out var index))
         {
-            PlayMonitorAlertSound(
-                GetBuffAlertPlayer(index),
-                GetBuffAlertSoundPath(index),
-                GetBuffAlertVolume(index),
-                $"buff-test:{index}");
+            _alertAudio.TestBuff(index);
         }
     }
 
     private void TestTuairimAlertSoundButton_Click(object sender, RoutedEventArgs e) =>
-        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, _tuairimAlertVolume, "tuairim-test");
+        _alertAudio.TestTuairim();
 
     private string? ChooseMonitorAlertSound()
     {
@@ -1410,72 +1385,6 @@ public partial class MainWindow : Window
         return int.TryParse(tag?.ToString(), out index) && index is >= 0 and < 4;
     }
 
-    private string GetBuffAlertSoundPath(int index)
-    {
-        if (_buffAlertSoundMode == BuffSoundModeGlobal)
-        {
-            return index == 0 ? _buffAlertSoundPath : string.Empty;
-        }
-        var nameKey = InternalBuffTimerPreviewRenderer.BuffNameKeys[index];
-        return _buffAlertSoundPaths.GetValueOrDefault(nameKey, string.Empty);
-    }
-
-    private void SetBuffAlertSoundPath(int index, string path)
-    {
-        if (_buffAlertSoundMode == BuffSoundModeGlobal)
-        {
-            if (index == 0)
-            {
-                _buffAlertSoundPath = path;
-            }
-            return;
-        }
-        _buffAlertSoundPaths[InternalBuffTimerPreviewRenderer.BuffNameKeys[index]] = path;
-    }
-
-    private int GetBuffAlertVolume(int index)
-    {
-        if (_buffAlertSoundMode == BuffSoundModeGlobal)
-        {
-            return index == 0 ? _buffAlertVolume : 100;
-        }
-        return _buffAlertVolumes.GetValueOrDefault(InternalBuffTimerPreviewRenderer.BuffNameKeys[index], 100);
-    }
-
-    private void SetBuffAlertVolume(int index, int volume)
-    {
-        volume = Math.Clamp(volume, 0, 100);
-        if (_buffAlertSoundMode == BuffSoundModeGlobal)
-        {
-            if (index == 0)
-            {
-                _buffAlertVolume = volume;
-            }
-            return;
-        }
-        _buffAlertVolumes[InternalBuffTimerPreviewRenderer.BuffNameKeys[index]] = volume;
-    }
-
-    private string ResolveBuffAlertSoundPath(string nameKey) =>
-        _buffAlertSoundMode == BuffSoundModeIndividual
-            ? _buffAlertSoundPaths.GetValueOrDefault(nameKey, string.Empty)
-            : _buffAlertSoundPath;
-
-    private int ResolveBuffAlertVolume(string nameKey) =>
-        _buffAlertSoundMode == BuffSoundModeIndividual
-            ? _buffAlertVolumes.GetValueOrDefault(nameKey, 100)
-            : _buffAlertVolume;
-
-    private MediaPlayer GetBuffAlertPlayer(int index) =>
-        _buffAlertSoundMode == BuffSoundModeIndividual
-            ? _individualBuffAlertPlayers[InternalBuffTimerPreviewRenderer.BuffNameKeys[index]]
-            : _buffAlertPlayer;
-
-    private MediaPlayer ResolveBuffAlertPlayer(string nameKey) =>
-        _buffAlertSoundMode == BuffSoundModeIndividual
-            ? _individualBuffAlertPlayers[nameKey]
-            : _buffAlertPlayer;
-
     private static int ReadAlertThreshold(string? text, int minimum, int maximum, int fallback) =>
         int.TryParse(text, out var value) && value >= minimum && value <= maximum ? value : fallback;
 
@@ -1488,16 +1397,27 @@ public partial class MainWindow : Window
         {
             return;
         }
-        _buffAlertSeconds = ReadAlertThreshold(BuffAlertSecondsBox.Text, 5, 30, _buffAlertSeconds);
-        _tuairimAlertPercent = ReadAlertThreshold(TuairimAlertPercentBox.Text, 90, 100, _tuairimAlertPercent);
+        var settings = _alertAudio.Settings;
+        settings.BuffAlertSeconds = ReadAlertThreshold(
+            BuffAlertSecondsBox.Text,
+            5,
+            30,
+            settings.BuffAlertSeconds);
+        settings.TuairimAlertPercent = ReadAlertThreshold(
+            TuairimAlertPercentBox.Text,
+            90,
+            100,
+            settings.TuairimAlertPercent);
         var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4 };
         for (var index = 0; index < volumeBoxes.Length; index++)
         {
-            SetBuffAlertVolume(index, ReadAlertVolume(volumeBoxes[index].Text, GetBuffAlertVolume(index)));
+            _alertAudio.SetBuffVolume(
+                index,
+                ReadAlertVolume(volumeBoxes[index].Text, _alertAudio.GetBuffVolume(index)));
         }
-        _tuairimAlertVolume = ReadAlertVolume(TuairimAlertVolumeBox.Text, _tuairimAlertVolume);
-        BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
-        TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
+        settings.TuairimVolume = ReadAlertVolume(TuairimAlertVolumeBox.Text, settings.TuairimVolume);
+        BuffAlertSecondsBox.Text = settings.BuffAlertSeconds.ToString();
+        TuairimAlertPercentBox.Text = settings.TuairimAlertPercent.ToString();
     }
 
     private void RefreshMonitorAlertSettingsControls()
@@ -1509,12 +1429,13 @@ public partial class MainWindow : Window
         _isUpdatingMonitorAlertSettings = true;
         try
         {
-            BuffAlertSecondsBox.Text = _buffAlertSeconds.ToString();
-            TuairimAlertPercentBox.Text = _tuairimAlertPercent.ToString();
-            SelectComboBoxTag(BuffAlertSoundModeCombo, _buffAlertSoundMode);
-            SelectComboBoxTag(TuairimAlertFrequencyCombo, _tuairimAlertFrequency);
+            var settings = _alertAudio.Settings;
+            BuffAlertSecondsBox.Text = settings.BuffAlertSeconds.ToString();
+            TuairimAlertPercentBox.Text = settings.TuairimAlertPercent.ToString();
+            SelectComboBoxTag(BuffAlertSoundModeCombo, settings.BuffSoundMode);
+            SelectComboBoxTag(TuairimAlertFrequencyCombo, settings.TuairimFrequency);
 
-            var individual = _buffAlertSoundMode == BuffSoundModeIndividual;
+            var individual = settings.BuffSoundMode == MonitorAlertSettings.IndividualMode;
             BuffAlertSoundLabel1.Text = individual
                 ? L.T("monitor.buff.sound.battle")
                 : L.T("monitor.alert.sound.mode.global");
@@ -1528,17 +1449,17 @@ public partial class MainWindow : Window
             var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4 };
             for (var index = 0; index < pathBoxes.Length; index++)
             {
-                var path = GetBuffAlertSoundPath(index);
+                var path = _alertAudio.GetBuffPath(index);
                 pathBoxes[index].Text = path;
-                volumeBoxes[index].Text = GetBuffAlertVolume(index).ToString();
+                volumeBoxes[index].Text = _alertAudio.GetBuffVolume(index).ToString();
                 clearButtons[index].IsEnabled = !string.IsNullOrWhiteSpace(path);
                 testButtons[index].IsEnabled = File.Exists(path);
             }
 
-            TuairimAlertSoundPathBox.Text = _tuairimAlertSoundPath;
-            TuairimAlertVolumeBox.Text = _tuairimAlertVolume.ToString();
-            ClearTuairimAlertSoundButton.IsEnabled = !string.IsNullOrWhiteSpace(_tuairimAlertSoundPath);
-            TestTuairimAlertSoundButton.IsEnabled = File.Exists(_tuairimAlertSoundPath);
+            TuairimAlertSoundPathBox.Text = settings.TuairimPath;
+            TuairimAlertVolumeBox.Text = settings.TuairimVolume.ToString();
+            ClearTuairimAlertSoundButton.IsEnabled = !string.IsNullOrWhiteSpace(settings.TuairimPath);
+            TestTuairimAlertSoundButton.IsEnabled = File.Exists(settings.TuairimPath);
         }
         finally
         {
@@ -1573,141 +1494,76 @@ public partial class MainWindow : Window
 
     private void ApplyMonitorAlertSettings(OverlayProfile profile)
     {
-        _buffAlertSeconds = profile.BuffAlertSeconds is >= 5 and <= 30 ? profile.BuffAlertSeconds : 30;
-        _buffAlertSoundPath = profile.BuffAlertSoundPath ?? string.Empty;
-        _buffAlertVolume = profile.BuffAlertVolume is >= 0 and <= 100 ? profile.BuffAlertVolume : 100;
-        _buffAlertSoundMode = profile.BuffAlertSoundMode == BuffSoundModeIndividual
-            ? BuffSoundModeIndividual
-            : BuffSoundModeGlobal;
-        _buffAlertSoundPaths.Clear();
-        _buffAlertVolumes.Clear();
-        foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys)
-        {
-            if (profile.BuffAlertSoundPaths?.TryGetValue(nameKey, out var path) == true)
-            {
-                _buffAlertSoundPaths[nameKey] = path ?? string.Empty;
-            }
-            if (profile.BuffAlertVolumes?.TryGetValue(nameKey, out var volume) == true)
-            {
-                _buffAlertVolumes[nameKey] = Math.Clamp(volume, 0, 100);
-            }
-        }
-        _tuairimAlertPercent = profile.TuairimAlertPercent is >= 90 and <= 100 ? profile.TuairimAlertPercent : 95;
-        _tuairimAlertSoundPath = profile.TuairimAlertSoundPath ?? string.Empty;
-        _tuairimAlertVolume = profile.TuairimAlertVolume is >= 0 and <= 100 ? profile.TuairimAlertVolume : 100;
-        _tuairimAlertFrequency = profile.TuairimAlertFrequency == TuairimAlertFrequencyEveryPercent
-            ? TuairimAlertFrequencyEveryPercent
-            : TuairimAlertFrequencyOnce;
+        _alertAudio.LoadProfile(profile);
         _tuairimAlertFired = false;
         foreach (var timer in _internalBuffTimers)
         {
-            timer.AlertFired = timer.RemainingSeconds <= _buffAlertSeconds;
+            timer.AlertFired = timer.RemainingSeconds <= _alertAudio.Settings.BuffAlertSeconds;
         }
     }
 
     private void TryFireBuffAlert(InternalBuffTimer timer, int previousSeconds, int currentSeconds)
     {
-        if (currentSeconds > _buffAlertSeconds)
+        var threshold = _alertAudio.Settings.BuffAlertSeconds;
+        if (currentSeconds > threshold)
         {
             timer.AlertFired = false;
             return;
         }
-        if (timer.AlertFired || previousSeconds <= _buffAlertSeconds)
+        if (timer.AlertFired || previousSeconds <= threshold)
         {
             return;
         }
 
         timer.AlertFired = true;
         _log.Info(
-            $"Buff alert threshold reached: key={timer.NameKey}, threshold={_buffAlertSeconds}, " +
+            $"Buff alert threshold reached: key={timer.NameKey}, threshold={threshold}, " +
             $"previous={previousSeconds}, current={currentSeconds}");
         _internalTimerOverlayWindow?.ShowBuffAlert(timer.NameKey, currentSeconds);
-        PlayMonitorAlertSound(
-            ResolveBuffAlertPlayer(timer.NameKey),
-            ResolveBuffAlertSoundPath(timer.NameKey),
-            ResolveBuffAlertVolume(timer.NameKey),
-            $"buff:{timer.NameKey}");
+        _alertAudio.PlayBuff(timer.NameKey, $"buff:{timer.NameKey}");
     }
 
     private void TryFireTuairimAlert(int previousPercent, int currentPercent, bool hadAcceptedObservation)
     {
+        var settings = _alertAudio.Settings;
         if (!hadAcceptedObservation)
         {
-            _tuairimAlertFired = currentPercent >= _tuairimAlertPercent;
+            _tuairimAlertFired = currentPercent >= settings.TuairimAlertPercent;
             return;
         }
-        if (currentPercent < _tuairimAlertPercent)
+        if (currentPercent < settings.TuairimAlertPercent)
         {
             _tuairimAlertFired = false;
             return;
         }
-        if (_tuairimAlertFrequency == TuairimAlertFrequencyEveryPercent)
+        if (settings.TuairimFrequency == MonitorAlertSettings.EveryPercentFrequency)
         {
             if (currentPercent > previousPercent && currentPercent <= 99)
             {
                 _log.Info(
-                    $"Tuairim incremental alert: threshold={_tuairimAlertPercent}, " +
+                    $"Tuairim incremental alert: threshold={settings.TuairimAlertPercent}, " +
                     $"previous={previousPercent}, current={currentPercent}");
                 _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
-                PlayMonitorAlertSound(
-                    _tuairimAlertPlayer,
-                    _tuairimAlertSoundPath,
-                    _tuairimAlertVolume,
-                    $"tuairim:{currentPercent}");
+                _alertAudio.PlayTuairim($"tuairim:{currentPercent}");
             }
             return;
         }
-        if (_tuairimAlertFired || previousPercent >= _tuairimAlertPercent)
+        if (_tuairimAlertFired || previousPercent >= settings.TuairimAlertPercent)
         {
             return;
         }
 
         _tuairimAlertFired = true;
         _log.Info(
-            $"Tuairim alert threshold reached: threshold={_tuairimAlertPercent}, " +
+            $"Tuairim alert threshold reached: threshold={settings.TuairimAlertPercent}, " +
             $"previous={previousPercent}, current={currentPercent}");
         _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
-        PlayMonitorAlertSound(_tuairimAlertPlayer, _tuairimAlertSoundPath, _tuairimAlertVolume, "tuairim");
-    }
-
-    private void PlayMonitorAlertSound(MediaPlayer player, string path, int volume, string alertKind)
-    {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            return;
-        }
-
-        try
-        {
-            player.Stop();
-            player.Close();
-            player.Open(new Uri(path, UriKind.Absolute));
-            player.Volume = Math.Clamp(volume, 0, 100) / 100.0;
-            player.Play();
-            _log.Info($"Monitor alert sound played: kind={alertKind}, volume={volume}, path={path}");
-        }
-        catch (Exception exception)
-        {
-            _log.Error($"Failed to play monitor alert sound: kind={alertKind}, path={path}", exception);
-        }
-    }
-
-    private void CloseAlertPlayers()
-    {
-        _buffAlertPlayer.Stop();
-        _buffAlertPlayer.Close();
-        foreach (var player in _individualBuffAlertPlayers.Values)
-        {
-            player.Stop();
-            player.Close();
-        }
-        _tuairimAlertPlayer.Stop();
-        _tuairimAlertPlayer.Close();
+        _alertAudio.PlayTuairim("tuairim");
     }
 
     private void DetectBuffWindowButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_buffMonitorEnabled || _overlayWindow is not null)
+        if (!_buffMonitorEnabled || _overlayRuntime.IsRunning)
         {
             return;
         }
@@ -1723,7 +1579,7 @@ public partial class MainWindow : Window
 
     private void DetectTuairimUiButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_tuairimMonitorEnabled || _overlayWindow is not null)
+        if (!_tuairimMonitorEnabled || _overlayRuntime.IsRunning)
         {
             return;
         }
@@ -1740,7 +1596,7 @@ public partial class MainWindow : Window
     private void BuffSelectionCheckBox_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { Tag: string nameKey } checkBox ||
-            _overlayWindow is not null ||
+            _overlayRuntime.IsRunning ||
             !_recognizedBuffNameKeys.Contains(nameKey))
         {
             UpdateBuffSelectionCheckStates();
@@ -1828,12 +1684,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var baseEditable = _overlayWindow is null && !_isMonitorDetectionBusy;
+        var baseEditable = !_overlayRuntime.IsRunning && !_isMonitorDetectionBusy;
         var settingsEditable = baseEditable &&
                                _monitorDetectionMode == MonitorDetectionMode.None &&
                                !_monitorTestMode;
-        StartOverlayButton.IsEnabled = _overlayWindow is null;
-        StopOverlayLayoutButton.IsEnabled = _overlayWindow is not null;
+        StartOverlayButton.IsEnabled = !_overlayRuntime.IsRunning;
+        StopOverlayLayoutButton.IsEnabled = _overlayRuntime.IsRunning;
         BuffMonitorEnabledCheckBox.IsEnabled = settingsEditable;
         TuairimMonitorEnabledCheckBox.IsEnabled = settingsEditable;
         BuffAlertSettingsPanel.IsEnabled = settingsEditable;
@@ -1921,7 +1777,7 @@ public partial class MainWindow : Window
 
     private void RefreshInternalTimerOverlay()
     {
-        if (_overlayWindow is null)
+        if (!_overlayRuntime.IsRunning)
         {
             return;
         }
@@ -1987,7 +1843,7 @@ public partial class MainWindow : Window
 
     private async Task SynchronizeMonitorValuesAsync(string reason)
     {
-        if (_monitorTestMode || _isMonitorValueRecognitionBusy || _overlayWindow is null)
+        if (_monitorTestMode || _isMonitorValueRecognitionBusy || !_overlayRuntime.IsRunning)
         {
             return;
         }
@@ -2029,7 +1885,7 @@ public partial class MainWindow : Window
                 var previousMatches = _buffIconMatches.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
                 var evaluatedMatches = await Task.Run(() =>
                     _monitorTemplateDetection.EvaluateBuffAnchors(frame, _buffIconMatches.Values.ToArray()));
-                if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
+                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -2070,7 +1926,7 @@ public partial class MainWindow : Window
                     }
 
                     var read = await _monitorValueRecognition.ReadBuffTimeAsync(frame, buffRoi, match.Bounds);
-                    if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
+                    if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
                     {
                         return;
                     }
@@ -2095,7 +1951,7 @@ public partial class MainWindow : Window
             if (shouldReadTuairim && _tuairimAnchor is Rect tuairimAnchor)
             {
                 var read = await _monitorValueRecognition.ReadTuairimPercentAsync(frame, tuairimAnchor);
-                if (generation != _monitorValueRecognitionGeneration || _overlayWindow is null)
+                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -2255,7 +2111,7 @@ public partial class MainWindow : Window
         if (timer is null)
         {
             timer = new InternalBuffTimer(nameKey, observedSeconds);
-            timer.AlertFired = observedSeconds <= _buffAlertSeconds;
+            timer.AlertFired = observedSeconds <= _alertAudio.Settings.BuffAlertSeconds;
             _internalBuffTimers.Add(timer);
         }
         else
@@ -2477,16 +2333,7 @@ public partial class MainWindow : Window
 
         profile.BuffMonitorEnabled = _buffMonitorEnabled;
         profile.TuairimMonitorEnabled = _tuairimMonitorEnabled;
-        profile.BuffAlertSeconds = _buffAlertSeconds;
-        profile.BuffAlertSoundPath = _buffAlertSoundPath;
-        profile.BuffAlertVolume = _buffAlertVolume;
-        profile.BuffAlertSoundMode = _buffAlertSoundMode;
-        profile.BuffAlertSoundPaths = new Dictionary<string, string>(_buffAlertSoundPaths, StringComparer.Ordinal);
-        profile.BuffAlertVolumes = new Dictionary<string, int>(_buffAlertVolumes, StringComparer.Ordinal);
-        profile.TuairimAlertPercent = _tuairimAlertPercent;
-        profile.TuairimAlertSoundPath = _tuairimAlertSoundPath;
-        profile.TuairimAlertVolume = _tuairimAlertVolume;
-        profile.TuairimAlertFrequency = _tuairimAlertFrequency;
+        _alertAudio.WriteProfile(profile);
         profile.RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
             .Where(_recognizedBuffNameKeys.Contains)
             .ToList();
@@ -2789,174 +2636,51 @@ public partial class MainWindow : Window
 
     private async void StartOverlayButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_overlayWindow is not null)
+        var result = await _overlayRuntime.StartAsync(
+            this,
+            new OverlayRuntimeOptions(
+                _overlaySlots,
+                _workspace.Layout,
+                CurrentCaptureBackend,
+                _appSettings.OverlayRenderMode,
+                _buffMonitorEnabled,
+                _tuairimMonitorEnabled,
+                _selectedBuffNameKeys.Count > 0,
+                _monitorTestMode));
+        switch (result.Status)
         {
-            return;
-        }
-
-        var hasSlotOverlay = _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.Quickslot);
-        var hasBuffOverlay = _buffMonitorEnabled &&
-                             _selectedBuffNameKeys.Count > 0 &&
-                             _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.InternalBuffTimer);
-        var hasTuairimOverlay = _tuairimMonitorEnabled &&
-                                _overlaySlots.Any(slot => slot.Kind == OverlayElementKind.TuairimGauge);
-        if (!hasSlotOverlay && !hasBuffOverlay && !hasTuairimOverlay)
-        {
-            SetStatus("No slots are placed on the overlay canvas.");
-            return;
-        }
-
-        var captureBackend = CurrentCaptureBackend;
-        var hasMonitorOverlay = hasBuffOverlay || hasTuairimOverlay;
-        var requiresLiveCapture = hasSlotOverlay || (hasMonitorOverlay && !_monitorTestMode);
-        if (requiresLiveCapture &&
-            captureBackend != CaptureBackend.Wgc &&
-            _selectedWindow is null)
-        {
-            SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
-            return;
-        }
-        if (requiresLiveCapture &&
-            captureBackend == CaptureBackend.Wgc &&
-            _wgcSelection is null)
-        {
-            SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
-            return;
-        }
-
-        if (requiresLiveCapture && captureBackend == CaptureBackend.Wgc)
-        {
-            await _captureSession.EnsureBorderlessAccessAsync();
-        }
-
-        try
-        {
-            StopOverlay(setStatus: false);
-            if (!RegisterStopHotkey())
-            {
+            case OverlayRuntimeStartStatus.AlreadyRunning:
                 return;
-            }
-
-            _overlayWindow = new OverlayWindow(_layoutCanvasWidth, _layoutCanvasHeight, _overlayOpacity, _overlaySlots)
-            {
-                Left = _overlayLeft,
-                Top = _overlayTop
-            };
-            _overlayWindow.Show();
-            _overlayWindow.UpdateLayout();
-
-            if (_overlayWindow.ClickThroughConfigurationException is not null ||
-                !_overlayWindow.IsClickThroughConfigured ||
-                !_overlayWindow.IsNoActivateConfigured ||
-                !_overlayWindow.IsTopmostConfigured ||
-                !_overlayWindow.IsInputHookConfigured)
-            {
-                var detail = _overlayWindow.ClickThroughConfigurationException?.Message ??
-                             $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
-                             $"clickThrough={_overlayWindow.IsClickThroughConfigured}, " +
-                             $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
-                             $"topmost={_overlayWindow.IsTopmostConfigured}, " +
-                             $"inputHook={_overlayWindow.IsInputHookConfigured}";
-
-                _log.Error(
-                    "Overlay click-through configuration failed.",
-                    _overlayWindow.ClickThroughConfigurationException ?? new InvalidOperationException(detail));
-
-                _overlayWindow.Close();
-                _overlayWindow = null;
-                _captureSession.StopLiveWgcCapture();
-                _liveOverlayTimer.Stop();
-
-                SetStatus(L.F("Overlay click-through configuration failed: {0}", detail));
+            case OverlayRuntimeStartStatus.NoRenderableElements:
+                SetStatus("No slots are placed on the overlay canvas.");
                 return;
-            }
-
-            _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
-            _activeRenderMode = _appSettings.OverlayRenderMode;
-
-            ResetCpuRenderStats();
-            var rendererMode = RenderModeLabel(_activeRenderMode);
-            if (!hasSlotOverlay)
-            {
-                rendererMode = "monitor.internal.overlay";
-            }
-            else if (hasSlotOverlay &&
-                     _activeRenderMode == OverlayRenderMode.GpuDxgi &&
-                     captureBackend == CaptureBackend.Wgc &&
-                     _wgcSelection is not null)
-            {
-                try
-                {
-                    _gpuLiveOverlayService = new GpuLiveOverlayService(
-                        new WindowInteropHelper(_overlayWindow).Handle,
-                        (int)Math.Ceiling(_layoutCanvasWidth),
-                        (int)Math.Ceiling(_layoutCanvasHeight),
-                        _wgcSelection.Item,
-                        _overlaySlots,
-                        _overlayOpacity,
-                        _refreshFps,
-                        _captureSession.IsBorderlessCaptureAllowed,
-                        _log);
-                    _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
-                    _gpuLiveOverlayService.Start();
-                    rendererMode = RenderModeLabel(OverlayRenderMode.GpuDxgi);
-                }
-                catch (Exception gpuEx)
-                {
-                    _gpuLiveOverlayService?.Dispose();
-                    _gpuLiveOverlayService = null;
-                    _log.Error("GPU live overlay renderer initialization failed. Falling back to CPU renderer.", gpuEx);
-                    _activeRenderMode = OverlayRenderMode.CpuWpf;
-                    rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
-                    _captureSession.StartLiveWgcCapture();
-                }
-            }
-            else if (_activeRenderMode == OverlayRenderMode.GpuDxgi)
-            {
-                _activeRenderMode = OverlayRenderMode.CpuWpf;
-                rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
-                _log.Info($"GPU/DXGI renderer requested with captureBackend={captureBackend}. Falling back to CPU/WPF renderer.");
-            }
-            else if (requiresLiveCapture && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
-            {
-                _captureSession.StartLiveWgcCapture();
-            }
-
-            if (hasMonitorOverlay &&
-                !_monitorTestMode &&
-                captureBackend == CaptureBackend.Wgc &&
-                _wgcSelection is not null &&
-                (_gpuLiveOverlayService is not null || !hasSlotOverlay))
-            {
-                _captureSession.StartLiveWgcCapture();
-            }
-
-            StartInternalTimerOverlay();
-            if (hasSlotOverlay)
-            {
-                _liveOverlayTimer.Start();
-            }
-            UpdateMonitorControlAvailability();
-            var clickThroughStatus = _overlayWindow.IsClickThroughConfigured ? "click-through" : "not click-through";
-            _log.Info(
-                $"Overlay started: size={_layoutCanvasWidth}x{_layoutCanvasHeight}, " +
-                $"left={_overlayWindow.Left}, top={_overlayWindow.Top}, opacity={_overlayOpacity}, " +
-                $"slots={_overlaySlots.Count}, hotkey={_stopHotkey}, refreshFps={_refreshFps}, " +
-                $"captureBackend={CaptureBackendLabel(captureBackend)}, renderer={rendererMode}, " +
-                $"refreshMs={_liveOverlayTimer.Interval.TotalMilliseconds}, " +
-                $"logPath={_log.LogPath}, " +
-                $"exStyle=0x{_overlayWindow.AppliedExtendedStyle.ToInt64():X16}, " +
-                $"clickThrough={_overlayWindow.IsClickThroughConfigured}, " +
-                $"noActivate={_overlayWindow.IsNoActivateConfigured}, " +
-                $"topmost={_overlayWindow.IsTopmostConfigured}, " +
-                $"inputHook={_overlayWindow.IsInputHookConfigured}");
-            SetStatus(L.F("Overlay started ({0}, {1}, {2}). Stop hotkey: {3}", L.T(clickThroughStatus), L.T(CaptureBackendLabel(captureBackend)), L.T(rendererMode), _stopHotkey));
-        }
-        catch (Exception ex)
-        {
-            _log.Error("Overlay start failed.", ex);
-            StopOverlay(setStatus: false);
-            SetStatus(L.F("Overlay start failed: {0}", ex.Message));
+            case OverlayRuntimeStartStatus.MissingCaptureSource:
+                SetStatus(L.F(
+                    "Run Auto capture or Manual capture before starting the overlay with {0}.",
+                    L.T(CaptureBackendLabel(CurrentCaptureBackend))));
+                return;
+            case OverlayRuntimeStartStatus.InvalidHotkey:
+                SetStatus("Invalid hotkey. Use a format like Ctrl+Shift+F8.");
+                return;
+            case OverlayRuntimeStartStatus.HotkeyRegistrationFailed:
+                SetStatus(L.F("Stop hotkey registration failed: {0}", _stopHotkey));
+                return;
+            case OverlayRuntimeStartStatus.ClickThroughConfigurationFailed:
+                SetStatus(L.F("Overlay click-through configuration failed: {0}", result.Detail ?? string.Empty));
+                return;
+            case OverlayRuntimeStartStatus.Failed:
+                SetStatus(L.F("Overlay start failed: {0}", result.Detail ?? string.Empty));
+                return;
+            case OverlayRuntimeStartStatus.Success:
+                StartInternalTimerOverlay();
+                UpdateMonitorControlAvailability();
+                SetStatus(L.F(
+                    "Overlay started ({0}, {1}, {2}). Stop hotkey: {3}",
+                    L.T(result.ClickThroughStatus!),
+                    L.T(CaptureBackendLabel(CurrentCaptureBackend)),
+                    L.T(result.RendererMode!),
+                    _stopHotkey));
+                return;
         }
     }
 
@@ -4793,188 +4517,19 @@ public partial class MainWindow : Window
 
     private void StopOverlay(bool setStatus = true)
     {
-        _liveOverlayTimer.Stop();
+        _overlayRuntime.Stop();
         _internalTimerDebugTimer.Stop();
         _pendingInitialBuffMinuteValidation.Clear();
         ResetTuairimPercentRecognitionState();
         _monitorValueRecognitionGeneration++;
-        LogCpuRenderStats(final: true);
-        _gpuLiveOverlayService?.Dispose();
-        _gpuLiveOverlayService = null;
-        _captureSession.StopLiveWgcCapture();
-        _overlayWindow?.Close();
-        _overlayWindow = null;
         _internalTimerOverlayWindow?.Close();
         _internalTimerOverlayWindow = null;
-        _hotkeyService?.Dispose();
-        _hotkeyService = null;
         UpdateMonitorControlAvailability();
         if (setStatus)
         {
             _log.Info("Overlay stopped.");
             SetStatus("Overlay stopped.");
         }
-    }
-
-    private void ResetCpuRenderStats()
-    {
-        _cpuRenderClock.Reset();
-        _cpuStatsLastLogTicks = Stopwatch.GetTimestamp();
-        _cpuStatsTicks = 0;
-        _cpuStatsMaxTicks = 0;
-        _cpuStatsFrames = 0;
-        _cpuStatsSkippedBusy = 0;
-        _cpuStatsErrors = 0;
-    }
-
-    private void RecordCpuRenderFrame(OverlayRenderMode mode, long elapsedTicks)
-    {
-        if (mode == OverlayRenderMode.GpuDxgi)
-        {
-            return;
-        }
-
-        _cpuStatsFrames++;
-        _cpuStatsTicks += elapsedTicks;
-        _cpuStatsMaxTicks = Math.Max(_cpuStatsMaxTicks, elapsedTicks);
-
-        var now = Stopwatch.GetTimestamp();
-        if ((now - _cpuStatsLastLogTicks) / (double)Stopwatch.Frequency >= 5)
-        {
-            LogCpuRenderStats(final: false);
-            _cpuStatsLastLogTicks = now;
-        }
-    }
-
-    private void LogCpuRenderStats(bool final)
-    {
-        if (_activeRenderMode == OverlayRenderMode.GpuDxgi || _cpuStatsFrames == 0)
-        {
-            return;
-        }
-
-        var averageMs = _cpuStatsTicks * 1000.0 / Stopwatch.Frequency / _cpuStatsFrames;
-        var maxMs = _cpuStatsMaxTicks * 1000.0 / Stopwatch.Frequency;
-        _log.Info(
-            $"CPU renderer stats{(final ? " final" : string.Empty)}: mode={RenderModeLabel(_activeRenderMode)}, " +
-            $"frames={_cpuStatsFrames}, avgMs={averageMs:0.00}, maxMs={maxMs:0.00}, " +
-            $"skippedBusy={_cpuStatsSkippedBusy}, errors={_cpuStatsErrors}, slots={_overlaySlots.Count}");
-    }
-
-    private void LiveOverlayTimer_Tick(object? sender, EventArgs e)
-    {
-        if (!HasLiveCaptureSource() ||
-            _overlayWindow is null ||
-            _overlaySlots.Count == 0 ||
-            _isLiveRefreshInProgress)
-        {
-            if (_isLiveRefreshInProgress)
-            {
-                _cpuStatsSkippedBusy++;
-            }
-
-            return;
-        }
-
-        try
-        {
-            _isLiveRefreshInProgress = true;
-            _cpuRenderClock.Restart();
-            if (_gpuLiveOverlayService is not null)
-            {
-                if (_gpuLiveOverlayService.LastException is not null)
-                {
-                    throw new InvalidOperationException("GPU live overlay renderer failed.", _gpuLiveOverlayService.LastException);
-                }
-
-                return;
-            }
-
-            BitmapSource liveCapture;
-            var captureBackend = CurrentCaptureBackend;
-            if (captureBackend == CaptureBackend.Wgc)
-            {
-                if (_captureSession.LastLiveCaptureException is not null)
-                {
-                    throw new InvalidOperationException("Live WGC capture failed.", _captureSession.LastLiveCaptureException);
-                }
-
-                if (!_captureSession.TryGetLatestWgcFrame(out var latestFrame) || latestFrame is null)
-                {
-                    return;
-                }
-
-                liveCapture = latestFrame;
-            }
-            else
-            {
-                liveCapture = _captureSession.CaptureCurrentFrame(captureBackend)
-                              ?? throw new InvalidOperationException("The selected capture source is unavailable.");
-            }
-
-            if (_activeRenderMode == OverlayRenderMode.CpuComposited)
-            {
-                var compositedFrame = _cpuCompositedRenderer.Render(
-                    liveCapture,
-                    _overlaySlots,
-                    (int)Math.Ceiling(_layoutCanvasWidth),
-                    (int)Math.Ceiling(_layoutCanvasHeight),
-                    _overlayOpacity);
-                _overlayWindow.RenderCompositedFrame(compositedFrame);
-            }
-            else
-            {
-                foreach (var slot in _overlaySlots)
-                {
-                    if (slot.Kind != OverlayElementKind.Quickslot)
-                    {
-                        continue;
-                    }
-
-                    slot.Preview = _captureSession.Crop(liveCapture, slot.Source.SourceRect);
-                }
-
-                _overlayWindow.RenderSlots(_overlaySlots);
-            }
-            RecordCpuRenderFrame(_activeRenderMode, _cpuRenderClock.ElapsedTicks);
-        }
-        catch (Exception ex)
-        {
-            _cpuStatsErrors++;
-            _log.Error("Live overlay refresh failed.", ex);
-            StopOverlay(setStatus: false);
-            SetStatus(L.F("Live overlay refresh failed: {0}", ex.Message));
-        }
-        finally
-        {
-            _isLiveRefreshInProgress = false;
-        }
-    }
-
-    private bool HasLiveCaptureSource() =>
-        _captureSession.HasLiveCaptureSource(CurrentCaptureBackend);
-
-    private bool RegisterStopHotkey()
-    {
-        if (!HotkeyParser.TryParse(_stopHotkey, out var hotkey))
-        {
-            SetStatus("Invalid hotkey. Use a format like Ctrl+Shift+F8.");
-            return false;
-        }
-
-        _hotkeyService ??= new HotkeyService();
-        var registered = _hotkeyService.Register(new WindowInteropHelper(this).Handle, hotkey.Modifiers, hotkey.VirtualKey, () => StopOverlay());
-        if (!registered)
-        {
-            _log.Info($"Stop hotkey registration failed: {hotkey.DisplayText}");
-            SetStatus(L.F("Stop hotkey registration failed: {0}", hotkey.DisplayText));
-        }
-        else
-        {
-            _log.Info($"Stop hotkey registered: {hotkey.DisplayText}");
-        }
-
-        return registered;
     }
 
     private int ReadSlotInnerWidth() => ReadSlotDimension(SlotWidthBox?.Text, 29);
