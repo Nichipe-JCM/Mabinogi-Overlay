@@ -51,19 +51,11 @@ public sealed class AppSettingsStore
     {
         settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
         settings.Language = LocalizationService.NormalizeLanguage(settings.Language);
-        if (!Enum.IsDefined(settings.OverlayRenderMode))
-        {
-            settings.OverlayRenderMode = OverlayRenderMode.GpuDxgi;
-        }
-        if (!Enum.IsDefined(settings.CaptureBackend))
-        {
-            settings.CaptureBackend = CaptureBackend.Wgc;
-        }
-        if (settings.OverlayRenderMode == OverlayRenderMode.GpuDxgi &&
-            settings.CaptureBackend != CaptureBackend.Wgc)
-        {
-            settings.CaptureBackend = CaptureBackend.Wgc;
-        }
+        var runtime = RuntimeConfigurationPolicy.Normalize(
+            settings.OverlayRenderMode,
+            settings.CaptureBackend);
+        settings.OverlayRenderMode = runtime.RenderMode;
+        settings.CaptureBackend = runtime.CaptureBackend;
     }
 
     public string NormalizeProfileDirectory(string? path)

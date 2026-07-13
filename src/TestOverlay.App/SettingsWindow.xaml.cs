@@ -200,7 +200,18 @@ public partial class SettingsWindow : Window
 
         var renderMode = (RenderModeCombo.SelectedItem as RenderModeOption)?.Mode;
         var captureBackend = (CaptureBackendCombo.SelectedItem as CaptureBackendOption)?.Backend;
-        if (renderMode != OverlayRenderMode.GpuDxgi || captureBackend == CaptureBackend.Wgc)
+        if (renderMode is null || captureBackend is null)
+        {
+            return;
+        }
+
+        var normalized = RuntimeConfigurationPolicy.Normalize(
+            renderMode.Value,
+            captureBackend.Value,
+            preferRenderer
+                ? RuntimeSelectionPreference.Renderer
+                : RuntimeSelectionPreference.CaptureBackend);
+        if (normalized.RenderMode == renderMode && normalized.CaptureBackend == captureBackend)
         {
             return;
         }
@@ -208,14 +219,8 @@ public partial class SettingsWindow : Window
         _isNormalizingRuntimeSelection = true;
         try
         {
-            if (preferRenderer)
-            {
-                SelectCaptureBackend(CaptureBackend.Wgc);
-            }
-            else
-            {
-                SelectRenderMode(OverlayRenderMode.CpuComposited);
-            }
+            SelectRenderMode(normalized.RenderMode);
+            SelectCaptureBackend(normalized.CaptureBackend);
         }
         finally
         {

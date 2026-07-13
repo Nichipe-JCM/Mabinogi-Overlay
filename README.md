@@ -70,6 +70,15 @@ This program was developed with assistance from OpenAI Codex and ChatGPT.
 - **Storage:** JSON profiles and settings via `System.Text.Json`
 - **Text recognition:** Windows OCR with image-mask fallbacks for monitored values
 
+## Build and Test
+
+```powershell
+dotnet build MabinogiOverlay.sln -c Release
+dotnet run --project tests/TestOverlay.App.Tests/TestOverlay.App.Tests.csproj -c Release
+```
+
+The automated tests cover renderer/capture compatibility policy, invalid profile rejection, atomic backup recovery, and backup-only profile discovery.
+
 ## License
 
 Mabinogi Overlay is licensed under the [MIT License](LICENSE).
