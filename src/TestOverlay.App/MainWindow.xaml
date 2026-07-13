@@ -848,6 +848,10 @@
         <Border Grid.Row="4" Padding="12,8" Style="{StaticResource GlassCardStyle}">
             <TextBlock x:Name="StatusText"
                        Style="{StaticResource MutedTextStyle}"
+                       TextWrapping="Wrap"
+                       MaxHeight="72"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
                        Text="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."
                        loc:Localize.TextKey="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."/>
         </Border>

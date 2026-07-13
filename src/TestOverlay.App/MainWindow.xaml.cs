@@ -943,16 +943,18 @@ public partial class MainWindow : Window
             UpdateLayoutSummary();
         }
 
-        editor.Applied += (_, _) =>
+        if (editor.ShowDialog() == true)
         {
             ApplyEditorState();
             ScheduleProfileAutoSave();
             FlushProfileAutoSave();
-        };
-        editor.ShowDialog();
-        ApplyEditorState();
-        ScheduleProfileAutoSave();
-        SetStatus("Layout editor closed. Overlay settings updated.");
+            SetStatus("Layout editor closed. Overlay settings updated.");
+            return;
+        }
+
+        UpdateCandidateOverlayFlags();
+        UpdateLayoutSummary();
+        SetStatus("layout.editing.canceled");
     }
 
     private void ClearLayoutButton_Click(object sender, RoutedEventArgs e)

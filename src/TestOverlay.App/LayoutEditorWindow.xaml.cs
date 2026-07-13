@@ -34,6 +34,8 @@ public partial class LayoutEditorWindow : Window
     private Point _slotDragStartPosition;
     private Point _selectionStartPosition;
     private LayoutSnapshot? _dragSnapshotBefore;
+    private readonly LayoutSnapshot _initialLayoutSnapshot;
+    private bool _changesAccepted;
 
     public LayoutEditorWindow(
         double canvasWidth,
@@ -119,6 +121,7 @@ public partial class LayoutEditorWindow : Window
         PopulateControls();
         UpdateGridSizeText();
         RenderSlots();
+        _initialLayoutSnapshot = CaptureLayoutSnapshot();
     }
 
     public double CanvasWidth { get; private set; }
@@ -138,8 +141,6 @@ public partial class LayoutEditorWindow : Window
     public double SlotScale { get; private set; }
 
     public double GridSnapSize { get; private set; } = 10;
-
-    public event EventHandler? Applied;
 
     private void PopulateControls()
     {
@@ -301,7 +302,8 @@ public partial class LayoutEditorWindow : Window
         ApplySettingsFromControls();
         ClampSlotsToCanvas();
         RenderSlots();
-        Applied?.Invoke(this, EventArgs.Empty);
+        _changesAccepted = true;
+        DialogResult = true;
     }
 
     private void DeleteSelectedButton_Click(object sender, RoutedEventArgs e)
@@ -960,8 +962,11 @@ public partial class LayoutEditorWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        ApplySettingsFromControls();
-        ClampSlotsToCanvas();
+        if (!_changesAccepted)
+        {
+            RestoreLayoutSnapshot(_initialLayoutSnapshot);
+        }
+
         _placementPreviewWindow?.Close();
         RestoreWindowsAfterPlacementPreview();
         base.OnClosing(e);
