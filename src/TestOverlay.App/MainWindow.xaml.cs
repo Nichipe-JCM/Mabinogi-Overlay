@@ -31,13 +31,8 @@ public partial class MainWindow : Window
     private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
-    private readonly WindowDiscoveryService _windowDiscovery = new();
-    private readonly WindowCaptureService _captureService = new();
-    private readonly DxgiDesktopDuplicationCaptureService _dxgiCaptureService = new();
-    private readonly WgcCaptureService _wgcCaptureService;
+    private readonly CaptureSessionCoordinator _captureSession;
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
-    private readonly WgcSupportService _wgcSupport = new();
-    private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly CpuCompositedOverlayRenderer _cpuCompositedRenderer = new();
     private readonly MonitorTemplateDetectionService _monitorTemplateDetection = new();
     private readonly MonitorValueRecognitionService _monitorValueRecognition = new();
@@ -89,9 +84,9 @@ public partial class MainWindow : Window
         set => _profileSession.IsDirty = value;
     }
     private HotkeyService? _hotkeyService;
-    private BitmapSource? _capturedImage;
-    private GameWindowInfo? _selectedWindow;
-    private WgcSelectionResult? _wgcSelection;
+    private BitmapSource? _capturedImage => _captureSession.CapturedImage;
+    private GameWindowInfo? _selectedWindow => _captureSession.SelectedWindow;
+    private WgcSelectionResult? _wgcSelection => _captureSession.WgcSelection;
     private OverlayWindow? _overlayWindow;
     private InternalTimerOverlayWindow? _internalTimerOverlayWindow;
     private GpuLiveOverlayService? _gpuLiveOverlayService;
@@ -218,7 +213,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        _wgcCaptureService = new WgcCaptureService(_log);
+        _captureSession = new CaptureSessionCoordinator(_log);
         _candidateWorkspace = new CandidateWorkspace(_workspace);
         _appSettings = _settingsStore.Load();
         if (_settingsStore.LastLoadRecoveredFromBackup)
@@ -408,27 +403,26 @@ public partial class MainWindow : Window
         try
         {
             AutoCaptureButton.IsEnabled = false;
-            var window = FindAutoMabinogiWindow();
-            if (window is null)
+            var result = await _captureSession.CaptureAutoAsync();
+            WindowCombo.ItemsSource = result.Windows;
+            WindowCombo.SelectedItem = result.Window;
+            if (result.Status == CaptureOperationStatus.WindowNotFound)
             {
                 SetStatus("Auto capture failed: Mabinogi Client.exe window was not found.");
                 _log.Info("Auto WGC capture failed: Mabinogi Client.exe window was not found.");
                 return;
             }
 
-            var selection = _wgcWindowSelection.CreateForWindow(window);
-            if (selection is null)
+            if (result.Status == CaptureOperationStatus.WgcUnavailable)
             {
                 SetStatus("Auto capture failed: WGC is not supported.");
                 _log.Info("Auto WGC capture failed: WGC is not supported.");
                 return;
             }
 
-            _wgcSelection = selection;
-            _selectedWindow = window;
-            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(selection.Item, TimeSpan.FromSeconds(3));
-            ApplyCapturedPreview(_capturedImage, L.F("Auto captured WGC Mabinogi window: {0}", window.DisplayName));
-            _log.Info($"Auto WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, window={window.DisplayName}");
+            var image = _capturedImage!;
+            ApplyCapturedPreview(image, L.F("Auto captured WGC Mabinogi window: {0}", result.Window!.DisplayName));
+            _log.Info($"Auto WGC capture succeeded: {image.PixelWidth}x{image.PixelHeight}, window={result.Window.DisplayName}");
         }
         catch (Exception ex)
         {
@@ -446,26 +440,26 @@ public partial class MainWindow : Window
         try
         {
             ManualCaptureButton.IsEnabled = false;
-            var result = await _wgcWindowSelection.PickWindowAsync(this);
-            if (result is null)
+            var result = await _captureSession.CaptureManualAsync(this);
+            if (result.Status == CaptureOperationStatus.Canceled)
             {
                 SetStatus("Manual capture canceled or WGC is not supported.");
                 _log.Info("Manual WGC capture picker returned null.");
                 return;
             }
 
-            if (!result.LooksLikeMabinogi)
+            if (result.Status == CaptureOperationStatus.NotMabinogi)
             {
-                SetStatus(L.F("Manual capture rejected: selected window is not recognized as Mabinogi ({0}).", result.DisplayName));
-                _log.Info($"Manual WGC capture rejected: {result.DisplayName}");
+                SetStatus(L.F("Manual capture rejected: selected window is not recognized as Mabinogi ({0}).", result.Selection!.DisplayName));
+                _log.Info($"Manual WGC capture rejected: {result.Selection.DisplayName}");
                 return;
             }
 
-            _wgcSelection = result;
-            _selectedWindow = MatchPickedMabinogiWindow(result);
-            _capturedImage = await _wgcCaptureService.CaptureOnceAsync(result.Item, TimeSpan.FromSeconds(3));
-            ApplyCapturedPreview(_capturedImage, L.F("Manual captured WGC Mabinogi window: {0}", result.DisplayName));
-            _log.Info($"Manual WGC capture succeeded: {_capturedImage.PixelWidth}x{_capturedImage.PixelHeight}, item={result.DisplayName}");
+            WindowCombo.ItemsSource = result.Windows;
+            WindowCombo.SelectedItem = result.Window;
+            var image = _capturedImage!;
+            ApplyCapturedPreview(image, L.F("Manual captured WGC Mabinogi window: {0}", result.Selection!.DisplayName));
+            _log.Info($"Manual WGC capture succeeded: {image.PixelWidth}x{image.PixelHeight}, item={result.Selection.DisplayName}");
         }
         catch (Exception ex)
         {
@@ -501,42 +495,6 @@ public partial class MainWindow : Window
         UpdateMonitorControlAvailability();
         SetStatus(L.F("{0}. Run slot detection next.", status));
     }
-
-    private GameWindowInfo? FindAutoMabinogiWindow()
-    {
-        var windows = _windowDiscovery.GetVisibleWindows();
-        var window = windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
-                     ?? windows.FirstOrDefault(item => item.IsExactClientExecutable && item.LooksLikeMabinogi)
-                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
-        if (window is not null)
-        {
-            WindowCombo.ItemsSource = windows;
-            WindowCombo.SelectedItem = window;
-        }
-
-        return window;
-    }
-
-    private GameWindowInfo? MatchPickedMabinogiWindow(WgcSelectionResult result)
-    {
-        var windows = _windowDiscovery.GetVisibleWindows();
-        WindowCombo.ItemsSource = windows;
-        var window = windows.FirstOrDefault(item => item.IsPreferredMabinogiClient && MatchesWgcDisplayName(item, result.DisplayName))
-                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi && MatchesWgcDisplayName(item, result.DisplayName))
-                     ?? windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
-                     ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
-        if (window is not null)
-        {
-            WindowCombo.SelectedItem = window;
-        }
-
-        return window;
-    }
-
-    private static bool MatchesWgcDisplayName(GameWindowInfo window, string displayName) =>
-        string.Equals(window.Title, displayName, StringComparison.OrdinalIgnoreCase)
-        || displayName.Contains(window.Title, StringComparison.OrdinalIgnoreCase)
-        || window.Title.Contains(displayName, StringComparison.OrdinalIgnoreCase);
 
     private void DetectButton_Click(object sender, RoutedEventArgs e)
     {
@@ -614,7 +572,7 @@ public partial class MainWindow : Window
         foreach (var candidate in selected)
         {
             var crop = candidate.Kind == OverlayElementKind.Quickslot
-                ? _captureService.Crop(_capturedImage!, candidate.SourceRect)
+                ? _captureSession.Crop(_capturedImage!, candidate.SourceRect)
                 : RenderMonitorElementPreview(candidate.Kind);
             var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * ReadLayoutSlotScale());
             var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * ReadLayoutSlotScale());
@@ -732,7 +690,7 @@ public partial class MainWindow : Window
 
         foreach (var slot in _overlaySlots.Where(slot => ReferenceEquals(slot.Source, candidate)))
         {
-            slot.Preview = _captureService.Crop(_capturedImage, candidate.SourceRect);
+            slot.Preview = _captureSession.Crop(_capturedImage, candidate.SourceRect);
             var overlayWidth = Math.Max(MinimumOverlaySlotSize, slot.OverlayRect.Width * width / oldWidth);
             var overlayHeight = Math.Max(MinimumOverlaySlotSize, slot.OverlayRect.Height * height / oldHeight);
             slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, overlayWidth, overlayHeight);
@@ -2445,21 +2403,7 @@ public partial class MainWindow : Window
     }
 
     private BitmapSource? CaptureMonitorFrame()
-    {
-        if (CurrentCaptureBackend == CaptureBackend.Wgc)
-        {
-            return _wgcCaptureService.TryGetLatestFrame(out var frame) ? frame : null;
-        }
-
-        if (_selectedWindow is null)
-        {
-            return null;
-        }
-
-        return CurrentCaptureBackend == CaptureBackend.DxgiDesktopDuplication
-            ? _dxgiCaptureService.CaptureClientArea(_selectedWindow)
-            : _captureService.CaptureClientArea(_selectedWindow);
-    }
+        => _captureSession.CaptureCurrentFrame(CurrentCaptureBackend);
 
     private void SaveMonitorDiagnosticOnce(BitmapSource source, Rect bounds, string kind)
     {
@@ -2799,7 +2743,7 @@ public partial class MainWindow : Window
             }
 
             var crop = candidate.Kind == OverlayElementKind.Quickslot
-                ? _captureService.Crop(_capturedImage!, candidate.SourceRect)
+                ? _captureSession.Crop(_capturedImage!, candidate.SourceRect)
                 : RenderMonitorElementPreview(candidate.Kind);
             var hasOpacityOverride = savedSlot.HasOpacityOverride || Math.Abs(savedSlot.Opacity - 1) > 0.001;
             var slot = new OverlaySlot(
@@ -2882,7 +2826,7 @@ public partial class MainWindow : Window
 
         if (requiresLiveCapture && captureBackend == CaptureBackend.Wgc)
         {
-            await _wgcCaptureService.EnsureBorderlessAccessAsync();
+            await _captureSession.EnsureBorderlessAccessAsync();
         }
 
         try
@@ -2920,7 +2864,7 @@ public partial class MainWindow : Window
 
                 _overlayWindow.Close();
                 _overlayWindow = null;
-                _wgcCaptureService.StopLiveCapture();
+                _captureSession.StopLiveWgcCapture();
                 _liveOverlayTimer.Stop();
 
                 SetStatus(L.F("Overlay click-through configuration failed: {0}", detail));
@@ -2951,7 +2895,7 @@ public partial class MainWindow : Window
                         _overlaySlots,
                         _overlayOpacity,
                         _refreshFps,
-                        _wgcCaptureService.IsBorderlessCaptureAllowed,
+                        _captureSession.IsBorderlessCaptureAllowed,
                         _log);
                     _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
                     _gpuLiveOverlayService.Start();
@@ -2964,7 +2908,7 @@ public partial class MainWindow : Window
                     _log.Error("GPU live overlay renderer initialization failed. Falling back to CPU renderer.", gpuEx);
                     _activeRenderMode = OverlayRenderMode.CpuWpf;
                     rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
-                    _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
+                    _captureSession.StartLiveWgcCapture();
                 }
             }
             else if (_activeRenderMode == OverlayRenderMode.GpuDxgi)
@@ -2975,7 +2919,7 @@ public partial class MainWindow : Window
             }
             else if (requiresLiveCapture && captureBackend == CaptureBackend.Wgc && _wgcSelection is not null)
             {
-                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
+                _captureSession.StartLiveWgcCapture();
             }
 
             if (hasMonitorOverlay &&
@@ -2984,7 +2928,7 @@ public partial class MainWindow : Window
                 _wgcSelection is not null &&
                 (_gpuLiveOverlayService is not null || !hasSlotOverlay))
             {
-                _wgcCaptureService.StartLiveCapture(_wgcSelection.Item);
+                _captureSession.StartLiveWgcCapture();
             }
 
             StartInternalTimerOverlay();
@@ -3211,7 +3155,7 @@ public partial class MainWindow : Window
 
     private void RefreshWindows()
     {
-        var windows = _windowDiscovery.GetVisibleWindows();
+        var windows = _captureSession.GetVisibleWindows();
         WindowCombo.ItemsSource = windows;
         WindowCombo.SelectedItem = windows.FirstOrDefault(window => window.LooksLikeMabinogi) ?? windows.FirstOrDefault();
         SetWindowStatusText(BuildWindowStatusText());
@@ -3227,7 +3171,7 @@ public partial class MainWindow : Window
     {
         var captureStatus = CurrentCaptureBackend switch
         {
-            CaptureBackend.Wgc => _wgcSupport.IsSupported() ? "WGC supported" : "WGC unavailable",
+            CaptureBackend.Wgc => _captureSession.IsWgcSupported ? "WGC supported" : "WGC unavailable",
             CaptureBackend.DxgiDesktopDuplication => "DXGI uses selected window monitor",
             CaptureBackend.GdiBitBlt => "GDI captures selected client area",
             _ => "Capture backend unknown"
@@ -4838,7 +4782,7 @@ public partial class MainWindow : Window
             }
             else if (_capturedImage is not null)
             {
-                slot.Preview = _captureService.Crop(_capturedImage, restoredSource.SourceRect);
+                slot.Preview = _captureSession.Crop(_capturedImage, restoredSource.SourceRect);
             }
         }
 
@@ -4857,7 +4801,7 @@ public partial class MainWindow : Window
         LogCpuRenderStats(final: true);
         _gpuLiveOverlayService?.Dispose();
         _gpuLiveOverlayService = null;
-        _wgcCaptureService.StopLiveCapture();
+        _captureSession.StopLiveWgcCapture();
         _overlayWindow?.Close();
         _overlayWindow = null;
         _internalTimerOverlayWindow?.Close();
@@ -4950,25 +4894,22 @@ public partial class MainWindow : Window
             var captureBackend = CurrentCaptureBackend;
             if (captureBackend == CaptureBackend.Wgc)
             {
-                if (_wgcCaptureService.LastLiveCaptureException is not null)
+                if (_captureSession.LastLiveCaptureException is not null)
                 {
-                    throw new InvalidOperationException("Live WGC capture failed.", _wgcCaptureService.LastLiveCaptureException);
+                    throw new InvalidOperationException("Live WGC capture failed.", _captureSession.LastLiveCaptureException);
                 }
 
-                if (!_wgcCaptureService.TryGetLatestFrame(out var latestFrame) || latestFrame is null)
+                if (!_captureSession.TryGetLatestWgcFrame(out var latestFrame) || latestFrame is null)
                 {
                     return;
                 }
 
                 liveCapture = latestFrame;
             }
-            else if (captureBackend == CaptureBackend.DxgiDesktopDuplication)
-            {
-                liveCapture = _dxgiCaptureService.CaptureClientArea(_selectedWindow!);
-            }
             else
             {
-                liveCapture = _captureService.CaptureClientArea(_selectedWindow!);
+                liveCapture = _captureSession.CaptureCurrentFrame(captureBackend)
+                              ?? throw new InvalidOperationException("The selected capture source is unavailable.");
             }
 
             if (_activeRenderMode == OverlayRenderMode.CpuComposited)
@@ -4990,7 +4931,7 @@ public partial class MainWindow : Window
                         continue;
                     }
 
-                    slot.Preview = _captureService.Crop(liveCapture, slot.Source.SourceRect);
+                    slot.Preview = _captureSession.Crop(liveCapture, slot.Source.SourceRect);
                 }
 
                 _overlayWindow.RenderSlots(_overlaySlots);
@@ -5011,9 +4952,7 @@ public partial class MainWindow : Window
     }
 
     private bool HasLiveCaptureSource() =>
-        CurrentCaptureBackend == CaptureBackend.Wgc
-            ? _wgcSelection is not null
-            : _selectedWindow is not null;
+        _captureSession.HasLiveCaptureSource(CurrentCaptureBackend);
 
     private bool RegisterStopHotkey()
     {
