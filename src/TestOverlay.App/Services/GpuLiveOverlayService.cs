@@ -114,35 +114,38 @@ public sealed class GpuLiveOverlayService : IDisposable
             _framePool.FrameArrived -= FramePool_FrameArrived;
         }
 
-        _session?.Dispose();
-        _framePool?.Dispose();
-        _winRtDevice?.Dispose();
-        _targetBitmap?.Dispose();
-        _compositionVisual?.Dispose();
-        _compositionTarget?.Dispose();
-        _compositionDevice?.Dispose();
-        _swapChain?.Dispose();
-        _d2dContext?.Dispose();
-        _d2dDevice?.Dispose();
-        _dxgiFactory?.Dispose();
-        _dxgiDevice?.Dispose();
-        _d3dContext?.Dispose();
-        _d3dDevice?.Dispose();
+        lock (_renderLock)
+        {
+            _session?.Dispose();
+            _framePool?.Dispose();
+            _winRtDevice?.Dispose();
+            _targetBitmap?.Dispose();
+            _compositionVisual?.Dispose();
+            _compositionTarget?.Dispose();
+            _compositionDevice?.Dispose();
+            _swapChain?.Dispose();
+            _d2dContext?.Dispose();
+            _d2dDevice?.Dispose();
+            _dxgiFactory?.Dispose();
+            _dxgiDevice?.Dispose();
+            _d3dContext?.Dispose();
+            _d3dDevice?.Dispose();
 
-        _session = null;
-        _framePool = null;
-        _winRtDevice = null;
-        _targetBitmap = null;
-        _compositionVisual = null;
-        _compositionTarget = null;
-        _compositionDevice = null;
-        _swapChain = null;
-        _d2dContext = null;
-        _d2dDevice = null;
-        _dxgiFactory = null;
-        _dxgiDevice = null;
-        _d3dContext = null;
-        _d3dDevice = null;
+            _session = null;
+            _framePool = null;
+            _winRtDevice = null;
+            _targetBitmap = null;
+            _compositionVisual = null;
+            _compositionTarget = null;
+            _compositionDevice = null;
+            _swapChain = null;
+            _d2dContext = null;
+            _d2dDevice = null;
+            _dxgiFactory = null;
+            _dxgiDevice = null;
+            _d3dContext = null;
+            _d3dDevice = null;
+        }
 
         _log.Info(
             $"GPU renderer disposed: presented={_framesPresented}, " +
@@ -336,13 +339,13 @@ public sealed class GpuLiveOverlayService : IDisposable
 
     private void RenderFrame(Direct3D11CaptureFrame frame)
     {
-        if (_d2dContext is null || _swapChain is null)
-        {
-            return;
-        }
-
         lock (_renderLock)
         {
+            if (_isDisposed || _d2dContext is null || _swapChain is null)
+            {
+                return;
+            }
+
             var texturePointer = Direct3DSurfaceInterop.GetD3D11Texture2DPointer(frame.Surface);
             using var texture = new ID3D11Texture2D(texturePointer);
             using var frameSurface = texture.QueryInterface<IDXGISurface>();

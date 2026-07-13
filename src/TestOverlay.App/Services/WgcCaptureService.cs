@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TestOverlay.App.Native;
+using Windows.Foundation;
 using Windows.Foundation.Metadata;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
@@ -22,8 +23,9 @@ public sealed class WgcCaptureService
     private IDirect3DDevice? _liveDevice;
     private Direct3D11CaptureFramePool? _liveFramePool;
     private GraphicsCaptureSession? _liveSession;
+    private TypedEventHandler<Direct3D11CaptureFramePool, object>? _liveFrameArrivedHandler;
     private BitmapSource? _latestFrame;
-    private int _isProcessingLiveFrame;
+    private int _processingLiveGeneration;
     private int _liveGeneration;
 
     public WgcCaptureService(AppLog log)
@@ -72,7 +74,7 @@ public sealed class WgcCaptureService
     public void StartLiveCapture(GraphicsCaptureItem item)
     {
         StopLiveCapture();
-        Interlocked.Increment(ref _liveGeneration);
+        var generation = Interlocked.Increment(ref _liveGeneration);
 
         _liveDevice = Direct3D11Interop.CreateDevice();
         _liveFramePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
@@ -83,7 +85,8 @@ public sealed class WgcCaptureService
         _liveSession = _liveFramePool.CreateCaptureSession(item);
         _liveSession.IsCursorCaptureEnabled = false;
         TryDisableCaptureBorder(_liveSession);
-        _liveFramePool.FrameArrived += LiveFramePool_FrameArrived;
+        _liveFrameArrivedHandler = (sender, args) => LiveFramePool_FrameArrived(sender, args, generation);
+        _liveFramePool.FrameArrived += _liveFrameArrivedHandler;
         _liveSession.StartCapture();
     }
 
@@ -98,9 +101,9 @@ public sealed class WgcCaptureService
     public void StopLiveCapture()
     {
         Interlocked.Increment(ref _liveGeneration);
-        if (_liveFramePool is not null)
+        if (_liveFramePool is not null && _liveFrameArrivedHandler is not null)
         {
-            _liveFramePool.FrameArrived -= LiveFramePool_FrameArrived;
+            _liveFramePool.FrameArrived -= _liveFrameArrivedHandler;
         }
 
         _liveSession?.Dispose();
@@ -109,8 +112,8 @@ public sealed class WgcCaptureService
         _liveSession = null;
         _liveFramePool = null;
         _liveDevice = null;
+        _liveFrameArrivedHandler = null;
         LastLiveCaptureException = null;
-        Interlocked.Exchange(ref _isProcessingLiveFrame, 0);
         lock (_sync)
         {
             _latestFrame = null;
@@ -126,10 +129,17 @@ public sealed class WgcCaptureService
         }
     }
 
-    private async void LiveFramePool_FrameArrived(Direct3D11CaptureFramePool sender, object args)
+    private async void LiveFramePool_FrameArrived(
+        Direct3D11CaptureFramePool sender,
+        object args,
+        int generation)
     {
-        var generation = Volatile.Read(ref _liveGeneration);
-        if (Interlocked.Exchange(ref _isProcessingLiveFrame, 1) == 1)
+        if (generation != Volatile.Read(ref _liveGeneration))
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
         {
             using var droppedFrame = sender.TryGetNextFrame();
             return;
@@ -152,10 +162,16 @@ public sealed class WgcCaptureService
             var bitmap = ToBitmapSource(softwareBitmap);
             lock (_sync)
             {
-                _latestFrame = bitmap;
+                if (generation == Volatile.Read(ref _liveGeneration))
+                {
+                    _latestFrame = bitmap;
+                }
             }
 
-            LastLiveCaptureException = null;
+            if (generation == Volatile.Read(ref _liveGeneration))
+            {
+                LastLiveCaptureException = null;
+            }
         }
         catch (ObjectDisposedException)
         {
@@ -163,11 +179,14 @@ public sealed class WgcCaptureService
         }
         catch (Exception ex)
         {
-            LastLiveCaptureException = ex;
+            if (generation == Volatile.Read(ref _liveGeneration))
+            {
+                LastLiveCaptureException = ex;
+            }
         }
         finally
         {
-            Interlocked.Exchange(ref _isProcessingLiveFrame, 0);
+            Interlocked.CompareExchange(ref _processingLiveGeneration, 0, generation);
         }
     }
 
