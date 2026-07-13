@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly OverlayWorkspaceState _workspace = new();
+    private readonly CandidateWorkspace _candidateWorkspace;
     private ObservableCollection<SlotCandidate> _candidates => _workspace.Candidates;
     private ObservableCollection<QuickslotSection> _sections => _workspace.Sections;
     private List<OverlaySlot> _overlaySlots => _workspace.OverlaySlots;
@@ -70,8 +71,6 @@ public partial class MainWindow : Window
     private readonly List<Rectangle> _monitorDetectionRects = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
     private SectionSettings[] _sectionSettings => _workspace.SectionSettings;
-    private readonly Stack<CandidateEditSnapshot> _undoStack = new();
-    private readonly Stack<CandidateEditSnapshot> _redoStack = new();
     private IReadOnlyList<string> _profileNames => _profileSession.ProfileNames;
     private string _selectedProfileName
     {
@@ -220,6 +219,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _wgcCaptureService = new WgcCaptureService(_log);
+        _candidateWorkspace = new CandidateWorkspace(_workspace);
         _appSettings = _settingsStore.Load();
         if (_settingsStore.LastLoadRecoveredFromBackup)
         {
@@ -903,14 +903,11 @@ public partial class MainWindow : Window
             {
                 CaptureCanvas.Children.Remove(rect);
             }
-
-            _candidates.Remove(candidate);
         }
 
-        RemoveOverlaySlotsForCandidates(selected);
-        RemoveSectionsContaining(selected);
+        _candidateWorkspace.DeleteCandidates(selected);
 
-        UpdateCandidateOverlayFlags();
+        RefreshSectionLabels();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
         SetStatus(L.F("Deleted {0} selected candidates.", selected.Count));
@@ -4096,9 +4093,13 @@ public partial class MainWindow : Window
 
     private void MoveCandidate(SlotCandidate candidate, double x, double y)
     {
-        var clampedX = Math.Clamp(x, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Width - candidate.SourceRect.Width - CandidateBorderPixels));
-        var clampedY = Math.Clamp(y, CandidateBorderPixels, Math.Max(CandidateBorderPixels, CaptureCanvas.Height - candidate.SourceRect.Height - CandidateBorderPixels));
-        candidate.MoveTo(clampedX, clampedY);
+        _candidateWorkspace.MoveCandidate(
+            candidate,
+            x,
+            y,
+            CaptureCanvas.Width,
+            CaptureCanvas.Height,
+            CandidateBorderPixels);
         UpdateCandidateVisualPosition(candidate);
     }
 
@@ -4115,20 +4116,10 @@ public partial class MainWindow : Window
     }
 
     private void SetOnlyCandidateSelected(SlotCandidate selected)
-    {
-        foreach (var candidate in _candidates)
-        {
-            candidate.IsSelected = ReferenceEquals(candidate, selected);
-        }
-    }
+        => _candidateWorkspace.SelectOnly(selected);
 
     private void ClearCandidateSelection()
-    {
-        foreach (var candidate in _candidates)
-        {
-            candidate.IsSelected = false;
-        }
-    }
+        => _candidateWorkspace.ClearSelection();
 
     private int AddSectionCandidates(SlotCandidate seed, SectionPattern pattern, int patternIndex, SectionSettings settings)
     {
@@ -4164,8 +4155,7 @@ public partial class MainWindow : Window
         }
 
         CandidateList.SelectedItem = seed;
-        var section = new QuickslotSection(_nextSectionId++, seed, patternIndex, settings, sectionCandidates);
-        _sections.Add(section);
+        var section = _candidateWorkspace.AddSection(seed, patternIndex, settings, sectionCandidates);
         SelectSection(section);
         return added;
     }
@@ -4201,8 +4191,7 @@ public partial class MainWindow : Window
             .First();
         CandidateList.SelectedItem = seed;
         _sectionSettings[patternIndex] = settings;
-        var section = new QuickslotSection(_nextSectionId++, seed, patternIndex, settings, sectionCandidates);
-        _sections.Add(section);
+        var section = _candidateWorkspace.AddSection(seed, patternIndex, settings, sectionCandidates);
         SelectSection(section);
     }
 
@@ -4640,21 +4629,10 @@ public partial class MainWindow : Window
     }
 
     private int RemoveOverlaySlotsForCandidates(IEnumerable<SlotCandidate> candidates)
-    {
-        var candidateSet = candidates.ToHashSet();
-        var candidateIds = candidateSet.Select(candidate => candidate.Id).ToHashSet();
-        return _overlaySlots.RemoveAll(slot =>
-            candidateSet.Contains(slot.Source) || candidateIds.Contains(slot.Source.Id));
-    }
+        => _candidateWorkspace.RemoveOverlaySlotsForCandidates(candidates);
 
     private void UpdateCandidateOverlayFlags()
-    {
-        var overlayCandidateIds = _overlaySlots.Select(slot => slot.Source.Id).ToHashSet();
-        foreach (var candidate in _candidates)
-        {
-            candidate.IsInOverlay = overlayCandidateIds.Contains(candidate.Id);
-        }
-    }
+        => _candidateWorkspace.UpdateCandidateOverlayFlags();
 
     private void SelectSection(QuickslotSection section)
     {
@@ -4706,24 +4684,15 @@ public partial class MainWindow : Window
 
     private void ClearSections()
     {
-        _sections.Clear();
-        _selectedSection = null;
-        _nextSectionId = 1;
+        _candidateWorkspace.ClearSections();
         SectionCombo.SelectedItem = null;
         RefreshSectionLabels();
     }
 
     private void RemoveSectionsContaining(IReadOnlyCollection<SlotCandidate> candidates)
     {
-        var removed = _sections.Where(section => section.Candidates.Any(candidates.Contains)).ToList();
-        foreach (var section in removed)
+        if (_candidateWorkspace.RemoveSectionsContaining(candidates))
         {
-            _sections.Remove(section);
-        }
-
-        if (_selectedSection is not null && removed.Contains(_selectedSection))
-        {
-            _selectedSection = null;
             SectionCombo.SelectedItem = null;
         }
 
@@ -4732,22 +4701,7 @@ public partial class MainWindow : Window
 
     private void RefreshSectionLabels()
     {
-        foreach (var candidate in _candidates)
-        {
-            candidate.SectionMembership = string.Empty;
-        }
-
-        foreach (var section in _sections)
-        {
-            foreach (var candidate in section.Candidates.Where(candidate => _candidates.Contains(candidate)))
-            {
-                candidate.SectionMembership = string.IsNullOrWhiteSpace(candidate.SectionMembership)
-                    ? $"section {section.Id:00}"
-                    : $"{candidate.SectionMembership},{section.Id:00}";
-            }
-
-            section.RefreshLabel();
-        }
+        _candidateWorkspace.RefreshSectionMemberships();
 
         SectionCombo.Items.Refresh();
     }
@@ -4789,59 +4743,29 @@ public partial class MainWindow : Window
     private CandidateEditSnapshot CaptureCandidateSnapshot()
     {
         var selectedId = CandidateList.SelectedItem is SlotCandidate selected ? selected.Id : 0;
-        var selectedSectionId = _selectedSection?.Id ?? 0;
-        return new CandidateEditSnapshot(
-            _candidates
-                .Select(candidate => new CandidateState(
-                    candidate.Id,
-                    candidate.SourceRect.X,
-                    candidate.SourceRect.Y,
-                    candidate.SourceRect.Width,
-                    candidate.SourceRect.Height,
-                    candidate.Score,
-                    candidate.IsSelected,
-                    candidate.Kind,
-                    candidate.DisplayNameKey,
-                    candidate.IsBuiltIn))
-                .ToList(),
-            _sections
-                .Select(section => new SectionState(
-                    section.Id,
-                    section.Seed.Id,
-                    section.PatternIndex,
-                    section.Settings.SmallGapX,
-                    section.Settings.SmallGapY,
-                    section.Settings.LargeGap,
-                    section.Candidates.Select(candidate => candidate.Id).ToList()))
-                .ToList(),
-            selectedSectionId,
-            _nextSectionId,
-            selectedId);
+        return _candidateWorkspace.CaptureSnapshot(selectedId);
     }
 
     private void PushUndoIfChanged(CandidateEditSnapshot before)
     {
-        if (CandidateSnapshotsEqual(before, CaptureCandidateSnapshot()))
+        var selectedId = CandidateList.SelectedItem is SlotCandidate selected ? selected.Id : 0;
+        if (!_candidateWorkspace.PushUndoIfChanged(before, selectedId))
         {
             return;
         }
 
-        _undoStack.Push(before);
-        _redoStack.Clear();
         ScheduleProfileAutoSave();
     }
 
     private void UndoCandidateEdit()
     {
-        if (_undoStack.Count == 0)
+        var selectedId = CandidateList.SelectedItem is SlotCandidate selected ? selected.Id : 0;
+        if (!_candidateWorkspace.TryUndo(selectedId, out var previous))
         {
             SetStatus("No candidate edit to undo.");
             return;
         }
 
-        var current = CaptureCandidateSnapshot();
-        var previous = _undoStack.Pop();
-        _redoStack.Push(current);
         RestoreCandidateSnapshot(previous);
         ScheduleProfileAutoSave();
         SetStatus("Candidate edit undone.");
@@ -4849,15 +4773,13 @@ public partial class MainWindow : Window
 
     private void RedoCandidateEdit()
     {
-        if (_redoStack.Count == 0)
+        var selectedId = CandidateList.SelectedItem is SlotCandidate selected ? selected.Id : 0;
+        if (!_candidateWorkspace.TryRedo(selectedId, out var next))
         {
             SetStatus("No candidate edit to redo.");
             return;
         }
 
-        var current = CaptureCandidateSnapshot();
-        var next = _redoStack.Pop();
-        _undoStack.Push(current);
         RestoreCandidateSnapshot(next);
         ScheduleProfileAutoSave();
         SetStatus("Candidate edit redone.");
@@ -4865,38 +4787,16 @@ public partial class MainWindow : Window
 
     private void RestoreCandidateSnapshot(CandidateEditSnapshot snapshot)
     {
-        _candidates.Clear();
         ClearCandidateRects();
-        _sections.Clear();
-        _selectedSection = null;
-
-        SlotCandidate? selected = null;
-        var restoredById = new Dictionary<int, SlotCandidate>();
-        foreach (var saved in snapshot.Candidates)
+        var restored = _candidateWorkspace.RestoreSnapshot(
+            snapshot,
+            kind => kind == OverlayElementKind.Quickslot || IsMonitorElementEnabled(kind));
+        foreach (var candidate in _candidates)
         {
-            if (saved.Kind != OverlayElementKind.Quickslot && !IsMonitorElementEnabled(saved.Kind))
-            {
-                continue;
-            }
-
-            var candidate = new SlotCandidate(
-                saved.Id,
-                new Rect(saved.X, saved.Y, saved.Width, saved.Height),
-                saved.Score,
-                saved.Kind,
-                saved.DisplayNameKey,
-                saved.IsBuiltIn)
-            {
-                IsSelected = saved.IsSelected
-            };
-            AddCandidate(candidate);
-            restoredById[candidate.Id] = candidate;
-            if (saved.Id == snapshot.SelectedId)
-            {
-                selected = candidate;
-            }
+            AddCandidateVisual(candidate);
         }
 
+        var restoredById = restored.CandidatesById.ToDictionary(pair => pair.Key, pair => pair.Value);
         if (_buffMonitorEnabled)
         {
             var internalTimerCandidate = EnsureInternalTimerCandidate();
@@ -4913,42 +4813,10 @@ public partial class MainWindow : Window
             restoredById[alertCandidate.Id] = alertCandidate;
         }
 
-        CandidateList.SelectedItem = selected;
-        QuickslotSection? selectedSection = null;
-        foreach (var savedSection in snapshot.Sections)
+        CandidateList.SelectedItem = restored.SelectedCandidate;
+        if (restored.SelectedSection is not null)
         {
-            if (!restoredById.TryGetValue(savedSection.SeedId, out var seed))
-            {
-                continue;
-            }
-
-            var candidates = savedSection.CandidateIds
-                .Select(id => restoredById.TryGetValue(id, out var candidate) ? candidate : null)
-                .Where(candidate => candidate is not null)
-                .Cast<SlotCandidate>()
-                .ToList();
-            if (candidates.Count == 0)
-            {
-                continue;
-            }
-
-            var section = new QuickslotSection(
-                savedSection.Id,
-                seed,
-                savedSection.PatternIndex,
-                new SectionSettings(savedSection.SmallGapX, savedSection.SmallGapY, savedSection.LargeGap),
-                candidates);
-            _sections.Add(section);
-            if (savedSection.Id == snapshot.SelectedSectionId)
-            {
-                selectedSection = section;
-            }
-        }
-
-        _nextSectionId = Math.Max(snapshot.NextSectionId, _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1);
-        if (selectedSection is not null)
-        {
-            SelectSection(selectedSection);
+            SelectSection(restored.SelectedSection);
         }
         else
         {
@@ -4977,35 +4845,7 @@ public partial class MainWindow : Window
         UpdateLayoutSummary();
     }
 
-    private static bool CandidateSnapshotsEqual(CandidateEditSnapshot left, CandidateEditSnapshot right)
-    {
-        if (left.SelectedId != right.SelectedId ||
-            left.SelectedSectionId != right.SelectedSectionId ||
-            left.NextSectionId != right.NextSectionId ||
-            left.Candidates.Count != right.Candidates.Count ||
-            left.Sections.Count != right.Sections.Count)
-        {
-            return false;
-        }
-
-        return left.Candidates.SequenceEqual(right.Candidates) &&
-               left.Sections.Zip(right.Sections).All(pair => SectionStatesEqual(pair.First, pair.Second));
-    }
-
-    private static bool SectionStatesEqual(SectionState left, SectionState right) =>
-        left.Id == right.Id &&
-        left.SeedId == right.SeedId &&
-        left.PatternIndex == right.PatternIndex &&
-        left.SmallGapX.Equals(right.SmallGapX) &&
-        left.SmallGapY.Equals(right.SmallGapY) &&
-        left.LargeGap.Equals(right.LargeGap) &&
-        left.CandidateIds.SequenceEqual(right.CandidateIds);
-
-    private int NextCandidateId()
-    {
-        var highest = _candidates.Where(candidate => candidate.Id > 0).Select(candidate => candidate.Id).DefaultIfEmpty(0).Max();
-        return highest + 1;
-    }
+    private int NextCandidateId() => _candidateWorkspace.NextCandidateId();
 
     private void StopOverlay(bool setStatus = true)
     {
