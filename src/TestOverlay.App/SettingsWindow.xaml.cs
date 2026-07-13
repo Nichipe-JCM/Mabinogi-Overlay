@@ -11,6 +11,7 @@ public partial class SettingsWindow : Window
     private readonly string _defaultProfileDirectory;
     private readonly string _logPath;
     private readonly DateTimeOffset _logSessionStartedAt;
+    private bool _isNormalizingRuntimeSelection;
 
     public SettingsWindow(
         string profileDirectory,
@@ -45,6 +46,9 @@ public partial class SettingsWindow : Window
         };
         CaptureBackendCombo.ItemsSource = captureBackends;
         SelectCaptureBackend(selectedCaptureBackend);
+        NormalizeRuntimeSelection(preferRenderer: true);
+        RenderModeCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection(preferRenderer: true);
+        CaptureBackendCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection(preferRenderer: false);
 
         var languages = new List<LanguageOption>
         {
@@ -135,7 +139,7 @@ public partial class SettingsWindow : Window
 
         ProfileDirectoryBox.Text = _defaultProfileDirectory;
         SelectRenderMode(OverlayRenderMode.GpuDxgi);
-        SelectCaptureBackend(CaptureBackend.DxgiDesktopDuplication);
+        SelectCaptureBackend(CaptureBackend.Wgc);
         SelectLanguage(LocalizationService.English);
     }
 
@@ -155,7 +159,7 @@ public partial class SettingsWindow : Window
                 : OverlayRenderMode.CpuWpf;
             SelectedCaptureBackend = CaptureBackendCombo.SelectedItem is CaptureBackendOption captureOption
                 ? captureOption.Backend
-                : CaptureBackend.DxgiDesktopDuplication;
+                : CaptureBackend.Wgc;
             SelectedLanguage = LanguageCombo.SelectedItem is LanguageOption languageOption
                 ? languageOption.Language
                 : LocalizationService.English;
@@ -185,6 +189,38 @@ public partial class SettingsWindow : Window
             .FirstOrDefault(option => option.Backend == backend)
             ?? CaptureBackendCombo.Items.OfType<CaptureBackendOption>()
                 .FirstOrDefault(option => option.Backend == CaptureBackend.DxgiDesktopDuplication);
+    }
+
+    private void NormalizeRuntimeSelection(bool preferRenderer)
+    {
+        if (_isNormalizingRuntimeSelection)
+        {
+            return;
+        }
+
+        var renderMode = (RenderModeCombo.SelectedItem as RenderModeOption)?.Mode;
+        var captureBackend = (CaptureBackendCombo.SelectedItem as CaptureBackendOption)?.Backend;
+        if (renderMode != OverlayRenderMode.GpuDxgi || captureBackend == CaptureBackend.Wgc)
+        {
+            return;
+        }
+
+        _isNormalizingRuntimeSelection = true;
+        try
+        {
+            if (preferRenderer)
+            {
+                SelectCaptureBackend(CaptureBackend.Wgc);
+            }
+            else
+            {
+                SelectRenderMode(OverlayRenderMode.CpuComposited);
+            }
+        }
+        finally
+        {
+            _isNormalizingRuntimeSelection = false;
+        }
     }
 
     private void SelectLanguage(string language)

@@ -10,22 +10,25 @@ public sealed class ErinTimerSettingsStore
 
     public string SettingsPath { get; } = Path.Combine(AppContext.BaseDirectory, "save", "erin-timer.json");
 
+    public bool LastLoadRecoveredFromBackup { get; private set; }
+
+    public Exception? LastLoadException { get; private set; }
+
     public ErinTimerSettings Load()
     {
-        if (!File.Exists(SettingsPath))
-        {
-            return new ErinTimerSettings();
-        }
-
         try
         {
-            var settings = JsonSerializer.Deserialize<ErinTimerSettings>(File.ReadAllText(SettingsPath), Options)
-                           ?? new ErinTimerSettings();
+            var result = AtomicJsonFile.Load<ErinTimerSettings>(SettingsPath, Options);
+            var settings = result?.Value ?? new ErinTimerSettings();
             Normalize(settings);
+            LastLoadRecoveredFromBackup = result?.RecoveredFromBackup == true;
+            LastLoadException = result?.PrimaryException;
             return settings;
         }
-        catch
+        catch (Exception exception)
         {
+            LastLoadRecoveredFromBackup = false;
+            LastLoadException = exception;
             return new ErinTimerSettings();
         }
     }
@@ -33,8 +36,7 @@ public sealed class ErinTimerSettingsStore
     public void Save(ErinTimerSettings settings)
     {
         Normalize(settings);
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath) ?? AppContext.BaseDirectory);
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, Options));
+        AtomicJsonFile.Save(SettingsPath, settings, Options);
     }
 
     private static void Normalize(ErinTimerSettings settings)

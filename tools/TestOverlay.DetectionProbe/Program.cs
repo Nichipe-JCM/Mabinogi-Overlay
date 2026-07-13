@@ -5,6 +5,58 @@ using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
 
+if (args.Length == 1 && args[0].Equals("storage-self-test", StringComparison.OrdinalIgnoreCase))
+{
+    var temporaryDirectory = Path.Combine(Path.GetTempPath(), $"mabinogi-overlay-storage-test-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(temporaryDirectory);
+    try
+    {
+        var store = new ProfileStore(temporaryDirectory);
+        var profile = new OverlayProfile();
+        store.Save(profile, "atomic-test");
+        profile.Name = "second-write";
+        var path = store.Save(profile, "atomic-test");
+        Require(File.Exists($"{path}.bak"), "The second save did not create a backup.");
+
+        File.WriteAllText(path, "{broken-json");
+        var recovered = store.Load("atomic-test");
+        Require(store.LastLoadRecoveredFromBackup, "The store did not report backup recovery.");
+        Require(recovered?.Name == "default", "The backup did not contain the first saved profile.");
+        Require(File.ReadAllText(path).Contains("\"Name\": \"default\"", StringComparison.Ordinal),
+            "The primary profile was not restored from backup.");
+
+        var invalid = new OverlayProfile();
+        invalid.Candidates.Add(new OverlayProfileCandidate
+        {
+            Id = 1,
+            SourceWidth = 10,
+            SourceHeight = 10
+        });
+        invalid.Candidates.Add(new OverlayProfileCandidate
+        {
+            Id = 1,
+            SourceWidth = 10,
+            SourceHeight = 10
+        });
+        try
+        {
+            store.Save(invalid, "invalid-test");
+            throw new InvalidOperationException("A profile with duplicate candidate IDs was accepted.");
+        }
+        catch (InvalidDataException)
+        {
+            // Expected validation failure.
+        }
+
+        Console.WriteLine("storage-self-test=passed");
+        return 0;
+    }
+    finally
+    {
+        Directory.Delete(temporaryDirectory, recursive: true);
+    }
+}
+
 if (args.Length >= 6 &&
     (args[0].Equals("buff-benchmark", StringComparison.OrdinalIgnoreCase) ||
      args[0].Equals("tuairim-benchmark", StringComparison.OrdinalIgnoreCase)))
@@ -127,6 +179,7 @@ if (args.Length < 6)
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-value <image-path> <x> <y> <width> <height>");
     Console.Error.WriteLine("  TestOverlay.DetectionProbe tuairim-benchmark <image-path> <x> <y> <width> <height>");
+    Console.Error.WriteLine("  TestOverlay.DetectionProbe storage-self-test");
     return 2;
 }
 
@@ -197,4 +250,12 @@ static double Percentile(IReadOnlyList<double> ordered, double percentile)
     }
 
     return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower);
+}
+
+static void Require(bool condition, string message)
+{
+    if (!condition)
+    {
+        throw new InvalidOperationException(message);
+    }
 }

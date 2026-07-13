@@ -103,7 +103,7 @@
                             <TextBlock Text="Overlay renderer" loc:Localize.TextKey="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                             <TextBlock Margin="0,8,0,0"
-                                       Text="Renderer mode controls how the running overlay draws refreshed slot images. GPU/DXGI usually gives the smoothest overlay rendering, Improved CPU/Composited keeps more work on the CPU, and Existing CPU/WPF is a compatibility fallback. The selected mode is saved in settings.json and applies when the overlay starts."
+                                       Text="Renderer mode controls how the running overlay draws refreshed slot images. GPU/DXGI uses WGC input and usually gives the smoothest rendering. Selecting GPU/DXGI also selects WGC; choosing DXGI monitor or GDI switches to Improved CPU/Composited. Existing CPU/WPF is a compatibility fallback."
                                        loc:Localize.TextKey="renderer.mode.description"
                                        TextWrapping="Wrap"
                                        Style="{StaticResource MutedTextStyle}"/>
@@ -115,7 +115,7 @@
                             <TextBlock Text="Capture method" loc:Localize.TextKey="Capture method" Style="{StaticResource PanelTitleStyle}"/>
                             <ComboBox x:Name="CaptureBackendCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
                             <TextBlock Margin="0,8,0,0"
-                                       Text="Choose how the running overlay refreshes its slot images. DXGI captures the monitor and is the default low-friction option. GDI is a compatibility fallback. WGC captures the selected game window more directly. On supported Windows versions, the app requests borderless capture permission and hides the yellow border when allowed; the border may remain if permission is denied or unsupported."
+                                       Text="Choose how the running overlay refreshes its slot images. WGC is the default and is required by the GPU/DXGI renderer. On supported Windows versions, the app requests borderless capture permission and hides the yellow border when allowed. DXGI monitor uses Improved CPU/Composited and GDI is a compatibility fallback."
                                        loc:Localize.TextKey="capture.method.description"
                                        Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>

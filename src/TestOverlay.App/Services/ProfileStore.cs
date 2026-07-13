@@ -17,6 +17,8 @@ public sealed class ProfileStore
 
     public string DefaultProfilePath => Path.Combine(ProfileDirectory, "default.json");
 
+    public bool LastLoadRecoveredFromBackup { get; private set; }
+
     public void SetProfileDirectory(string profileDirectory)
     {
         ProfileDirectory = profileDirectory;
@@ -25,25 +27,29 @@ public sealed class ProfileStore
     public string GetProfilePath(string? profileName) =>
         Path.Combine(ProfileDirectory, $"{NormalizeProfileName(profileName)}.json");
 
-    public bool Exists(string? profileName) => File.Exists(GetProfilePath(profileName));
+    public bool Exists(string? profileName) => AtomicJsonFile.Exists(GetProfilePath(profileName));
 
     public string Save(OverlayProfile profile, string? profileName)
     {
-        Directory.CreateDirectory(ProfileDirectory);
+        OverlayProfileValidator.Validate(profile);
         var path = GetProfilePath(profileName);
-        File.WriteAllText(path, JsonSerializer.Serialize(profile, Options));
+        AtomicJsonFile.Save(path, profile, Options);
         return path;
     }
 
     public OverlayProfile? Load(string? profileName)
     {
+        LastLoadRecoveredFromBackup = false;
         var path = GetProfilePath(profileName);
-        if (!File.Exists(path))
+        var result = AtomicJsonFile.Load<OverlayProfile>(path, Options, OverlayProfileValidator.Validate);
+        if (result is null)
         {
+            LastLoadRecoveredFromBackup = false;
             return null;
         }
 
-        return JsonSerializer.Deserialize<OverlayProfile>(File.ReadAllText(path), Options);
+        LastLoadRecoveredFromBackup = result.RecoveredFromBackup;
+        return result.Value;
     }
 
     public OverlayProfile? LoadDefault() => Load("default");
@@ -56,11 +62,28 @@ public sealed class ProfileStore
         }
 
         return Directory
-            .EnumerateFiles(ProfileDirectory, "*.json", SearchOption.TopDirectoryOnly)
-            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .EnumerateFiles(ProfileDirectory, "*", SearchOption.TopDirectoryOnly)
+            .Select(GetProfileNameFromDataPath)
             .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
             .ToList();
+    }
+
+    private static string? GetProfileNameFromDataPath(string path)
+    {
+        var fileName = Path.GetFileName(path);
+        if (fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            return fileName[..^".json".Length];
+        }
+        if (fileName.EndsWith(".json.bak", StringComparison.OrdinalIgnoreCase))
+        {
+            return fileName[..^".json.bak".Length];
+        }
+
+        return null;
     }
 
     private static string NormalizeProfileName(string? profileName)

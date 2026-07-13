@@ -6,7 +6,7 @@ public sealed class AppSettings
 
     public OverlayRenderMode OverlayRenderMode { get; set; } = OverlayRenderMode.GpuDxgi;
 
-    public CaptureBackend CaptureBackend { get; set; } = CaptureBackend.DxgiDesktopDuplication;
+    public CaptureBackend CaptureBackend { get; set; } = CaptureBackend.Wgc;
 
     public string Language { get; set; } = TestOverlay.App.Services.LocalizationService.English;
 }

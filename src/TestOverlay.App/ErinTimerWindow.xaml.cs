@@ -64,6 +64,14 @@ public partial class ErinTimerWindow : UserControl, IDisposable
     public void AttachLog(AppLog log)
     {
         _log = log;
+        if (_store.LastLoadRecoveredFromBackup)
+        {
+            _log.Error("Erin timer settings were restored from backup because the primary file was invalid.", _store.LastLoadException!);
+        }
+        else if (_store.LastLoadException is not null)
+        {
+            _log.Error("Erin timer settings could not be loaded. Defaults will be used.", _store.LastLoadException);
+        }
         _log.Info($"Erin timer initialized: alarms={_settings.Alarms.Count}, settings={_store.SettingsPath}");
     }
 

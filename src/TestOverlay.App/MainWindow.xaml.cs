@@ -163,6 +163,14 @@ public partial class MainWindow : Window
     {
         _wgcCaptureService = new WgcCaptureService(_log);
         _appSettings = _settingsStore.Load();
+        if (_settingsStore.LastLoadRecoveredFromBackup)
+        {
+            _log.Error("App settings were restored from backup because the primary file was invalid.", _settingsStore.LastLoadException!);
+        }
+        else if (_settingsStore.LastLoadException is not null)
+        {
+            _log.Error("App settings could not be loaded. Defaults will be used.", _settingsStore.LastLoadException);
+        }
         LocalizationService.Instance.SetLanguage(_appSettings.Language);
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
         _detectSessionLogPath = System.IO.Path.Combine(
@@ -2609,7 +2617,19 @@ public partial class MainWindow : Window
     {
         FlushProfileAutoSave();
         var profileName = ReadProfileComboName();
-        var profile = _profileStore.Load(profileName);
+        OverlayProfile? profile;
+        try
+        {
+            profile = _profileStore.Load(profileName);
+        }
+        catch (Exception exception)
+        {
+            var path = _profileStore.GetProfilePath(profileName);
+            _log.Error($"Profile load failed: {path}.", exception);
+            SetStatus(L.F("profile.load.failed.arg", path, exception.Message));
+            return;
+        }
+
         if (profile is null)
         {
             SetStatus(L.F("No saved profile exists: {0}", _profileStore.GetProfilePath(profileName)));
@@ -2808,8 +2828,19 @@ public partial class MainWindow : Window
             RefreshInternalTimerElementPreviews();
             UpdateMonitorControlAvailability();
             RefreshMonitorDetectionVisuals();
-            _log.Info($"Profile loaded: {_profileStore.GetProfilePath(profileName)}, candidates={_candidates.Count}, slots={profile.Slots.Count}");
-            SetStatus(L.F("Profile loaded: {0} ({1} candidates, {2} slots).", _profileStore.GetProfilePath(profileName), _candidates.Count, profile.Slots.Count));
+            var path = _profileStore.GetProfilePath(profileName);
+            _log.Info(
+                $"Profile loaded: {path}, candidates={_candidates.Count}, slots={profile.Slots.Count}, " +
+                $"recoveredFromBackup={_profileStore.LastLoadRecoveredFromBackup}");
+            SetStatus(_profileStore.LastLoadRecoveredFromBackup
+                ? L.F("profile.loaded.from.backup.arg", path, _candidates.Count, profile.Slots.Count)
+                : L.F("Profile loaded: {0} ({1} candidates, {2} slots).", path, _candidates.Count, profile.Slots.Count));
+        }
+        catch (Exception exception)
+        {
+            var path = _profileStore.GetProfilePath(profileName);
+            _log.Error($"Validated profile could not be applied: {path}.", exception);
+            SetStatus(L.F("profile.apply.failed.arg", path, exception.Message));
         }
         finally
         {

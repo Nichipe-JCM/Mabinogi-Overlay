@@ -42,7 +42,7 @@ Expected:
 
 - Overlay is always on top, click-through, and non-activating.
 - Quickslots refresh from the selected live capture path.
-- GPU/DXGI works only with WGC; other backend combinations can fall back to CPU/WPF.
+- GPU/DXGI uses WGC. Selecting DXGI monitor or GDI in Settings switches the renderer to Improved CPU/Composited.
 
 ## Buff and Tuairim monitor
 

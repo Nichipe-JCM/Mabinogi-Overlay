@@ -18,31 +18,52 @@ public sealed class AppSettingsStore
 
     public string DefaultProfileDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "save");
 
+    public bool LastLoadRecoveredFromBackup { get; private set; }
+
+    public Exception? LastLoadException { get; private set; }
+
     public AppSettings Load()
     {
-        if (!File.Exists(SettingsPath))
-        {
-            return new AppSettings { ProfileDirectory = DefaultProfileDirectory };
-        }
-
         try
         {
-            var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), Options)
-                           ?? new AppSettings();
-            settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
+            var result = AtomicJsonFile.Load<AppSettings>(SettingsPath, Options);
+            var settings = result?.Value ?? new AppSettings();
+            Normalize(settings);
+            LastLoadRecoveredFromBackup = result?.RecoveredFromBackup == true;
+            LastLoadException = result?.PrimaryException;
             return settings;
         }
-        catch
+        catch (Exception exception)
         {
+            LastLoadRecoveredFromBackup = false;
+            LastLoadException = exception;
             return new AppSettings { ProfileDirectory = DefaultProfileDirectory };
         }
     }
 
     public void Save(AppSettings settings)
     {
+        Normalize(settings);
+        AtomicJsonFile.Save(SettingsPath, settings, Options);
+    }
+
+    private void Normalize(AppSettings settings)
+    {
         settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath) ?? AppContext.BaseDirectory);
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, Options));
+        settings.Language = LocalizationService.NormalizeLanguage(settings.Language);
+        if (!Enum.IsDefined(settings.OverlayRenderMode))
+        {
+            settings.OverlayRenderMode = OverlayRenderMode.GpuDxgi;
+        }
+        if (!Enum.IsDefined(settings.CaptureBackend))
+        {
+            settings.CaptureBackend = CaptureBackend.Wgc;
+        }
+        if (settings.OverlayRenderMode == OverlayRenderMode.GpuDxgi &&
+            settings.CaptureBackend != CaptureBackend.Wgc)
+        {
+            settings.CaptureBackend = CaptureBackend.Wgc;
+        }
     }
 
     public string NormalizeProfileDirectory(string? path)

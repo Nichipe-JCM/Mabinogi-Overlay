@@ -82,7 +82,7 @@ This app is a beta version. Some features may still contain bugs. Please report 
 
 The buff/Tuairim monitor and Erin timer are active development features on the current branch. Their accuracy depends on game UI scale, capture backend, map brightness, and installed Windows OCR language support.
 
-WGC capture may show the Windows capture border depending on system behavior. DXGI and GDI are available for comparison, but WGC is still the most reliable option for capturing the selected game window during setup.
+WGC is the default capture backend and the input required by the GPU/DXGI renderer. On supported Windows versions, the app requests borderless capture access and hides the Windows capture border when allowed. DXGI monitor capture uses the improved CPU/composited renderer, while GDI remains a compatibility fallback.
 
 ## Safety Boundary
 

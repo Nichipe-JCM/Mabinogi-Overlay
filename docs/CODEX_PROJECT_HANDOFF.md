@@ -78,9 +78,9 @@ App startup
 
 Capture backend behavior is intentionally different:
 
-- WGC targets the chosen game window but Windows can show a capture border.
+- WGC targets the chosen game window. On supported Windows versions, the app requests borderless capture access and disables the capture border when allowed.
 - DXGI and GDI capture desktop pixels for the selected client area; another foreground window can therefore affect their result.
-- GPU/DXGI rendering currently requires WGC and falls back to CPU/WPF for other capture backends.
+- GPU/DXGI rendering requires WGC. Settings keeps that pair together and switches DXGI/GDI selections to Improved CPU/Composited.
 
 ### Quickslot workflow
 
