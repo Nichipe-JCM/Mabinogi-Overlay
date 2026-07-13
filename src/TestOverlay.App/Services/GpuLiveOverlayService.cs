@@ -25,6 +25,7 @@ public sealed class GpuLiveOverlayService : IDisposable
     private readonly int _surfaceWidth;
     private readonly int _surfaceHeight;
     private readonly double _defaultSlotOpacity;
+    private readonly bool _borderlessCaptureAllowed;
     private readonly long _minFrameTicks;
     private readonly long _statsIntervalTicks = Stopwatch.Frequency * 5;
     private readonly Stopwatch _frameClock = Stopwatch.StartNew();
@@ -62,6 +63,7 @@ public sealed class GpuLiveOverlayService : IDisposable
         IReadOnlyList<OverlaySlot> slots,
         double defaultSlotOpacity,
         int maxFps,
+        bool borderlessCaptureAllowed,
         AppLog log)
     {
         if (overlayHandle == nint.Zero)
@@ -74,6 +76,7 @@ public sealed class GpuLiveOverlayService : IDisposable
         _surfaceHeight = Math.Max(1, surfaceHeight);
         _slots = slots;
         _defaultSlotOpacity = Math.Clamp(defaultSlotOpacity, 0, 1);
+        _borderlessCaptureAllowed = borderlessCaptureAllowed;
         _minFrameTicks = Stopwatch.Frequency / Math.Clamp(maxFps, 1, 240);
 
         _log.Info(
@@ -215,7 +218,14 @@ public sealed class GpuLiveOverlayService : IDisposable
             captureItem.Size);
         _session = _framePool.CreateCaptureSession(captureItem);
         _session.IsCursorCaptureEnabled = false;
-        TrySetSessionProperty(_session, "IsBorderRequired", false);
+        if (_borderlessCaptureAllowed)
+        {
+            TrySetSessionProperty(_session, "IsBorderRequired", false);
+        }
+        else
+        {
+            _log.Info("GPU renderer WGC session is using the system capture border because borderless access was not allowed.");
+        }
         TrySetSessionProperty(_session, "MinUpdateInterval", TimeSpan.FromMilliseconds(1000.0 / Math.Clamp(maxFps, 1, 240)));
         _framePool.FrameArrived += FramePool_FrameArrived;
         _log.Info("GPU renderer WGC initialization completed: frame pool and session ready.");
@@ -397,16 +407,28 @@ public sealed class GpuLiveOverlayService : IDisposable
             (float)(rect.X + rect.Width),
             (float)(rect.Y + rect.Height));
 
-    private static void TrySetSessionProperty(GraphicsCaptureSession session, string propertyName, object value)
+    private bool TrySetSessionProperty(GraphicsCaptureSession session, string propertyName, object value)
     {
         try
         {
             var property = typeof(GraphicsCaptureSession).GetProperty(propertyName);
-            property?.SetValue(session, value);
+            if (property is null)
+            {
+                _log.Info($"GPU renderer WGC session property is unavailable: {propertyName}.");
+                return false;
+            }
+
+            property.SetValue(session, value);
+            var effectiveValue = property.CanRead ? property.GetValue(session) : null;
+            _log.Info(
+                $"GPU renderer WGC session property applied: {propertyName}={value}, " +
+                $"effectiveValue={effectiveValue?.ToString() ?? "unavailable"}.");
+            return true;
         }
-        catch
+        catch (Exception exception)
         {
-            // Windows build or user consent can make some WGC properties unavailable.
+            _log.Error($"GPU renderer failed to apply WGC session property: {propertyName}={value}.", exception);
+            return false;
         }
     }
 

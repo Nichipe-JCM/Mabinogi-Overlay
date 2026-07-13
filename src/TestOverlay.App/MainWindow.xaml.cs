@@ -34,7 +34,7 @@ public partial class MainWindow : Window
     private readonly WindowDiscoveryService _windowDiscovery = new();
     private readonly WindowCaptureService _captureService = new();
     private readonly DxgiDesktopDuplicationCaptureService _dxgiCaptureService = new();
-    private readonly WgcCaptureService _wgcCaptureService = new();
+    private readonly WgcCaptureService _wgcCaptureService;
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
@@ -161,6 +161,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _wgcCaptureService = new WgcCaptureService(_log);
         _appSettings = _settingsStore.Load();
         LocalizationService.Instance.SetLanguage(_appSettings.Language);
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
@@ -2818,7 +2819,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void StartOverlayButton_Click(object sender, RoutedEventArgs e)
+    private async void StartOverlayButton_Click(object sender, RoutedEventArgs e)
     {
         if (_overlayWindow is not null)
         {
@@ -2835,6 +2836,29 @@ public partial class MainWindow : Window
         {
             SetStatus("No slots are placed on the overlay canvas.");
             return;
+        }
+
+        var captureBackend = CurrentCaptureBackend;
+        var hasMonitorOverlay = hasBuffOverlay || hasTuairimOverlay;
+        var requiresLiveCapture = hasSlotOverlay || (hasMonitorOverlay && !_monitorTestMode);
+        if (requiresLiveCapture &&
+            captureBackend != CaptureBackend.Wgc &&
+            _selectedWindow is null)
+        {
+            SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
+            return;
+        }
+        if (requiresLiveCapture &&
+            captureBackend == CaptureBackend.Wgc &&
+            _wgcSelection is null)
+        {
+            SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
+            return;
+        }
+
+        if (requiresLiveCapture && captureBackend == CaptureBackend.Wgc)
+        {
+            await _wgcCaptureService.EnsureBorderlessAccessAsync();
         }
 
         try
@@ -2881,25 +2905,6 @@ public partial class MainWindow : Window
 
             _liveOverlayTimer.Interval = TimeSpan.FromMilliseconds(RefreshIntervalFromFps(_refreshFps));
             _activeRenderMode = _appSettings.OverlayRenderMode;
-            var captureBackend = CurrentCaptureBackend;
-            var hasMonitorOverlay = hasBuffOverlay || hasTuairimOverlay;
-            var requiresLiveCapture = hasSlotOverlay || (hasMonitorOverlay && !_monitorTestMode);
-            if (requiresLiveCapture &&
-                captureBackend != CaptureBackend.Wgc &&
-                _selectedWindow is null)
-            {
-                StopOverlay(setStatus: false);
-                SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
-                return;
-            }
-            if (requiresLiveCapture &&
-                captureBackend == CaptureBackend.Wgc &&
-                _wgcSelection is null)
-            {
-                StopOverlay(setStatus: false);
-                SetStatus(L.F("Run Auto capture or Manual capture before starting the overlay with {0}.", L.T(CaptureBackendLabel(captureBackend))));
-                return;
-            }
 
             ResetCpuRenderStats();
             var rendererMode = RenderModeLabel(_activeRenderMode);
@@ -2922,6 +2927,7 @@ public partial class MainWindow : Window
                         _overlaySlots,
                         _overlayOpacity,
                         _refreshFps,
+                        _wgcCaptureService.IsBorderlessCaptureAllowed,
                         _log);
                     _overlayWindow.RenderSlots(Array.Empty<OverlaySlot>());
                     _gpuLiveOverlayService.Start();

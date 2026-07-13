@@ -2,10 +2,12 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TestOverlay.App.Native;
+using Windows.Foundation.Metadata;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Graphics.Imaging;
+using Windows.Security.Authorization.AppCapabilityAccess;
 using Windows.Storage.Streams;
 
 namespace TestOverlay.App.Services;
@@ -13,6 +15,10 @@ namespace TestOverlay.App.Services;
 public sealed class WgcCaptureService
 {
     private readonly object _sync = new();
+    private readonly object _borderlessAccessSync = new();
+    private readonly AppLog _log;
+    private Task<WgcBorderlessAccessState>? _borderlessAccessTask;
+    private WgcBorderlessAccessState _borderlessAccessState = WgcBorderlessAccessState.Unknown;
     private IDirect3DDevice? _liveDevice;
     private Direct3D11CaptureFramePool? _liveFramePool;
     private GraphicsCaptureSession? _liveSession;
@@ -20,10 +26,20 @@ public sealed class WgcCaptureService
     private int _isProcessingLiveFrame;
     private int _liveGeneration;
 
+    public WgcCaptureService(AppLog log)
+    {
+        _log = log;
+    }
+
     public Exception? LastLiveCaptureException { get; private set; }
+
+    public bool IsBorderlessCaptureAllowed =>
+        _borderlessAccessState == WgcBorderlessAccessState.Allowed;
 
     public async Task<BitmapSource> CaptureOnceAsync(GraphicsCaptureItem item, TimeSpan timeout)
     {
+        await EnsureBorderlessAccessAsync();
+
         using var cancellation = new CancellationTokenSource(timeout);
         var device = Direct3D11Interop.CreateDevice();
         using var framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
@@ -69,6 +85,14 @@ public sealed class WgcCaptureService
         TryDisableCaptureBorder(_liveSession);
         _liveFramePool.FrameArrived += LiveFramePool_FrameArrived;
         _liveSession.StartCapture();
+    }
+
+    public Task<WgcBorderlessAccessState> EnsureBorderlessAccessAsync()
+    {
+        lock (_borderlessAccessSync)
+        {
+            return _borderlessAccessTask ??= RequestBorderlessAccessAsync();
+        }
     }
 
     public void StopLiveCapture()
@@ -177,16 +201,73 @@ public sealed class WgcCaptureService
         return bitmap;
     }
 
-    private static void TryDisableCaptureBorder(GraphicsCaptureSession session)
+    private async Task<WgcBorderlessAccessState> RequestBorderlessAccessAsync()
     {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348) ||
+            !ApiInformation.IsTypePresent("Windows.Graphics.Capture.GraphicsCaptureAccess") ||
+            !ApiInformation.IsPropertyPresent(
+                "Windows.Graphics.Capture.GraphicsCaptureSession",
+                "IsBorderRequired"))
+        {
+            _borderlessAccessState = WgcBorderlessAccessState.Unsupported;
+            _log.Info("WGC borderless capture is unavailable on this Windows build. Capture will continue with the system border.");
+            return _borderlessAccessState;
+        }
+
+        try
+        {
+            _log.Info("Requesting user consent for WGC borderless capture.");
+            var accessStatus = await GraphicsCaptureAccess.RequestAccessAsync(GraphicsCaptureAccessKind.Borderless);
+            _borderlessAccessState = accessStatus == AppCapabilityAccessStatus.Allowed
+                ? WgcBorderlessAccessState.Allowed
+                : WgcBorderlessAccessState.Denied;
+            _log.Info($"WGC borderless capture access result: {accessStatus}.");
+        }
+        catch (Exception exception)
+        {
+            _borderlessAccessState = WgcBorderlessAccessState.Failed;
+            _log.Error(
+                "WGC borderless capture access request failed. Capture will continue with the system border.",
+                exception);
+        }
+
+        return _borderlessAccessState;
+    }
+
+    private bool TryDisableCaptureBorder(GraphicsCaptureSession session)
+    {
+        if (!IsBorderlessCaptureAllowed)
+        {
+            return false;
+        }
+
         try
         {
             var property = typeof(GraphicsCaptureSession).GetProperty("IsBorderRequired");
-            property?.SetValue(session, false);
+            if (property is null)
+            {
+                _log.Info("WGC borderless capture was allowed, but IsBorderRequired is not available on the session.");
+                return false;
+            }
+
+            property.SetValue(session, false);
+            var borderRequired = property.GetValue(session) as bool?;
+            _log.Info($"WGC capture border disabled for session: effectiveValue={borderRequired?.ToString() ?? "unknown"}.");
+            return borderRequired == false;
         }
-        catch
+        catch (Exception exception)
         {
-            // Best effort only. Older Windows builds or missing borderless consent may ignore this.
+            _log.Error("Failed to disable the WGC capture border for the session.", exception);
+            return false;
         }
     }
+}
+
+public enum WgcBorderlessAccessState
+{
+    Unknown,
+    Unsupported,
+    Allowed,
+    Denied,
+    Failed
 }
