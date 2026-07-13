@@ -58,6 +58,51 @@ public sealed class ProfileStoreTests : IDisposable
         Assert.Contains("backup-only", names);
     }
 
+    [Fact]
+    public void SaveAndLoad_RoundTripsRepresentativeWorkspaceState()
+    {
+        var store = new ProfileStore(_directory);
+        var profile = CreateValidProfile();
+        profile.Name = "representative";
+        profile.CanvasWidth = 960;
+        profile.CanvasHeight = 420;
+        profile.BuffMonitorEnabled = true;
+        profile.SelectedBuffNameKeys.Add("battlefield");
+        profile.BuffMonitorRoi = new OverlayProfileRect { X = 10, Y = 20, Width = 300, Height = 80 };
+        profile.Candidates.Add(CreateCandidate(7));
+        profile.Sections.Add(new OverlayProfileSection
+        {
+            Id = 3,
+            SeedCandidateId = 7,
+            CandidateIds = [7],
+            SmallGapX = 2,
+            SmallGapY = 5,
+            LargeGap = 16
+        });
+        profile.Slots.Add(new OverlayProfileSlot
+        {
+            SourceCandidateId = 7,
+            SourceWidth = 32,
+            SourceHeight = 32,
+            OverlayWidth = 48,
+            OverlayHeight = 48,
+            Opacity = 0.8,
+            Scale = 1.5,
+            HasOpacityOverride = true
+        });
+
+        store.Save(profile, profile.Name);
+        var loaded = store.Load(profile.Name);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(960, loaded.CanvasWidth);
+        Assert.True(loaded.BuffMonitorEnabled);
+        Assert.Equal("battlefield", Assert.Single(loaded.SelectedBuffNameKeys));
+        Assert.Equal(7, Assert.Single(loaded.Candidates).Id);
+        Assert.Equal(3, Assert.Single(loaded.Sections).Id);
+        Assert.Equal(0.8, Assert.Single(loaded.Slots).Opacity);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))
