@@ -109,6 +109,8 @@ The Buff/Tuairim tab is feature work on the current branch.
 ### Persistence and logs
 
 - `settings.json` is stored next to the executable. It stores profile directory, automatic renderer selection, renderer override, capture backend, and language.
+- Settings schema version 1 migrates legacy renderer/capture pairs: recommended pairs become automatic, while custom pairs remain manual overrides.
+- Profiles accept the legacy `TuarimMonitorEnabled` spelling for upgrade compatibility and serialize only the corrected `TuairimMonitorEnabled` property.
 - `save/<profile>.json` stores candidates, sections, layout, monitor settings, and monitor anchors.
 - `Logs/app.log` contains the current session log.
 - Missing or invalid settings fall back to defaults. Profile and settings files are directly rewritten; they are not yet atomically replaced.

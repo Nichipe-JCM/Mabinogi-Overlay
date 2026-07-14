@@ -18,6 +18,14 @@ public sealed class RuntimeConfigurationPolicyTests
     }
 
     [Fact]
+    public void AutomaticRenderer_UsesGpuDefaultForUnknownCaptureValue()
+    {
+        Assert.Equal(
+            OverlayRenderMode.GpuDxgi,
+            RuntimeConfigurationPolicy.ResolveAutomaticRenderer((CaptureBackend)999));
+    }
+
+    [Fact]
     public void RendererPreference_PairsGpuRendererWithWgc()
     {
         var result = RuntimeConfigurationPolicy.Normalize(

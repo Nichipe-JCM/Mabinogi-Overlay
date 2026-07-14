@@ -13,6 +13,7 @@ renderer.auto.summary.dxgi = Current path: DXGI monitor capture → CPU composit
 renderer.auto.summary.gdi = Current path: GDI compatibility capture → CPU compositing.
 renderer.manual.summary.gpu = Manual path: GPU acceleration. This mode requires WGC capture.
 renderer.manual.summary.gpu.incompatible = GPU acceleration cannot be used with the selected capture method. Select WGC capture or another renderer.
+renderer.automatic.active.arg = Automatic ({0})
 renderer.manual.summary.cpu = Manual path: CPU compositing.
 renderer.manual.summary.wpf = Manual path: WPF compatibility mode.
 
@@ -71,7 +72,6 @@ cpu.wpf = CPU/WPF
 improved.cpu.composited = Improved CPU/Composited
 gpu.dxgi = GPU/DXGI
 renderer.mode.is.saved.in.settings.json.and.applies.when.the.overlay.sta = Renderer mode is saved in settings.json and applies when the overlay starts.
-renderer.mode.description = Renderer mode controls how the running overlay draws refreshed slot images. GPU/DXGI uses WGC input and usually gives the smoothest rendering. Selecting GPU/DXGI also selects WGC; choosing DXGI monitor or GDI switches to Improved CPU/Composited. Existing CPU/WPF is a compatibility fallback.
 capture.method = Capture method
 wgc.window = WGC window
 dxgi.monitor = DXGI monitor

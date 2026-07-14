@@ -103,6 +103,46 @@ public sealed class ProfileStoreTests : IDisposable
         Assert.Equal(0.8, Assert.Single(loaded.Slots).Opacity);
     }
 
+    [Fact]
+    public void Load_LegacySlotsOnlyProfile_AppliesModernDefaults()
+    {
+        var store = new ProfileStore(_directory);
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(
+            store.GetProfilePath("legacy-slots"),
+            """
+            {
+              "Name": "legacy-slots",
+              "CanvasWidth": 360,
+              "CanvasHeight": 160,
+              "ScreenLeft": 120,
+              "ScreenTop": 120,
+              "Opacity": 0.8,
+              "StopHotkey": "Ctrl+Shift+F8",
+              "Slots": [
+                {
+                  "SourceX": 10,
+                  "SourceY": 20,
+                  "SourceWidth": 29,
+                  "SourceHeight": 29,
+                  "OverlayX": 0,
+                  "OverlayY": 0,
+                  "OverlayWidth": 44,
+                  "OverlayHeight": 44
+                }
+              ]
+            }
+            """);
+
+        var loaded = store.Load("legacy-slots");
+
+        Assert.NotNull(loaded);
+        Assert.Equal(30, loaded.RefreshFps);
+        Assert.Equal(29, loaded.SlotInnerWidth);
+        Assert.Empty(loaded.Candidates);
+        Assert.Equal(1, Assert.Single(loaded.Slots).Scale);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))

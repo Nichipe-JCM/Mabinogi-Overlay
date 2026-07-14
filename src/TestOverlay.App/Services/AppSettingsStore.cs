@@ -28,6 +28,7 @@ public sealed class AppSettingsStore
         {
             var result = AtomicJsonFile.Load<AppSettings>(SettingsPath, Options);
             var settings = result?.Value ?? new AppSettings();
+            AppSettingsMigration.Apply(settings);
             Normalize(settings);
             LastLoadRecoveredFromBackup = result?.RecoveredFromBackup == true;
             LastLoadException = result?.PrimaryException;
@@ -43,6 +44,7 @@ public sealed class AppSettingsStore
 
     public void Save(AppSettings settings)
     {
+        AppSettingsMigration.Apply(settings);
         Normalize(settings);
         AtomicJsonFile.Save(SettingsPath, settings, Options);
     }

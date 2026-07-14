@@ -1011,10 +1011,15 @@ public partial class MainWindow : Window
         }
 
         ScheduleProfileAutoSave();
+        var rendererStatus = _appSettings.AutomaticRendererSelection
+            ? L.F(
+                "renderer.automatic.active.arg",
+                L.T(UserRenderModeLabel(_appSettings.OverlayRenderMode)))
+            : L.T(UserRenderModeLabel(_appSettings.OverlayRenderMode));
         SetStatus(L.F(
             "Settings saved: {0}, renderer={1}, capture={2}",
             _profileStore.ProfileDirectory,
-            L.T(RenderModeLabel(_appSettings.OverlayRenderMode)),
+            rendererStatus,
             L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
     }
 
@@ -1247,6 +1252,14 @@ public partial class MainWindow : Window
             OverlayRenderMode.GpuDxgi => "GPU/DXGI",
             OverlayRenderMode.CpuComposited => "CPU/Composited",
             _ => "CPU/WPF"
+        };
+
+    private static string UserRenderModeLabel(OverlayRenderMode mode) =>
+        mode switch
+        {
+            OverlayRenderMode.GpuDxgi => "renderer.gpu.accelerated",
+            OverlayRenderMode.CpuComposited => "renderer.cpu.composited",
+            _ => "renderer.wpf.compatibility"
         };
 
     private static string CaptureBackendLabel(CaptureBackend backend) =>

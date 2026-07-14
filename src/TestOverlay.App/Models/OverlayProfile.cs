@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TestOverlay.App.Models;
 
 public sealed class OverlayProfile
@@ -27,6 +29,12 @@ public sealed class OverlayProfile
     public bool BuffMonitorEnabled { get; set; }
 
     public bool TuairimMonitorEnabled { get; set; }
+
+    [JsonPropertyName("TuarimMonitorEnabled")]
+    public bool LegacyTuarimMonitorEnabled
+    {
+        set => TuairimMonitorEnabled = value;
+    }
 
     public int BuffAlertSeconds { get; set; } = 30;
 

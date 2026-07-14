@@ -77,3 +77,12 @@ Expected:
 ## Logs and bug reports
 
 When a failure occurs, use Settings > Log and collect the current session log from `Logs/app.log`. For detection or OCR issues, include the selected capture backend, renderer, game resolution/UI scale, a screenshot if possible, and the steps that caused the issue.
+
+## Upgrade compatibility
+
+1. Start with a pre-automatic-renderer `settings.json` using WGC + GPU/DXGI and verify it migrates to automatic GPU acceleration.
+2. Start with WGC + CPU/WPF and verify the manual compatibility override is preserved.
+3. Load a profile containing the legacy `TuarimMonitorEnabled` property and verify the Tuairim monitor remains enabled.
+4. Save the migrated profile and verify it contains `TuairimMonitorEnabled` but not the legacy misspelled property.
+5. Verify that `settings.json.bak` and profile `.json.bak` recovery still works after migration.
+6. For a side-by-side portable upgrade, copy `settings.json` and `save`, then verify or change the profile directory because legacy settings store it as an absolute path.

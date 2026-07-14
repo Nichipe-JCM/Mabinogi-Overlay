@@ -2,6 +2,8 @@
 
 public sealed class AppSettings
 {
+    public int SchemaVersion { get; set; }
+
     public string ProfileDirectory { get; set; } = string.Empty;
 
     public OverlayRenderMode OverlayRenderMode { get; set; } = OverlayRenderMode.GpuDxgi;
