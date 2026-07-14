@@ -83,10 +83,45 @@ public sealed class StatusObservationControllerTests
 
         for (var index = 0; index < 5; index++)
         {
-            controller.RegisterBuffZeroConfirmation("buff", "test", "inactive");
+            controller.ObserveBuffAnchorState("buff", BuffAnchorObservationState.Inactive, "test");
         }
 
         Assert.Empty(controller.Timers);
+    }
+
+    [Fact]
+    public void Indeterminate_anchor_preserves_zero_confirmation_progress()
+    {
+        var controller = CreateController();
+        controller.ObserveBuffTime("buff", 30, "30", "test", 30, StartedAt);
+        controller.ObserveBuffAnchorState("buff", BuffAnchorObservationState.Inactive, "test");
+        controller.ObserveBuffAnchorState("buff", BuffAnchorObservationState.Inactive, "test");
+
+        var shouldReadValue = controller.ObserveBuffAnchorState(
+            "buff",
+            BuffAnchorObservationState.Indeterminate,
+            "test");
+
+        Assert.False(shouldReadValue);
+        Assert.Single(controller.Timers);
+        Assert.Equal(2, controller.Timers[0].ConsecutiveZeroConfirmations);
+    }
+
+    [Fact]
+    public void Confident_active_anchor_resets_zero_confirmation_progress()
+    {
+        var controller = CreateController();
+        controller.ObserveBuffTime("buff", 30, "30", "test", 30, StartedAt);
+        controller.ObserveBuffAnchorState("buff", BuffAnchorObservationState.Inactive, "test");
+        controller.ObserveBuffAnchorState("buff", BuffAnchorObservationState.Inactive, "test");
+
+        var shouldReadValue = controller.ObserveBuffAnchorState(
+            "buff",
+            BuffAnchorObservationState.Active,
+            "test");
+
+        Assert.True(shouldReadValue);
+        Assert.Equal(0, controller.Timers[0].ConsecutiveZeroConfirmations);
     }
 
     private static StatusObservationController CreateController() => new(new AppLog(enabled: false));

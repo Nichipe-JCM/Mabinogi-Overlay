@@ -19,6 +19,25 @@ public sealed class StatusObservationController
     public bool NeedsVerification =>
         PendingInitialBuffValidation.Count > 0 || Timers.Any(timer => timer.NeedsVerification);
 
+    public bool ObserveBuffAnchorState(
+        string nameKey,
+        BuffAnchorObservationState state,
+        string reason)
+    {
+        switch (state)
+        {
+            case BuffAnchorObservationState.Active:
+                ResetBuffZeroConfirmation(nameKey);
+                return true;
+            case BuffAnchorObservationState.Inactive:
+                PendingInitialBuffValidation.Remove(nameKey);
+                RegisterBuffZeroConfirmation(nameKey, reason, "inactive");
+                return false;
+            default:
+                return false;
+        }
+    }
+
     public TuairimObservationResult ObserveTuairimPercent(
         int observedPercent,
         string reason,
@@ -123,7 +142,7 @@ public sealed class StatusObservationController
         return new BuffObservationResult(true, timer, previousSeconds, timer.RemainingSeconds);
     }
 
-    public void RegisterBuffZeroConfirmation(string nameKey, string reason, string source)
+    private void RegisterBuffZeroConfirmation(string nameKey, string reason, string source)
     {
         var timer = Timers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
         if (timer is null)
@@ -145,16 +164,7 @@ public sealed class StatusObservationController
         }
     }
 
-    public void ResetPendingTimeObservation(string nameKey)
-    {
-        var timer = Timers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
-        if (timer is not null)
-        {
-            ClearPendingTimeObservation(timer);
-        }
-    }
-
-    public void ResetBuffZeroConfirmation(string nameKey)
+    private void ResetBuffZeroConfirmation(string nameKey)
     {
         var timer = Timers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
         if (timer is not null)

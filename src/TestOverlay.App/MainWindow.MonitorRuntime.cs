@@ -193,35 +193,26 @@ public partial class MainWindow
                 foreach (var nameKey in _selectedBuffNameKeys.ToArray())
                 {
                     var match = evaluatedMatches.FirstOrDefault(candidate => candidate.NameKey == nameKey);
-                    if (match is null)
+                    var anchorState = BuffAnchorObservationClassifier.Classify(match);
+                    if (!_statusObservations.ObserveBuffAnchorState(nameKey, anchorState, reason))
                     {
-                        _statusObservations.ResetPendingTimeObservation(nameKey);
-                        _statusObservations.ResetBuffZeroConfirmation(nameKey);
+                        // Missing or low-confidence evidence does not change validation state.
+                        // Confident inactivity is handled by the observation controller above.
                         continue;
                     }
 
-                    if (!match.IsActive && match.StateConfidence >= 0.03)
-                    {
-                        _pendingInitialBuffMinuteValidation.Remove(nameKey);
-                        _statusObservations.RegisterBuffZeroConfirmation(nameKey, reason, "inactive");
-                        continue;
-                    }
-                    if (!match.IsActive)
-                    {
-                        _pendingInitialBuffMinuteValidation.Remove(nameKey);
-                        _statusObservations.ResetBuffZeroConfirmation(nameKey);
-                        continue;
-                    }
+                    var activeMatch = match!;
 
                     var transitionedFromOff = previousMatches.TryGetValue(nameKey, out var previousMatch) &&
-                                              !previousMatch.IsActive &&
+                                              BuffAnchorObservationClassifier.Classify(previousMatch) ==
+                                              BuffAnchorObservationState.Inactive &&
                                               _internalBuffTimers.All(timer => timer.NameKey != nameKey);
                     if (transitionedFromOff)
                     {
                         _pendingInitialBuffMinuteValidation.Add(nameKey);
                     }
 
-                    var read = await _monitorValueRecognition.ReadBuffTimeAsync(frame, buffRoi, match.Bounds);
+                    var read = await _monitorValueRecognition.ReadBuffTimeAsync(frame, buffRoi, activeMatch.Bounds);
                     if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
                     {
                         return;
@@ -232,14 +223,12 @@ public partial class MainWindow
                     }
                     else
                     {
-                        _statusObservations.ResetPendingTimeObservation(nameKey);
-                        _statusObservations.ResetBuffZeroConfirmation(nameKey);
                         SaveMonitorDiagnosticOnce(frame, read.Bounds, $"buff-{SanitizeDiagnosticName(nameKey)}");
                     }
 
                     _log.Info(
-                        $"Buff OCR: reason={reason}, key={nameKey}, active={match.IsActive}, " +
-                        $"stateConfidence={match.StateConfidence:0.000}, seconds={read.RemainingSeconds?.ToString() ?? "none"}, " +
+                        $"Buff OCR: reason={reason}, key={nameKey}, state={anchorState}, " +
+                        $"stateConfidence={activeMatch.StateConfidence:0.000}, seconds={read.RemainingSeconds?.ToString() ?? "none"}, " +
                         $"bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
                 }
             }

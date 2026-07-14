@@ -72,6 +72,7 @@ App startup
 - `WgcCaptureService` captures a selected WGC item. It is the required source for the GPU renderer.
 - GPU rendering uses its own GPU capture session. When monitor OCR also needs CPU-readable WGC frames, the secondary conversion path is capped at 2 FPS instead of copying every source frame.
 - Buff anchor evaluation copies only the union of saved anchor bounds, and OCR text masks are generated lazily after the raw OCR attempt fails.
+- Buff anchors are classified as active, inactive, or indeterminate. Indeterminate samples preserve validation progress, while a separate retry policy backs persistent verification off after the initial retry burst.
 - `DxgiDesktopDuplicationCaptureService` duplicates the selected window's monitor and crops its client area.
 - `WindowCaptureService` is the GDI BitBlt fallback.
 - `GpuLiveOverlayService` uses a persistent WGC session, D3D11, D2D, DXGI swap chain, and DirectComposition to draw quickslots on the GPU.
