@@ -78,4 +78,18 @@ public sealed class AppSettingsMigrationTests
         Assert.Equal(AppSettingsMigration.CurrentSchemaVersion, settings.SchemaVersion);
         Assert.False(settings.AutomaticRendererSelection);
     }
+
+    [Fact]
+    public void Current_schema_preserves_compact_mode_preference()
+    {
+        var settings = new AppSettings
+        {
+            SchemaVersion = AppSettingsMigration.CurrentSchemaVersion,
+            CompactModeEnabled = true
+        };
+
+        AppSettingsMigration.Apply(settings);
+
+        Assert.True(settings.CompactModeEnabled);
+    }
 }

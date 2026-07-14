@@ -262,6 +262,7 @@ public partial class MainWindow : Window
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
             ErinTimerPanel.Dispose();
             _alertAudio.Dispose();
+            CloseCompactControlWindow();
             StopOverlay(setStatus: false);
             _overlayRuntime.Dispose();
         };
@@ -282,6 +283,10 @@ public partial class MainWindow : Window
         RefreshProfileList();
         LoadStartupAlertSettings();
         _log.Info("Application loaded.");
+        if (_appSettings.CompactModeEnabled)
+        {
+            Dispatcher.BeginInvoke(() => EnterCompactMode(savePreference: false));
+        }
     }
 
     private void LocalizationService_LanguageChanged(object? sender, EventArgs e)
@@ -1039,53 +1044,62 @@ public partial class MainWindow : Window
 
 
 
-    private async void StartOverlayButton_Click(object sender, RoutedEventArgs e)
+    private async void StartOverlayButton_Click(object sender, RoutedEventArgs e) => await StartOverlayAsync();
+
+    private async Task StartOverlayAsync()
     {
-        var result = await _overlayRuntime.StartAsync(
-            this,
-            new OverlayRuntimeOptions(
-                _overlaySlots,
-                _workspace.Layout,
-                CurrentCaptureBackend,
-                _appSettings.OverlayRenderMode,
-                _buffMonitorEnabled,
-                _tuairimMonitorEnabled,
-                _selectedBuffNameKeys.Count > 0,
-                _monitorTestMode));
-        switch (result.Status)
+        try
         {
-            case OverlayRuntimeStartStatus.AlreadyRunning:
-                return;
-            case OverlayRuntimeStartStatus.NoRenderableElements:
-                SetStatus("No slots are placed on the overlay canvas.");
-                return;
-            case OverlayRuntimeStartStatus.MissingCaptureSource:
-                SetStatus(L.F(
-                    "Run Auto capture or Manual capture before starting the overlay with {0}.",
-                    L.T(CaptureBackendLabel(CurrentCaptureBackend))));
-                return;
-            case OverlayRuntimeStartStatus.InvalidHotkey:
-                SetStatus("Invalid hotkey. Use a format like Ctrl+Shift+F8.");
-                return;
-            case OverlayRuntimeStartStatus.HotkeyRegistrationFailed:
-                SetStatus(L.F("Stop hotkey registration failed: {0}", _stopHotkey));
-                return;
-            case OverlayRuntimeStartStatus.ClickThroughConfigurationFailed:
-                SetStatus(L.F("Overlay click-through configuration failed: {0}", result.Detail ?? string.Empty));
-                return;
-            case OverlayRuntimeStartStatus.Failed:
-                SetStatus(L.F("Overlay start failed: {0}", result.Detail ?? string.Empty));
-                return;
-            case OverlayRuntimeStartStatus.Success:
-                StartInternalTimerOverlay();
-                UpdateMonitorControlAvailability();
-                SetStatus(L.F(
-                    "Overlay started ({0}, {1}, {2}). Stop hotkey: {3}",
-                    L.T(result.ClickThroughStatus!),
-                    L.T(CaptureBackendLabel(CurrentCaptureBackend)),
-                    L.T(result.RendererMode!),
-                    _stopHotkey));
-                return;
+            var result = await _overlayRuntime.StartAsync(
+                this,
+                new OverlayRuntimeOptions(
+                    _overlaySlots,
+                    _workspace.Layout,
+                    CurrentCaptureBackend,
+                    _appSettings.OverlayRenderMode,
+                    _buffMonitorEnabled,
+                    _tuairimMonitorEnabled,
+                    _selectedBuffNameKeys.Count > 0,
+                    _monitorTestMode));
+            switch (result.Status)
+            {
+                case OverlayRuntimeStartStatus.AlreadyRunning:
+                    return;
+                case OverlayRuntimeStartStatus.NoRenderableElements:
+                    SetStatus("No slots are placed on the overlay canvas.");
+                    return;
+                case OverlayRuntimeStartStatus.MissingCaptureSource:
+                    SetStatus(L.F(
+                        "Run Auto capture or Manual capture before starting the overlay with {0}.",
+                        L.T(CaptureBackendLabel(CurrentCaptureBackend))));
+                    return;
+                case OverlayRuntimeStartStatus.InvalidHotkey:
+                    SetStatus("Invalid hotkey. Use a format like Ctrl+Shift+F8.");
+                    return;
+                case OverlayRuntimeStartStatus.HotkeyRegistrationFailed:
+                    SetStatus(L.F("Stop hotkey registration failed: {0}", _stopHotkey));
+                    return;
+                case OverlayRuntimeStartStatus.ClickThroughConfigurationFailed:
+                    SetStatus(L.F("Overlay click-through configuration failed: {0}", result.Detail ?? string.Empty));
+                    return;
+                case OverlayRuntimeStartStatus.Failed:
+                    SetStatus(L.F("Overlay start failed: {0}", result.Detail ?? string.Empty));
+                    return;
+                case OverlayRuntimeStartStatus.Success:
+                    StartInternalTimerOverlay();
+                    UpdateMonitorControlAvailability();
+                    SetStatus(L.F(
+                        "Overlay started ({0}, {1}, {2}). Stop hotkey: {3}",
+                        L.T(result.ClickThroughStatus!),
+                        L.T(CaptureBackendLabel(CurrentCaptureBackend)),
+                        L.T(result.RendererMode!),
+                        _stopHotkey));
+                    return;
+            }
+        }
+        finally
+        {
+            RefreshCompactControlState();
         }
     }
 
@@ -1177,6 +1191,7 @@ public partial class MainWindow : Window
             _log.Info("Overlay stopped.");
             SetStatus("Overlay stopped.");
         }
+        RefreshCompactControlState();
     }
 
     private int ReadSlotInnerWidth() => ReadSlotDimension(SlotWidthBox?.Text, 29);

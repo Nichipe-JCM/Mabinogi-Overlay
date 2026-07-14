@@ -193,6 +193,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0"
                                VerticalAlignment="Center"
@@ -201,6 +202,8 @@
                                Style="{StaticResource SectionTitleStyle}"/>
                     <Button x:Name="StartOverlayButton" Grid.Column="1" MinWidth="132" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Overlay start" loc:Localize.ContentKey="Overlay start" Click="StartOverlayButton_Click"/>
                     <Button x:Name="StopOverlayLayoutButton" Grid.Column="2" MinWidth="132" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Overlay stop" loc:Localize.ContentKey="Overlay stop" Click="StopOverlayButton_Click"/>
+                    <Button Grid.Column="3" MinWidth="116" Height="36" Padding="14,0" Margin="8,0,0,0"
+                            Content="Compact mode" loc:Localize.ContentKey="compact.mode" Click="CompactModeButton_Click"/>
                 </Grid>
             </Border>
         </Grid>
@@ -817,7 +820,7 @@
                     </Grid>
                 </TabItem>
 
-                <TabItem Header="Erin Timer" loc:Localize.HeaderKey="erin.timer">
+                <TabItem x:Name="ErinTimerTabItem" Header="Erin Timer" loc:Localize.HeaderKey="erin.timer">
                     <local:ErinTimerWindow x:Name="ErinTimerPanel"/>
                 </TabItem>
 

@@ -1,0 +1,141 @@
+<Window x:Class="TestOverlay.App.CompactControlWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Compact controls"
+        loc:Localize.TitleKey="compact.title"
+        Icon="/Image/AppIcon.ico"
+        Width="480"
+        Height="560"
+        MinWidth="420"
+        MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource OverlayBgBrush}"
+        ResizeMode="CanResizeWithGrip">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" CornerRadius="0" GlassFrameThickness="0"
+                                  ResizeBorderThickness="7" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Margin="0,0,0,8" Style="{StaticResource GlassCardStyle}"
+                PreviewMouseLeftButtonDown="TitleBar_PreviewMouseLeftButtonDown">
+            <Grid Height="42" Margin="12,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Image Width="24" Height="24" Source="/Image/Logo.png" Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Text="Compact controls" loc:Localize.TextKey="compact.title"
+                           FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Width="34" Height="28" Click="MinimizeButton_Click">
+                        <TextBlock Text="&#x1F5D5;" FontFamily="Segoe UI Symbol, Segoe UI Emoji" FontWeight="Bold"
+                                   Foreground="{StaticResource OverlayAccentBrush}"/>
+                    </Button>
+                    <Button Width="34" Height="28" Margin="4,0,0,0" Click="CloseButton_Click">
+                        <TextBlock Text="&#x2715;" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Margin="0,0,0,8" Style="{StaticResource GlassCardStyle}">
+            <Grid Margin="14,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock x:Name="ProfileText" FontWeight="SemiBold" Foreground="{StaticResource OverlayTextBrush}"/>
+                    <StackPanel Margin="0,5,0,0" Orientation="Horizontal">
+                        <Ellipse x:Name="OverlayStateDot" Width="9" Height="9" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="OverlayStateText" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}"/>
+                    </StackPanel>
+                </StackPanel>
+                <Button x:Name="OverlayToggleButton" Grid.Column="1" MinWidth="112" Height="36" Padding="14,0"
+                        Click="OverlayToggleButton_Click"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource GlassCardStyle}">
+            <TabControl Margin="12" Style="{StaticResource RightPanelTabControlStyle}">
+                <TabItem Header="Overlay" loc:Localize.HeaderKey="Overlay" Style="{StaticResource MonitorTabItemStyle}">
+                    <StackPanel Margin="4,10,4,4">
+                        <Border Style="{StaticResource InsetPanelStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Overlay controls" loc:Localize.TextKey="overlay.controls" Style="{StaticResource PanelTitleStyle}"/>
+                                <TextBlock Margin="0,6,0,12" Text="Open the layout manager to adjust placement and size."
+                                           loc:Localize.TextKey="compact.layout.description" Style="{StaticResource MutedTextStyle}"/>
+                                <Button Height="38" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout"
+                                        Click="ManageLayoutButton_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </TabItem>
+
+                <TabItem Header="Buffs" loc:Localize.HeaderKey="compact.buff.tab" Style="{StaticResource MonitorTabItemStyle}">
+                    <StackPanel Margin="4,10,4,4">
+                        <TextBlock Text="Choose which configured buffs appear in the status overlay."
+                                   loc:Localize.TextKey="compact.buff.description" Style="{StaticResource MutedTextStyle}"/>
+                        <Border Margin="0,10,0,0" Style="{StaticResource InsetPanelStyle}">
+                            <StackPanel>
+                                <CheckBox x:Name="BattleBuffCheckBox" Tag="monitor.buff.battle.overture" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/BattlefieldOn.png"/><TextBlock Text="Overture of the Battlefield" loc:Localize.TextKey="monitor.buff.battle.overture"/></StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="MarchBuffCheckBox" Tag="monitor.buff.march.song" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/MarchOn.png"/><TextBlock Text="March" loc:Localize.TextKey="monitor.buff.march.song"/></StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="VivaceBuffCheckBox" Tag="monitor.buff.vivace" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/VivaceOn.png"/><TextBlock Text="Vivace" loc:Localize.TextKey="monitor.buff.vivace"/></StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="HarvestBuffCheckBox" Tag="monitor.buff.harvest.song" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/RichyearOn.png"/><TextBlock Text="Song of rich year" loc:Localize.TextKey="monitor.buff.harvest.song"/></StackPanel>
+                                </CheckBox>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock x:Name="BuffConfigurationText" Margin="2,9,2,0" Style="{StaticResource MutedTextStyle}"/>
+                        <TextBlock x:Name="TuairimConfigurationText" Margin="2,5,2,0" Style="{StaticResource MutedTextStyle}"/>
+                    </StackPanel>
+                </TabItem>
+
+                <TabItem Header="Erin Timer" loc:Localize.HeaderKey="erin.timer" Style="{StaticResource MonitorTabItemStyle}">
+                    <StackPanel Margin="4,10,4,4">
+                        <Border Style="{StaticResource InsetPanelStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Erin Timer" loc:Localize.TextKey="erin.timer" Style="{StaticResource PanelTitleStyle}"/>
+                                <TextBlock Margin="0,6,0,12" Text="Open the full Erin timer to view time and manage alarms."
+                                           loc:Localize.TextKey="compact.erin.description" Style="{StaticResource MutedTextStyle}"/>
+                                <Button Height="38" Content="Open Erin Timer" loc:Localize.ContentKey="compact.erin.open"
+                                        Click="OpenErinTimerButton_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </TabItem>
+            </TabControl>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,8,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="NoticeText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       Foreground="{StaticResource OverlayMutedBrush}"/>
+            <Button Grid.Column="1" MinWidth="124" Height="36" Padding="14,0"
+                    Content="Full mode" loc:Localize.ContentKey="compact.full.mode" Click="FullModeButton_Click"/>
+        </Grid>
+    </Grid>
+</Window>

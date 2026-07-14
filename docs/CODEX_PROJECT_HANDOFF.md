@@ -54,6 +54,7 @@ App startup
 
 ### Main UI and orchestration
 
+- `CompactControlWindow` is the small operational shell for already-configured profiles. It delegates overlay and monitor actions back to `MainWindow` and does not own a second copy of runtime state.
 - `src/TestOverlay.App/MainWindow.xaml`
   - Main application layout, top capture commands, profile/overlay controls, and tabs.
 - `src/TestOverlay.App/MainWindow.xaml.cs`

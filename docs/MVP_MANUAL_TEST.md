@@ -10,6 +10,16 @@ dotnet build src\TestOverlay.App\TestOverlay.App.csproj
 
 Expected: zero build errors.
 
+## Compact mode
+
+1. Finish capture, monitor, and layout configuration in the full window.
+2. Open Compact mode and verify that the full window is hidden and the compact window shows the active profile and overlay state.
+3. Start and stop the overlay from the compact window and verify that the state indicator and button label update.
+4. Change a previously recognized buff selection while the overlay is running and verify that the overlay restarts and monitoring continues.
+5. Open Manage Layout and verify that the full window appears only while the modal editor is open, then returns to Compact mode.
+6. Open Erin Timer and verify that the full window returns with the Erin Timer tab selected.
+7. Restart the application from Compact mode and verify that Compact mode is restored.
+
 ## Capture and quickslot workflow
 
 1. Open Mabinogi and make the intended quickslot sections visible.
