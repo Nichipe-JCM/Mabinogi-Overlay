@@ -33,7 +33,7 @@ Expected:
 2. Drag slots, use grid snap, test multi-selection, and adjust canvas size, global scale, opacity, and slot overrides.
 3. Open screen preview and place the overlay on the target monitor.
 4. Apply and close the editor.
-5. Choose a capture backend and renderer in Settings.
+5. Choose a capture backend in Settings and leave automatic renderer selection enabled.
 6. Click `Overlay start`.
 7. Click through the visible overlay onto the game and verify the game retains focus.
 8. Verify that the configured stop hotkey and `Overlay stop` both end the session.
@@ -42,7 +42,8 @@ Expected:
 
 - Overlay is always on top, click-through, and non-activating.
 - Quickslots refresh from the selected live capture path.
-- GPU/DXGI uses WGC. Selecting DXGI monitor or GDI in Settings switches the renderer to Improved CPU/Composited.
+- Automatic rendering uses GPU acceleration with WGC and CPU compositing with DXGI monitor or GDI. Manual renderer overrides are available under Advanced renderer override for troubleshooting.
+- If GPU initialization fails, verify that the runtime log reports a CPU/Composited fallback and that the overlay continues refreshing.
 
 ## Buff and Tuairim monitor
 

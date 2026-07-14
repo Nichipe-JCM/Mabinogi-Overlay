@@ -132,11 +132,11 @@ public sealed class OverlayRuntimeController : IDisposable
             }
             else if (_activeRenderMode == OverlayRenderMode.GpuDxgi)
             {
-                _activeRenderMode = OverlayRenderMode.CpuWpf;
-                rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
+                _activeRenderMode = OverlayRenderMode.CpuComposited;
+                rendererMode = $"{RenderModeLabel(OverlayRenderMode.CpuComposited)} fallback";
                 _log.Info(
                     $"GPU/DXGI renderer requested with captureBackend={options.CaptureBackend}. " +
-                    "Falling back to CPU/WPF renderer.");
+                    "Falling back to CPU/Composited renderer.");
             }
             else if (requiresLiveCapture && options.CaptureBackend == CaptureBackend.Wgc)
             {
@@ -235,11 +235,11 @@ public sealed class OverlayRuntimeController : IDisposable
             _gpuRenderer?.Dispose();
             _gpuRenderer = null;
             _log.Error(
-                "GPU live overlay renderer initialization failed. Falling back to CPU renderer.",
+                "GPU live overlay renderer initialization failed. Falling back to CPU/Composited renderer.",
                 exception);
-            _activeRenderMode = OverlayRenderMode.CpuWpf;
+            _activeRenderMode = OverlayRenderMode.CpuComposited;
             _captureSession.StartLiveWgcCapture();
-            return $"{RenderModeLabel(OverlayRenderMode.CpuWpf)} fallback";
+            return $"{RenderModeLabel(OverlayRenderMode.CpuComposited)} fallback";
         }
     }
 

@@ -4,6 +4,11 @@ namespace TestOverlay.App.Services;
 
 public static class RuntimeConfigurationPolicy
 {
+    public static OverlayRenderMode ResolveAutomaticRenderer(CaptureBackend captureBackend) =>
+        captureBackend == CaptureBackend.Wgc
+            ? OverlayRenderMode.GpuDxgi
+            : OverlayRenderMode.CpuComposited;
+
     public static RuntimeConfiguration Normalize(
         OverlayRenderMode renderMode,
         CaptureBackend captureBackend,

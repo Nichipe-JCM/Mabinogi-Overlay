@@ -62,7 +62,7 @@ App startup
 - `src/TestOverlay.App/LayoutEditorWindow.*`
   - Canvas editing, slot selection, multi-drag, snap, resize, and undo/redo.
 - `src/TestOverlay.App/SettingsWindow.*`
-  - Profile save folder, UI language, capture backend, renderer mode, benchmark, log viewer, and settings reset.
+  - Profile save folder, UI language, capture backend, automatic renderer selection, advanced renderer override, benchmark, log viewer, and settings reset.
 - `src/TestOverlay.App/ErinTimerWindow.*`
   - In-app Erin time clock and persistent alarm list.
 
@@ -80,7 +80,7 @@ Capture backend behavior is intentionally different:
 
 - WGC targets the chosen game window. On supported Windows versions, the app requests borderless capture access and disables the capture border when allowed.
 - DXGI and GDI capture desktop pixels for the selected client area; another foreground window can therefore affect their result.
-- GPU/DXGI rendering requires WGC. Settings keeps that pair together and switches DXGI/GDI selections to Improved CPU/Composited.
+- Automatic renderer selection maps WGC to GPU acceleration and DXGI/GDI to CPU compositing. GPU initialization failure also falls back to CPU compositing. Manual overrides remain under the advanced renderer section, and GPU acceleration requires WGC.
 
 ### Quickslot workflow
 
@@ -108,7 +108,7 @@ The Buff/Tuairim tab is feature work on the current branch.
 
 ### Persistence and logs
 
-- `settings.json` is stored next to the executable. It stores profile directory, renderer mode, capture backend, and language.
+- `settings.json` is stored next to the executable. It stores profile directory, automatic renderer selection, renderer override, capture backend, and language.
 - `save/<profile>.json` stores candidates, sections, layout, monitor settings, and monitor anchors.
 - `Logs/app.log` contains the current session log.
 - Missing or invalid settings fall back to defaults. Profile and settings files are directly rewritten; they are not yet atomically replaced.

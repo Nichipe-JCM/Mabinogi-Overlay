@@ -2,6 +2,20 @@
 # Language: en-US
 # Edit values after =. Keep keys unchanged.
 
+renderer.automatic.recommended = Automatic renderer selection (recommended)
+renderer.advanced.override = Advanced renderer override
+renderer.manual.description = Manual renderer selection is intended for troubleshooting. GPU acceleration is available only with WGC capture.
+renderer.gpu.accelerated = GPU acceleration
+renderer.cpu.composited = CPU compositing
+renderer.wpf.compatibility = WPF compatibility mode
+renderer.auto.summary.wgc = Current path: WGC window capture → GPU acceleration. GPU initialization failure uses CPU compositing.
+renderer.auto.summary.dxgi = Current path: DXGI monitor capture → CPU compositing.
+renderer.auto.summary.gdi = Current path: GDI compatibility capture → CPU compositing.
+renderer.manual.summary.gpu = Manual path: GPU acceleration. This mode requires WGC capture.
+renderer.manual.summary.gpu.incompatible = GPU acceleration cannot be used with the selected capture method. Select WGC capture or another renderer.
+renderer.manual.summary.cpu = Manual path: CPU compositing.
+renderer.manual.summary.wpf = Manual path: WPF compatibility mode.
+
 language.english = English
 language.korean = Korean
 mabinogi.overlay = Mabinogi Overlay
@@ -240,7 +254,7 @@ settings.load = Settings.Load
 benchmark.load = Benchmark.Load
 settings.default = Settings.Default
 layout.close = Layout.Close
-capture.method.description = Choose how the running overlay refreshes its slot images. WGC is the default and is required by the GPU/DXGI renderer. On supported Windows versions, the app requests borderless capture permission and hides the yellow border when allowed. DXGI monitor uses Improved CPU/Composited and GDI is a compatibility fallback.
+capture.method.description = Choose the capture source used by the running overlay. Automatic rendering uses GPU acceleration with WGC and CPU compositing with DXGI monitor or GDI. On supported Windows versions, WGC requests borderless capture permission and hides the yellow border when allowed.
 profile.load.failed.arg = Profile load failed: {0}. {1}
 profile.apply.failed.arg = Profile apply failed: {0}. {1}
 profile.loaded.from.backup.arg = Profile restored from backup: {0} ({1} candidates, {2} slots).

@@ -2,6 +2,20 @@
 # Language: ko-KR
 # Edit values after =. Keep keys unchanged.
 
+renderer.automatic.recommended = 렌더러 자동 선택(권장)
+renderer.advanced.override = 고급 렌더러 지정
+renderer.manual.description = 수동 렌더러 선택은 문제 해결용입니다. GPU 가속은 WGC 캡처에서만 사용할 수 있습니다.
+renderer.gpu.accelerated = GPU 가속
+renderer.cpu.composited = CPU 합성
+renderer.wpf.compatibility = WPF 호환 모드
+renderer.auto.summary.wgc = 현재 경로: WGC 창 캡처 → GPU 가속. GPU 초기화 실패 시 CPU 합성을 사용합니다.
+renderer.auto.summary.dxgi = 현재 경로: DXGI 모니터 캡처 → CPU 합성.
+renderer.auto.summary.gdi = 현재 경로: GDI 호환 캡처 → CPU 합성.
+renderer.manual.summary.gpu = 수동 경로: GPU 가속. WGC 캡처가 필요합니다.
+renderer.manual.summary.gpu.incompatible = GPU 가속은 현재 캡처 방식과 함께 사용할 수 없습니다. WGC 캡처 또는 다른 렌더러를 선택해 주세요.
+renderer.manual.summary.cpu = 수동 경로: CPU 합성.
+renderer.manual.summary.wpf = 수동 경로: WPF 호환 모드.
+
 language.english = 영어
 language.korean = 한국어
 mabinogi.overlay = Mabinogi Overlay
@@ -254,7 +268,7 @@ overlay.controls = 오버레이 조작
 benchmark.load = 부하량
 settings.default = 기본값
 layout.close = 닫기
-capture.method.description = 오버레이 출력 중 슬롯 이미지를 갱신하는 캡쳐 방식을 선택합니다. 기본값인 WGC는 GPU/DXGI 렌더러에 필요합니다. 지원되는 Windows에서는 테두리 없는 캡쳐 권한을 요청하며, 허용하면 노란 테두리를 숨깁니다. DXGI 모니터는 개선 CPU/합성을 사용하고 GDI는 호환성용 대체 방식입니다.
+capture.method.description = 오버레이 실행에 사용할 캡처 원본을 선택합니다. 렌더러 자동 선택은 WGC에서 GPU 가속을, DXGI 모니터 또는 GDI에서 CPU 합성을 사용합니다. 지원되는 Windows에서는 WGC가 테두리 없는 캡처 권한을 요청하며, 허용되면 노란 테두리를 숨깁니다.
 profile.load.failed.arg = 프로필 로드 실패: {0}. {1}
 profile.apply.failed.arg = 프로필 적용 실패: {0}. {1}
 profile.loaded.from.backup.arg = 백업에서 프로필 복구 완료: {0} (후보 {1}개, 슬롯 {2}개).

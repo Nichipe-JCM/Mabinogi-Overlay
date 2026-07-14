@@ -51,9 +51,13 @@ public sealed class AppSettingsStore
     {
         settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
         settings.Language = LocalizationService.NormalizeLanguage(settings.Language);
+        var requestedRenderMode = settings.AutomaticRendererSelection
+            ? RuntimeConfigurationPolicy.ResolveAutomaticRenderer(settings.CaptureBackend)
+            : settings.OverlayRenderMode;
         var runtime = RuntimeConfigurationPolicy.Normalize(
-            settings.OverlayRenderMode,
-            settings.CaptureBackend);
+            requestedRenderMode,
+            settings.CaptureBackend,
+            RuntimeSelectionPreference.CaptureBackend);
         settings.OverlayRenderMode = runtime.RenderMode;
         settings.CaptureBackend = runtime.CaptureBackend;
     }

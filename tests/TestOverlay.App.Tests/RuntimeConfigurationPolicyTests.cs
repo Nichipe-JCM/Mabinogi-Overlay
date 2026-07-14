@@ -6,6 +6,17 @@ namespace TestOverlay.App.Tests;
 
 public sealed class RuntimeConfigurationPolicyTests
 {
+    [Theory]
+    [InlineData(CaptureBackend.Wgc, OverlayRenderMode.GpuDxgi)]
+    [InlineData(CaptureBackend.DxgiDesktopDuplication, OverlayRenderMode.CpuComposited)]
+    [InlineData(CaptureBackend.GdiBitBlt, OverlayRenderMode.CpuComposited)]
+    public void AutomaticRenderer_UsesCompatibleRecommendedMode(
+        CaptureBackend captureBackend,
+        OverlayRenderMode expected)
+    {
+        Assert.Equal(expected, RuntimeConfigurationPolicy.ResolveAutomaticRenderer(captureBackend));
+    }
+
     [Fact]
     public void RendererPreference_PairsGpuRendererWithWgc()
     {

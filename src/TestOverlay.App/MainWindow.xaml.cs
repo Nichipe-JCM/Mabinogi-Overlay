@@ -970,6 +970,7 @@ public partial class MainWindow : Window
             _profileStore.ProfileDirectory,
             _settingsStore.DefaultProfileDirectory,
             _appSettings.OverlayRenderMode,
+            _appSettings.AutomaticRendererSelection,
             _appSettings.CaptureBackend,
             _appSettings.Language,
             _log.LogPath,
@@ -990,6 +991,7 @@ public partial class MainWindow : Window
             System.IO.Directory.CreateDirectory(directory);
             _appSettings.ProfileDirectory = directory;
             _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
+            _appSettings.AutomaticRendererSelection = dialog.AutomaticRendererSelection;
             _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
             _appSettings.Language = LocalizationService.NormalizeLanguage(dialog.SelectedLanguage);
             LocalizationService.Instance.SetLanguage(_appSettings.Language);
@@ -997,7 +999,9 @@ public partial class MainWindow : Window
             _profileStore.SetProfileDirectory(directory);
             RefreshProfileList(ReadSelectedProfileName());
             SetWindowStatusText(BuildWindowStatusText());
-            _log.Info($"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}, captureBackend={_appSettings.CaptureBackend}");
+            _log.Info(
+                $"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}, " +
+                $"automaticRenderer={_appSettings.AutomaticRendererSelection}, captureBackend={_appSettings.CaptureBackend}");
         }
         catch (Exception exception)
         {

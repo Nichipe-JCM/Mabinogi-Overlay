@@ -17,6 +17,7 @@ public partial class SettingsWindow : Window
         string profileDirectory,
         string defaultProfileDirectory,
         OverlayRenderMode selectedRenderMode,
+        bool automaticRendererSelection,
         CaptureBackend selectedCaptureBackend,
         string selectedLanguage,
         string logPath,
@@ -31,12 +32,13 @@ public partial class SettingsWindow : Window
 
         var renderModes = new List<RenderModeOption>
         {
-            new(OverlayRenderMode.CpuWpf, L.T("Existing CPU/WPF")),
-            new(OverlayRenderMode.GpuDxgi, L.T("GPU/DXGI")),
-            new(OverlayRenderMode.CpuComposited, L.T("Improved CPU/Composited"))
+            new(OverlayRenderMode.GpuDxgi, L.T("renderer.gpu.accelerated")),
+            new(OverlayRenderMode.CpuComposited, L.T("renderer.cpu.composited")),
+            new(OverlayRenderMode.CpuWpf, L.T("renderer.wpf.compatibility"))
         };
         RenderModeCombo.ItemsSource = renderModes;
         SelectRenderMode(selectedRenderMode);
+        AutomaticRendererCheckBox.IsChecked = automaticRendererSelection;
 
         var captureBackends = new List<CaptureBackendOption>
         {
@@ -46,9 +48,10 @@ public partial class SettingsWindow : Window
         };
         CaptureBackendCombo.ItemsSource = captureBackends;
         SelectCaptureBackend(selectedCaptureBackend);
-        NormalizeRuntimeSelection(preferRenderer: true);
-        RenderModeCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection(preferRenderer: true);
-        CaptureBackendCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection(preferRenderer: false);
+        NormalizeRuntimeSelection();
+        AutomaticRendererCheckBox.Click += (_, _) => NormalizeRuntimeSelection();
+        RenderModeCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection();
+        CaptureBackendCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection();
 
         var languages = new List<LanguageOption>
         {
@@ -62,6 +65,8 @@ public partial class SettingsWindow : Window
     public string ProfileDirectory { get; private set; }
 
     public OverlayRenderMode SelectedRenderMode { get; private set; }
+
+    public bool AutomaticRendererSelection { get; private set; } = true;
 
     public CaptureBackend SelectedCaptureBackend { get; private set; }
 
@@ -138,9 +143,11 @@ public partial class SettingsWindow : Window
         }
 
         ProfileDirectoryBox.Text = _defaultProfileDirectory;
+        AutomaticRendererCheckBox.IsChecked = true;
         SelectRenderMode(OverlayRenderMode.GpuDxgi);
         SelectCaptureBackend(CaptureBackend.Wgc);
         SelectLanguage(LocalizationService.English);
+        NormalizeRuntimeSelection();
     }
 
     private void Commit()
@@ -157,6 +164,7 @@ public partial class SettingsWindow : Window
             SelectedRenderMode = RenderModeCombo.SelectedItem is RenderModeOption option
                 ? option.Mode
                 : OverlayRenderMode.CpuWpf;
+            AutomaticRendererSelection = AutomaticRendererCheckBox.IsChecked == true;
             SelectedCaptureBackend = CaptureBackendCombo.SelectedItem is CaptureBackendOption captureOption
                 ? captureOption.Backend
                 : CaptureBackend.Wgc;
@@ -191,7 +199,7 @@ public partial class SettingsWindow : Window
                 .FirstOrDefault(option => option.Backend == CaptureBackend.DxgiDesktopDuplication);
     }
 
-    private void NormalizeRuntimeSelection(bool preferRenderer)
+    private void NormalizeRuntimeSelection()
     {
         if (_isNormalizingRuntimeSelection)
         {
@@ -205,27 +213,66 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var normalized = RuntimeConfigurationPolicy.Normalize(
-            renderMode.Value,
-            captureBackend.Value,
-            preferRenderer
-                ? RuntimeSelectionPreference.Renderer
-                : RuntimeSelectionPreference.CaptureBackend);
-        if (normalized.RenderMode == renderMode && normalized.CaptureBackend == captureBackend)
+        var automatic = AutomaticRendererCheckBox.IsChecked == true;
+        RenderModeCombo.IsEnabled = !automatic;
+        if (!automatic &&
+            renderMode == OverlayRenderMode.GpuDxgi &&
+            captureBackend != CaptureBackend.Wgc)
         {
+            OkButton.IsEnabled = false;
+            RendererSelectionSummaryText.Text = L.T("renderer.manual.summary.gpu.incompatible");
             return;
         }
 
-        _isNormalizingRuntimeSelection = true;
-        try
+        OkButton.IsEnabled = true;
+        var requestedRenderMode = automatic
+            ? RuntimeConfigurationPolicy.ResolveAutomaticRenderer(captureBackend.Value)
+            : renderMode.Value;
+        var normalized = RuntimeConfigurationPolicy.Normalize(
+            requestedRenderMode,
+            captureBackend.Value,
+            RuntimeSelectionPreference.CaptureBackend);
+        if (normalized.RenderMode != renderMode || normalized.CaptureBackend != captureBackend)
         {
-            SelectRenderMode(normalized.RenderMode);
-            SelectCaptureBackend(normalized.CaptureBackend);
+            _isNormalizingRuntimeSelection = true;
+            try
+            {
+                SelectRenderMode(normalized.RenderMode);
+                SelectCaptureBackend(normalized.CaptureBackend);
+            }
+            finally
+            {
+                _isNormalizingRuntimeSelection = false;
+            }
         }
-        finally
+
+        RendererSelectionSummaryText.Text = BuildRendererSelectionSummary(
+            automatic,
+            normalized.RenderMode,
+            normalized.CaptureBackend);
+    }
+
+    private static string BuildRendererSelectionSummary(
+        bool automatic,
+        OverlayRenderMode renderMode,
+        CaptureBackend captureBackend)
+    {
+        if (automatic)
         {
-            _isNormalizingRuntimeSelection = false;
+            return captureBackend switch
+            {
+                CaptureBackend.Wgc => L.T("renderer.auto.summary.wgc"),
+                CaptureBackend.DxgiDesktopDuplication => L.T("renderer.auto.summary.dxgi"),
+                _ => L.T("renderer.auto.summary.gdi")
+            };
         }
+
+        return renderMode switch
+        {
+            OverlayRenderMode.GpuDxgi => L.T("renderer.manual.summary.gpu"),
+            OverlayRenderMode.CpuComposited => L.T("renderer.manual.summary.cpu"),
+            _ => L.T("renderer.manual.summary.wpf")
+        };
     }
 
     private void SelectLanguage(string language)
