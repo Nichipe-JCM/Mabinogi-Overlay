@@ -140,7 +140,7 @@ public sealed class OverlayRuntimeController : IDisposable
             }
             else if (requiresLiveCapture && options.CaptureBackend == CaptureBackend.Wgc)
             {
-                _captureSession.StartLiveWgcCapture();
+                _captureSession.StartLiveWgcCapture(options.Layout.RefreshFps);
             }
 
             if (hasMonitorOverlay &&
@@ -148,7 +148,7 @@ public sealed class OverlayRuntimeController : IDisposable
                 options.CaptureBackend == CaptureBackend.Wgc &&
                 (_gpuRenderer is not null || !hasSlotOverlay))
             {
-                _captureSession.StartLiveWgcCapture();
+                _captureSession.StartLiveWgcCapture(maxFps: 2);
             }
 
             if (hasSlotOverlay)
@@ -238,7 +238,7 @@ public sealed class OverlayRuntimeController : IDisposable
                 "GPU live overlay renderer initialization failed. Falling back to CPU/Composited renderer.",
                 exception);
             _activeRenderMode = OverlayRenderMode.CpuComposited;
-            _captureSession.StartLiveWgcCapture();
+            _captureSession.StartLiveWgcCapture(options.Layout.RefreshFps);
             return $"{RenderModeLabel(OverlayRenderMode.CpuComposited)} fallback";
         }
     }

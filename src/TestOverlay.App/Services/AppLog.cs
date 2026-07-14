@@ -4,9 +4,20 @@ namespace TestOverlay.App.Services;
 
 public sealed class AppLog
 {
-    private readonly object _sync = new();
+    private static readonly object Sync = new();
+    private readonly bool _enabled;
 
-    public string LogDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "Logs");
+    public AppLog(string? logDirectory = null, bool enabled = true)
+    {
+        _enabled = enabled;
+        if (enabled && logDirectory is null)
+        {
+            AppDataPaths.EnsureInitialized();
+        }
+        LogDirectory = logDirectory ?? (enabled ? AppDataPaths.LogDirectory : Path.GetTempPath());
+    }
+
+    public string LogDirectory { get; }
 
     public string LogPath => Path.Combine(LogDirectory, "app.log");
 
@@ -19,7 +30,12 @@ public sealed class AppLog
 
     private void Write(string level, string message)
     {
-        lock (_sync)
+        if (!_enabled)
+        {
+            return;
+        }
+
+        lock (Sync)
         {
             Directory.CreateDirectory(LogDirectory);
             File.AppendAllText(LogPath, $"[{DateTimeOffset.Now:O}] {level} {message}{Environment.NewLine}");

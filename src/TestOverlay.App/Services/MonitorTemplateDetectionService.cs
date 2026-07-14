@@ -49,17 +49,44 @@ public sealed class MonitorTemplateDetectionService
         BitmapSource source,
         IEnumerable<BuffIconMatch> anchors)
     {
-        var image = PixelImage.FromBitmapSource(source);
+        var anchorList = anchors.ToList();
+        if (anchorList.Count == 0)
+        {
+            return [];
+        }
+
+        var union = anchorList[0].Bounds;
+        foreach (var anchor in anchorList.Skip(1))
+        {
+            union.Union(anchor.Bounds);
+        }
+
+        var left = Math.Clamp((int)Math.Floor(union.Left), 0, Math.Max(0, source.PixelWidth - 1));
+        var top = Math.Clamp((int)Math.Floor(union.Top), 0, Math.Max(0, source.PixelHeight - 1));
+        var right = Math.Clamp((int)Math.Ceiling(union.Right), left + 1, source.PixelWidth);
+        var bottom = Math.Clamp((int)Math.Ceiling(union.Bottom), top + 1, source.PixelHeight);
+        var cropped = new CroppedBitmap(
+            source,
+            new Int32Rect(left, top, right - left, bottom - top));
+        cropped.Freeze();
+        var image = PixelImage.FromBitmapSource(cropped);
         var descriptors = _catalog.Value.Buffs.ToDictionary(descriptor => descriptor.NameKey, StringComparer.Ordinal);
         var results = new List<BuffIconMatch>();
-        foreach (var anchor in anchors)
+        foreach (var anchor in anchorList)
         {
             if (!descriptors.TryGetValue(anchor.NameKey, out var descriptor))
             {
                 continue;
             }
 
-            var bounds = ClampRoi(anchor.Bounds, image.Width, image.Height);
+            var bounds = ClampRoi(
+                new Rect(
+                    anchor.Bounds.X - left,
+                    anchor.Bounds.Y - top,
+                    anchor.Bounds.Width,
+                    anchor.Bounds.Height),
+                image.Width,
+                image.Height);
             var width = Math.Max(8, (int)Math.Round(bounds.Width));
             var height = Math.Max(8, (int)Math.Round(bounds.Height));
             if (bounds.X + width > image.Width || bounds.Y + height > image.Height)
@@ -87,7 +114,7 @@ public sealed class MonitorTemplateDetectionService
             var stateConfidence = Math.Abs(onError - offError) / Math.Max(1, Math.Max(onError, offError));
             results.Add(new BuffIconMatch(
                 anchor.NameKey,
-                new Rect(x, y, width, height),
+                new Rect(x + left, y + top, width, height),
                 structureScore,
                 active,
                 stateConfidence));

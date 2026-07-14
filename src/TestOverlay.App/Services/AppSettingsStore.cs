@@ -14,9 +14,14 @@ public sealed class AppSettingsStore
         Options.Converters.Add(new JsonStringEnumConverter());
     }
 
-    public string SettingsPath { get; } = Path.Combine(AppContext.BaseDirectory, "settings.json");
+    public AppSettingsStore()
+    {
+        AppDataPaths.EnsureInitialized();
+    }
 
-    public string DefaultProfileDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "save");
+    public string SettingsPath { get; } = AppDataPaths.SettingsPath;
+
+    public string DefaultProfileDirectory { get; } = AppDataPaths.ProfilesDirectory;
 
     public bool LastLoadRecoveredFromBackup { get; private set; }
 
@@ -71,6 +76,15 @@ public sealed class AppSettingsStore
             return DefaultProfileDirectory;
         }
 
-        return Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
+        var normalized = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
+        return PathsEqual(normalized, AppDataPaths.LegacyProfilesDirectory)
+            ? DefaultProfileDirectory
+            : normalized;
     }
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(left),
+            Path.TrimEndingDirectorySeparator(right),
+            StringComparison.OrdinalIgnoreCase);
 }

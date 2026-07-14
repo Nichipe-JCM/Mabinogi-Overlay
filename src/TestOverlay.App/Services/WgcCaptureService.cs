@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -27,6 +28,8 @@ public sealed class WgcCaptureService
     private BitmapSource? _latestFrame;
     private int _processingLiveGeneration;
     private int _liveGeneration;
+    private long _minimumLiveFrameIntervalTicks;
+    private long _lastConvertedLiveFrameTicks;
 
     public WgcCaptureService(AppLog log)
     {
@@ -71,10 +74,14 @@ public sealed class WgcCaptureService
         return ToBitmapSource(softwareBitmap);
     }
 
-    public void StartLiveCapture(GraphicsCaptureItem item)
+    public void StartLiveCapture(GraphicsCaptureItem item, int maxFps = 0)
     {
         StopLiveCapture();
         var generation = Interlocked.Increment(ref _liveGeneration);
+        _minimumLiveFrameIntervalTicks = maxFps > 0
+            ? Math.Max(1, Stopwatch.Frequency / maxFps)
+            : 0;
+        _lastConvertedLiveFrameTicks = 0;
 
         _liveDevice = Direct3D11Interop.CreateDevice();
         _liveFramePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
@@ -113,6 +120,8 @@ public sealed class WgcCaptureService
         _liveFramePool = null;
         _liveDevice = null;
         _liveFrameArrivedHandler = null;
+        _minimumLiveFrameIntervalTicks = 0;
+        _lastConvertedLiveFrameTicks = 0;
         LastLiveCaptureException = null;
         lock (_sync)
         {
@@ -139,20 +148,28 @@ public sealed class WgcCaptureService
             return;
         }
 
+        using var frame = sender.TryGetNextFrame();
+        if (frame is null)
+        {
+            return;
+        }
+
+        var now = Stopwatch.GetTimestamp();
+        var minimumInterval = Volatile.Read(ref _minimumLiveFrameIntervalTicks);
+        var lastConverted = Volatile.Read(ref _lastConvertedLiveFrameTicks);
+        if (minimumInterval > 0 && lastConverted > 0 && now - lastConverted < minimumInterval)
+        {
+            return;
+        }
+
         if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
         {
-            using var droppedFrame = sender.TryGetNextFrame();
             return;
         }
 
         try
         {
-            using var frame = sender.TryGetNextFrame();
-            if (frame is null)
-            {
-                return;
-            }
-
+            Interlocked.Exchange(ref _lastConvertedLiveFrameTicks, now);
             using var softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface).AsTask().ConfigureAwait(false);
             if (generation != Volatile.Read(ref _liveGeneration))
             {

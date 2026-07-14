@@ -67,13 +67,21 @@ public sealed partial class MonitorValueRecognitionService
         Func<string?, int?> parser)
     {
         var recognized = new List<string>();
-        foreach (var candidate in new[]
-                 {
-                     crop,
-                     CreateTextMask(crop, invert: false),
-                     CreateTextMask(crop, invert: true)
-                 })
+        var rawText = NormalizeText(await RecognizeAsync(crop).ConfigureAwait(false));
+        if (!string.IsNullOrWhiteSpace(rawText))
         {
+            recognized.Add(rawText);
+        }
+
+        var rawValue = parser(rawText);
+        if (rawValue is not null)
+        {
+            return (rawText, rawValue);
+        }
+
+        foreach (var invert in new[] { false, true })
+        {
+            var candidate = CreateTextMask(crop, invert);
             var text = NormalizeText(await RecognizeAsync(candidate).ConfigureAwait(false));
             if (!string.IsNullOrWhiteSpace(text))
             {

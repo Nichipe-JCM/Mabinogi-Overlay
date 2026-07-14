@@ -16,8 +16,8 @@ public sealed class StatusObservationController
     public List<InternalBuffTimer> Timers { get; } = [];
     public HashSet<string> PendingInitialBuffValidation { get; } = new(StringComparer.Ordinal);
     public int TuairimPercent { get; private set; }
-    public bool NeedsFastRetry =>
-        PendingInitialBuffValidation.Count > 0 || Timers.Any(timer => timer.NeedsFastVerification);
+    public bool NeedsVerification =>
+        PendingInitialBuffValidation.Count > 0 || Timers.Any(timer => timer.NeedsVerification);
 
     public TuairimObservationResult ObserveTuairimPercent(
         int observedPercent,

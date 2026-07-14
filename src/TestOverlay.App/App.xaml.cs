@@ -11,6 +11,12 @@ public partial class App : Application
     public App()
     {
         Win32Methods.TryEnablePerMonitorDpiAwareness();
+        if (AppDataPaths.LastMigrationException is not null)
+        {
+            _log.Error(
+                "Portable user data migration failed. The application will continue with the LocalAppData directory.",
+                AppDataPaths.LastMigrationException);
+        }
         DispatcherUnhandledException += (_, args) =>
         {
             _log.Error("Unhandled UI exception.", args.Exception);
@@ -56,7 +62,7 @@ public partial class App : Application
             return;
         }
 
-        var mainWindow = new MainWindow();
+        var mainWindow = new MainWindow(_log);
         MainWindow = mainWindow;
         mainWindow.Show();
     }

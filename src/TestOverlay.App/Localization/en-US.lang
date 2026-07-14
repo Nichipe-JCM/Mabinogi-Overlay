@@ -14,6 +14,7 @@ renderer.auto.summary.gdi = Current path: GDI compatibility capture → CPU comp
 renderer.manual.summary.gpu = Manual path: GPU acceleration. This mode requires WGC capture.
 renderer.manual.summary.gpu.incompatible = GPU acceleration cannot be used with the selected capture method. Select WGC capture or another renderer.
 renderer.automatic.active.arg = Automatic ({0})
+profile.storage.localappdata.description = Settings, profiles, and logs are stored under the current user's LocalAppData folder. A custom profile folder can still be selected.
 renderer.manual.summary.cpu = Manual path: CPU compositing.
 renderer.manual.summary.wpf = Manual path: WPF compatibility mode.
 

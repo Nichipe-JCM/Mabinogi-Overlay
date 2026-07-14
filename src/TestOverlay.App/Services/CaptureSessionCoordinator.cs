@@ -99,14 +99,14 @@ public sealed class CaptureSessionCoordinator
     public Task<WgcBorderlessAccessState> EnsureBorderlessAccessAsync() =>
         _wgcCapture.EnsureBorderlessAccessAsync();
 
-    public void StartLiveWgcCapture()
+    public void StartLiveWgcCapture(int maxFps = 0)
     {
         if (WgcSelection is null)
         {
             throw new InvalidOperationException("No WGC capture source is selected.");
         }
 
-        _wgcCapture.StartLiveCapture(WgcSelection.Item);
+        _wgcCapture.StartLiveCapture(WgcSelection.Item, maxFps);
     }
 
     public void StopLiveWgcCapture() => _wgcCapture.StopLiveCapture();

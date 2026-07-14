@@ -32,6 +32,6 @@ public sealed class InternalBuffTimer
 
     public bool PendingObservationIsDownward { get; set; }
 
-    public bool NeedsFastVerification =>
+    public bool NeedsVerification =>
         ConsecutiveZeroConfirmations > 0 || PendingObservedSeconds is not null || RemainingSeconds <= 1;
 }

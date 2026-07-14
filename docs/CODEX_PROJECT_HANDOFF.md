@@ -43,9 +43,9 @@ Use a separate output directory because a locally running app can lock the defau
 
 ```text
 App startup
-  -> AppSettingsStore (settings.json)
+  -> AppSettingsStore (%LocalAppData%/Mabinogi Overlay/settings.json)
   -> MainWindow
-       -> ProfileStore (save/<profile>.json)
+       -> ProfileStore (%LocalAppData%/Mabinogi Overlay/Profiles/<profile>.json)
        -> capture / candidate / layout workflow
        -> status monitor workflow
        -> Erin timer tab
@@ -70,6 +70,8 @@ App startup
 
 - `WindowDiscoveryService` enumerates visible windows and prioritizes the exact `Client.exe` match.
 - `WgcCaptureService` captures a selected WGC item. It is the required source for the GPU renderer.
+- GPU rendering uses its own GPU capture session. When monitor OCR also needs CPU-readable WGC frames, the secondary conversion path is capped at 2 FPS instead of copying every source frame.
+- Buff anchor evaluation copies only the union of saved anchor bounds, and OCR text masks are generated lazily after the raw OCR attempt fails.
 - `DxgiDesktopDuplicationCaptureService` duplicates the selected window's monitor and crops its client area.
 - `WindowCaptureService` is the GDI BitBlt fallback.
 - `GpuLiveOverlayService` uses a persistent WGC session, D3D11, D2D, DXGI swap chain, and DirectComposition to draw quickslots on the GPU.
@@ -108,11 +110,12 @@ The Buff/Tuairim tab is feature work on the current branch.
 
 ### Persistence and logs
 
-- `settings.json` is stored next to the executable. It stores profile directory, automatic renderer selection, renderer override, capture backend, and language.
+- `settings.json` is stored under `%LocalAppData%\Mabinogi Overlay`. It stores profile directory, automatic renderer selection, renderer override, capture backend, and language.
 - Settings schema version 1 migrates legacy renderer/capture pairs: recommended pairs become automatic, while custom pairs remain manual overrides.
 - Profiles accept the legacy `TuarimMonitorEnabled` spelling for upgrade compatibility and serialize only the corrected `TuairimMonitorEnabled` property.
-- `save/<profile>.json` stores candidates, sections, layout, monitor settings, and monitor anchors.
-- `Logs/app.log` contains the current session log.
+- `Profiles/<profile>.json` stores candidates, sections, layout, monitor settings, and monitor anchors.
+- `Logs/app.log` contains the current session log, and `erin-timer.json` stores Erin timer settings separately from overlay profiles.
+- On first launch, portable data beside the executable is copied into LocalAppData without overwriting existing destination files or deleting the originals.
 - Missing or invalid settings fall back to defaults. Profile and settings files are directly rewritten; they are not yet atomically replaced.
 
 ## Recent Fixes

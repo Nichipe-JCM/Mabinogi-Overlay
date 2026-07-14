@@ -61,4 +61,21 @@ public sealed class AppSettingsMigrationTests
         Assert.Equal(OverlayRenderMode.GpuDxgi, settings.OverlayRenderMode);
         Assert.True(settings.AutomaticRendererSelection);
     }
+
+    [Fact]
+    public void SchemaOne_PreservesExplicitAutomaticSelection()
+    {
+        var settings = new AppSettings
+        {
+            SchemaVersion = 1,
+            CaptureBackend = CaptureBackend.Wgc,
+            OverlayRenderMode = OverlayRenderMode.GpuDxgi,
+            AutomaticRendererSelection = false
+        };
+
+        AppSettingsMigration.Apply(settings);
+
+        Assert.Equal(AppSettingsMigration.CurrentSchemaVersion, settings.SchemaVersion);
+        Assert.False(settings.AutomaticRendererSelection);
+    }
 }

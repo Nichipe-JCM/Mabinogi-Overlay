@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly OverlayRuntimeController _overlayRuntime;
     private readonly AlertAudioService _alertAudio;
     private readonly StatusObservationController _statusObservations;
+    private readonly MonitorRecognitionRetryPolicy _monitorRecognitionRetryPolicy = new();
     private readonly RoiSectionDetectionService _roiSectionDetection = new();
     private readonly MonitorTemplateDetectionService _monitorTemplateDetection = new();
     private readonly MonitorValueRecognitionService _monitorValueRecognition = new();
@@ -38,7 +39,7 @@ public partial class MainWindow : Window
     private readonly ProfileStore _profileStore;
     private readonly ProfileSession _profileSession;
     private AppSettings _appSettings;
-    private readonly AppLog _log = new();
+    private readonly AppLog _log;
     private readonly object _detectLogSync = new();
     private readonly string _detectSessionLogPath;
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
@@ -179,8 +180,9 @@ public partial class MainWindow : Window
     private int _monitorTestTuairimFullSeconds;
     private string _lastStatusMessage = string.Empty;
 
-    public MainWindow()
+    public MainWindow(AppLog? log = null)
     {
+        _log = log ?? new AppLog();
         _captureSession = new CaptureSessionCoordinator(_log);
         _overlayRuntime = new OverlayRuntimeController(_captureSession, _log);
         _alertAudio = new AlertAudioService(_log, InternalBuffTimerPreviewRenderer.BuffNameKeys);
@@ -1163,6 +1165,7 @@ public partial class MainWindow : Window
     {
         _overlayRuntime.Stop();
         _internalTimerDebugTimer.Stop();
+        _monitorRecognitionRetryPolicy.Reset();
         _pendingInitialBuffMinuteValidation.Clear();
         ResetTuairimPercentRecognitionState();
         _monitorValueRecognitionGeneration++;

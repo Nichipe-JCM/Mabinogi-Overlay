@@ -65,7 +65,7 @@ The GPU/WGC path should remain the performance reference. Future DXGI work shoul
 
 Profiles store capture-pixel coordinates, candidates, sections, overlay positions, monitor ROIs, monitor selections, and alert configuration. Profiles are intentionally tied to a compatible game UI scale and capture resolution.
 
-Global settings store profile directory, language, capture backend, and renderer selection. All values are portable by default, next to the executable.
+Global settings store profile directory, language, capture backend, and renderer selection under the current user's LocalAppData directory. Legacy portable data is imported on first launch.
 
 ## Next Technical Priorities
 

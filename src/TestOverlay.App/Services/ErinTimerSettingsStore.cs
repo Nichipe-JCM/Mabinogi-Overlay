@@ -8,7 +8,12 @@ public sealed class ErinTimerSettingsStore
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
-    public string SettingsPath { get; } = Path.Combine(AppContext.BaseDirectory, "save", "erin-timer.json");
+    public ErinTimerSettingsStore()
+    {
+        AppDataPaths.EnsureInitialized();
+    }
+
+    public string SettingsPath { get; } = AppDataPaths.ErinTimerSettingsPath;
 
     public bool LastLoadRecoveredFromBackup { get; private set; }
 

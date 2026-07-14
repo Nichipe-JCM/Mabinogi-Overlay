@@ -48,7 +48,7 @@ public sealed class StatusObservationControllerTests
 
         Assert.False(result.Accepted);
         Assert.Empty(controller.Timers);
-        Assert.True(controller.NeedsFastRetry);
+        Assert.True(controller.NeedsVerification);
     }
 
     [Fact]
@@ -89,5 +89,5 @@ public sealed class StatusObservationControllerTests
         Assert.Empty(controller.Timers);
     }
 
-    private static StatusObservationController CreateController() => new(new AppLog());
+    private static StatusObservationController CreateController() => new(new AppLog(enabled: false));
 }

@@ -4,7 +4,7 @@ namespace TestOverlay.App.Services;
 
 public static class AppSettingsMigration
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public static void Apply(AppSettings settings)
     {
@@ -14,17 +14,21 @@ public static class AppSettingsMigration
             return;
         }
 
-        var captureBackend = Enum.IsDefined(settings.CaptureBackend)
-            ? settings.CaptureBackend
-            : CaptureBackend.Wgc;
-        var renderMode = Enum.IsDefined(settings.OverlayRenderMode)
-            ? settings.OverlayRenderMode
-            : OverlayRenderMode.GpuDxgi;
+        if (settings.SchemaVersion < 1)
+        {
+            var captureBackend = Enum.IsDefined(settings.CaptureBackend)
+                ? settings.CaptureBackend
+                : CaptureBackend.Wgc;
+            var renderMode = Enum.IsDefined(settings.OverlayRenderMode)
+                ? settings.OverlayRenderMode
+                : OverlayRenderMode.GpuDxgi;
 
-        settings.CaptureBackend = captureBackend;
-        settings.OverlayRenderMode = renderMode;
-        settings.AutomaticRendererSelection =
-            renderMode == RuntimeConfigurationPolicy.ResolveAutomaticRenderer(captureBackend);
+            settings.CaptureBackend = captureBackend;
+            settings.OverlayRenderMode = renderMode;
+            settings.AutomaticRendererSelection =
+                renderMode == RuntimeConfigurationPolicy.ResolveAutomaticRenderer(captureBackend);
+        }
+
         settings.SchemaVersion = CurrentSchemaVersion;
     }
 }

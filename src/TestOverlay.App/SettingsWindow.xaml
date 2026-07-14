@@ -74,8 +74,8 @@
                                 <Button Grid.Column="2" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Default" loc:Localize.ContentKey="Default" Click="DefaultButton_Click"/>
                             </Grid>
                             <TextBlock Margin="0,8,0,0"
-                                       Text="Portable builds default to a save folder next to the executable."
-                                       loc:Localize.TextKey="Portable builds default to a save folder next to the executable."
+                                       Text="Settings, profiles, and logs are stored under the current user's LocalAppData folder. A custom profile folder can still be selected."
+                                       loc:Localize.TextKey="profile.storage.localappdata.description"
                                        TextWrapping="Wrap"
                                        Style="{StaticResource MutedTextStyle}"/>
                         </StackPanel>

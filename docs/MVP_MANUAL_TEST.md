@@ -76,7 +76,7 @@ Expected:
 
 ## Logs and bug reports
 
-When a failure occurs, use Settings > Log and collect the current session log from `Logs/app.log`. For detection or OCR issues, include the selected capture backend, renderer, game resolution/UI scale, a screenshot if possible, and the steps that caused the issue.
+When a failure occurs, use Settings > Log and collect `%LocalAppData%\Mabinogi Overlay\Logs\app.log`. For detection or OCR issues, include the selected capture backend, renderer, game resolution/UI scale, a screenshot if possible, and the steps that caused the issue.
 
 ## Upgrade compatibility
 
@@ -85,4 +85,11 @@ When a failure occurs, use Settings > Log and collect the current session log fr
 3. Load a profile containing the legacy `TuarimMonitorEnabled` property and verify the Tuairim monitor remains enabled.
 4. Save the migrated profile and verify it contains `TuairimMonitorEnabled` but not the legacy misspelled property.
 5. Verify that `settings.json.bak` and profile `.json.bak` recovery still works after migration.
-6. For a side-by-side portable upgrade, copy `settings.json` and `save`, then verify or change the profile directory because legacy settings store it as an absolute path.
+6. For a side-by-side portable upgrade, leave the legacy `settings.json`, `save`, and `Logs` beside the old executable and verify that first launch copies missing files into LocalAppData without overwriting existing user data.
+
+## Monitor capture performance
+
+1. Run WGC + automatic GPU rendering with buff monitoring enabled.
+2. Compare overlay smoothness and CPU usage with one and four selected buffs.
+3. Verify buff activation and expiration still update within the expected recognition delay.
+4. Check the log for OCR failures and confirm diagnostic images are written only once per failure kind.

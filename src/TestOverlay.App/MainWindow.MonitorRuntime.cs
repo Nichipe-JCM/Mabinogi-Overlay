@@ -27,12 +27,12 @@ public partial class MainWindow
             RefreshInternalTimerElementPreviews();
             return;
         }
-        var needsFastVerification = _statusObservations.NeedsFastRetry;
-        if (reachedVerificationPoint || needsFastVerification || now >= _nextMonitorValueRecognitionAt)
+        var needsVerification = _statusObservations.NeedsVerification;
+        if (reachedVerificationPoint || now >= _nextMonitorValueRecognitionAt)
         {
             var reason = reachedVerificationPoint
                 ? "threshold-30"
-                : needsFastVerification ? "fast-verification" : "periodic";
+                : needsVerification ? "verification" : "periodic";
             await SynchronizeMonitorValuesAsync(reason);
         }
     }
@@ -122,6 +122,7 @@ public partial class MainWindow
         _internalTimerOverlayWindow.UpdateLayout();
         _internalTimerOverlayWindow.SetTuairimPercent(_statusObservations.TuairimPercent);
         _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
+        _monitorRecognitionRetryPolicy.Reset();
         _monitorValueRecognitionGeneration++;
         _internalTimerDebugTimer.Start();
         _ = SynchronizeMonitorValuesAsync("overlay-start");
@@ -276,10 +277,9 @@ public partial class MainWindow
             _isMonitorValueRecognitionBusy = false;
             if (generation == _monitorValueRecognitionGeneration)
             {
-                var needsFastRetry = _statusObservations.NeedsFastRetry;
-                _nextMonitorValueRecognitionAt = needsFastRetry
-                    ? DateTimeOffset.UtcNow
-                    : DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
+                var needsVerification = _statusObservations.NeedsVerification;
+                var retryDelay = _monitorRecognitionRetryPolicy.CompleteAttempt(needsVerification);
+                _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.Add(retryDelay);
             }
         }
     }
