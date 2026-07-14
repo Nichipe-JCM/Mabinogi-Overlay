@@ -6,13 +6,34 @@ public partial class MainWindow
 {
     private CompactControlWindow? _compactControlWindow;
 
+    internal event EventHandler? CompactErinStateChanged
+    {
+        add => ErinTimerPanel.CompactStateChanged += value;
+        remove => ErinTimerPanel.CompactStateChanged -= value;
+    }
+
     internal CompactControlState GetCompactControlState() => new(
         ReadSelectedProfileName(),
         _overlayRuntime.IsRunning,
         _buffMonitorEnabled && _buffMonitorRoi is not null,
         _tuairimMonitorEnabled && _tuairimAnchor is not null,
+        _buffAlertsEnabled,
+        _tuairimAlertsEnabled,
         _recognizedBuffNameKeys.ToHashSet(StringComparer.Ordinal),
         _selectedBuffNameKeys.ToHashSet(StringComparer.Ordinal));
+
+    internal ErinCompactState GetCompactErinState() => ErinTimerPanel.GetCompactState();
+
+    internal void SetCompactErinAlarmEnabled(int alarmId, bool enabled) =>
+        ErinTimerPanel.SetAlarmEnabled(alarmId, enabled);
+
+    internal void SetCompactAlertsEnabled(bool buffEnabled, bool tuairimEnabled)
+    {
+        _buffAlertsEnabled = buffEnabled;
+        _tuairimAlertsEnabled = tuairimEnabled;
+        ScheduleProfileAutoSave();
+        RefreshCompactControlState();
+    }
 
     internal async Task<string?> ToggleOverlayFromCompactAsync()
     {
@@ -75,33 +96,30 @@ public partial class MainWindow
             return false;
         }
 
-        _compactControlWindow?.Hide();
-        Show();
-        WindowState = WindowState.Normal;
-        Activate();
-        Dispatcher.BeginInvoke(() =>
+        if (_compactControlWindow is null)
         {
-            OpenLayoutEditorButton_Click(OpenLayoutEditorButton, new RoutedEventArgs());
-            if (_appSettings.CompactModeEnabled)
-            {
-                EnterCompactMode(savePreference: false);
-            }
-        });
-        return true;
-    }
+            return false;
+        }
 
-    internal void OpenErinTimerFromCompact()
-    {
-        RestoreFullMode();
-        RightPanelTabs.SelectedItem = ErinTimerTabItem;
+        OpenLayoutEditor(_compactControlWindow);
+        return true;
     }
 
     internal void RestoreFullMode()
     {
         _appSettings.CompactModeEnabled = false;
         SaveCompactModePreference();
-        Show();
+        var compactBounds = _compactControlWindow is { IsVisible: true } compact
+            ? new Rect(compact.Left, compact.Top, compact.ActualWidth, compact.ActualHeight)
+            : Rect.Empty;
+        WindowStartupLocation = WindowStartupLocation.Manual;
         WindowState = WindowState.Normal;
+        if (!compactBounds.IsEmpty)
+        {
+            Left = compactBounds.Left + (compactBounds.Width - Width) / 2;
+            Top = compactBounds.Top + (compactBounds.Height - Height) / 2;
+        }
+        Show();
         Activate();
         _compactControlWindow?.Hide();
     }
@@ -117,6 +135,12 @@ public partial class MainWindow
         }
 
         _compactControlWindow ??= new CompactControlWindow(this);
+        if (IsVisible)
+        {
+            _compactControlWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+            _compactControlWindow.Left = Left + (ActualWidth - _compactControlWindow.Width) / 2;
+            _compactControlWindow.Top = Top + (ActualHeight - _compactControlWindow.Height) / 2;
+        }
         _compactControlWindow.RefreshState();
         _compactControlWindow.Show();
         _compactControlWindow.WindowState = WindowState.Normal;

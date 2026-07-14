@@ -496,6 +496,11 @@ public partial class MainWindow
             return;
         }
 
+        if (!_buffAlertsEnabled)
+        {
+            return;
+        }
+
         timer.AlertFired = true;
         _log.Info(
             $"Buff alert threshold reached: key={timer.NameKey}, threshold={threshold}, " +
@@ -515,6 +520,10 @@ public partial class MainWindow
         if (currentPercent < settings.TuairimAlertPercent)
         {
             _tuairimAlertFired = false;
+            return;
+        }
+        if (!_tuairimAlertsEnabled)
+        {
             return;
         }
         if (settings.TuairimFrequency == MonitorAlertSettings.EveryPercentFrequency)

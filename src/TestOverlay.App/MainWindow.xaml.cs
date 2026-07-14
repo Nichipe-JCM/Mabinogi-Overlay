@@ -163,6 +163,8 @@ public partial class MainWindow : Window
     }
     private bool _buffMonitorEnabled;
     private bool _tuairimMonitorEnabled;
+    private bool _buffAlertsEnabled = true;
+    private bool _tuairimAlertsEnabled = true;
     private Rect? _buffMonitorRoi;
     private Rect? _tuairimMonitorRoi;
     private Rect? _tuairimAnchor;
@@ -894,7 +896,9 @@ public partial class MainWindow : Window
         SetStatus("Candidate list cleared.");
     }
 
-    private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e)
+    private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e) => OpenLayoutEditor(this);
+
+    private void OpenLayoutEditor(Window owner)
     {
         if (_overlayRuntime.IsRunning)
         {
@@ -915,7 +919,7 @@ public partial class MainWindow : Window
             _layoutGridSnapSize,
             _overlaySlots)
         {
-            Owner = this
+            Owner = owner
         };
         void ApplyEditorState()
         {

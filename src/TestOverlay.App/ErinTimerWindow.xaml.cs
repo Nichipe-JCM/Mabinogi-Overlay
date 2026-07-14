@@ -60,6 +60,34 @@ public partial class ErinTimerWindow : UserControl, IDisposable
 
     public ObservableCollection<ErinAlarmRow> Alarms { get; } = [];
     public event Action<string>? NoticeRequested;
+    public event EventHandler? CompactStateChanged;
+
+    public ErinCompactState GetCompactState() => new(
+        GameTimeText.Text,
+        RealTimeText.Text,
+        NextAlarmText.Text,
+        _settings.Alarms
+            .Select(alarm => new ErinCompactAlarm(
+                alarm.Id,
+                string.IsNullOrWhiteSpace(alarm.Name) ? L.F("erin.alarm.default.name.arg", alarm.Id) : alarm.Name,
+                $"{alarm.Hour:00}:{alarm.Minute:00}",
+                alarm.Enabled,
+                alarm.Repeat))
+            .ToList());
+
+    public void SetAlarmEnabled(int alarmId, bool enabled)
+    {
+        var alarm = _settings.Alarms.FirstOrDefault(item => item.Id == alarmId);
+        if (alarm is null || alarm.Enabled == enabled)
+        {
+            return;
+        }
+
+        alarm.Enabled = enabled;
+        SaveSettings();
+        RefreshAlarmRows(alarmId);
+        UpdateClock(checkAlarms: false);
+    }
 
     public void AttachLog(AppLog log)
     {
@@ -107,6 +135,7 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         }
 
         UpdateNextAlarm(time.RawGameSeconds);
+        CompactStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private ErinTimeInfo GetTimeInfo()
@@ -673,3 +702,11 @@ public partial class ErinTimerWindow : UserControl, IDisposable
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool FlashWindowEx(ref FlashWindowInfo info);
 }
+
+public sealed record ErinCompactState(
+    string GameTime,
+    string RealTime,
+    string NextAlarm,
+    IReadOnlyList<ErinCompactAlarm> Alarms);
+
+public sealed record ErinCompactAlarm(int Id, string Name, string Time, bool Enabled, bool Repeat);

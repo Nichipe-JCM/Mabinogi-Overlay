@@ -32,4 +32,14 @@ public sealed class OverlayProfileCompatibilityTests
         Assert.True(document.RootElement.GetProperty("TuairimMonitorEnabled").GetBoolean());
         Assert.False(document.RootElement.TryGetProperty("TuarimMonitorEnabled", out _));
     }
+
+    [Fact]
+    public void ProfileWithoutAlertSwitches_KeepsAlertsEnabled()
+    {
+        var profile = JsonSerializer.Deserialize<OverlayProfile>("""{ "Name": "legacy" }""");
+
+        Assert.NotNull(profile);
+        Assert.True(profile.BuffAlertsEnabled);
+        Assert.True(profile.TuairimAlertsEnabled);
+    }
 }

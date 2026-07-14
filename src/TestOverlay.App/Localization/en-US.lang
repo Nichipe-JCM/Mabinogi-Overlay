@@ -402,3 +402,6 @@ compact.tuairim.not.configured = Tuairim monitoring not configured
 compact.erin.description = Open the full Erin timer to view time and manage alarms.
 compact.erin.open = Open Erin Timer
 compact.full.mode = Full mode
+compact.buff.alerts = Buff alerts
+compact.tuairim.alerts = Tuairim alerts
+compact.alerts.description = Monitoring continues while alerts are off.

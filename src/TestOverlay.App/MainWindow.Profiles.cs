@@ -58,6 +58,8 @@ public partial class MainWindow
 
         profile.BuffMonitorEnabled = _buffMonitorEnabled;
         profile.TuairimMonitorEnabled = _tuairimMonitorEnabled;
+        profile.BuffAlertsEnabled = _buffAlertsEnabled;
+        profile.TuairimAlertsEnabled = _tuairimAlertsEnabled;
         _alertAudio.WriteProfile(profile);
         profile.RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
             .Where(_recognizedBuffNameKeys.Contains)
@@ -170,6 +172,8 @@ public partial class MainWindow
             OverlayProfileMapper.ApplyLayoutAndSectionSettings(profile, _workspace, refreshFps);
         _buffMonitorEnabled = profile.BuffMonitorEnabled;
         _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
+        _buffAlertsEnabled = profile.BuffAlertsEnabled;
+        _tuairimAlertsEnabled = profile.TuairimAlertsEnabled;
         ApplyMonitorAlertSettings(profile);
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();

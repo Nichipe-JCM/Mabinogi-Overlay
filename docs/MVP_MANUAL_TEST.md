@@ -16,9 +16,11 @@ Expected: zero build errors.
 2. Open Compact mode and verify that the full window is hidden and the compact window shows the active profile and overlay state.
 3. Start and stop the overlay from the compact window and verify that the state indicator and button label update.
 4. Change a previously recognized buff selection while the overlay is running and verify that the overlay restarts and monitoring continues.
-5. Open Manage Layout and verify that the full window appears only while the modal editor is open, then returns to Compact mode.
-6. Open Erin Timer and verify that the full window returns with the Erin Timer tab selected.
-7. Restart the application from Compact mode and verify that Compact mode is restored.
+5. Open Manage Layout and verify that the full window remains hidden and the modal editor opens centered on the compact window's current monitor.
+6. Move the compact window to another monitor, select Full mode, and verify that the full window opens on that monitor.
+7. Toggle Buff alerts and Tuairim alerts off and verify that monitoring continues without visual or audio alerts.
+8. Open the Erin Timer tab and verify that the current Erin time, next alarm, and alarm enable switches update without leaving Compact mode.
+9. Restart the application from Compact mode and verify that Compact mode is restored.
 
 ## Capture and quickslot workflow
 

@@ -12,6 +12,7 @@
         Height="920"
         MinWidth="1120"
         MinHeight="760"
+        WindowStartupLocation="CenterOwner"
         Background="{StaticResource OverlayBgBrush}"
         KeyDown="Window_KeyDown">
     <shell:WindowChrome.WindowChrome>

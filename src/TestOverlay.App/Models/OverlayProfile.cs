@@ -30,6 +30,10 @@ public sealed class OverlayProfile
 
     public bool TuairimMonitorEnabled { get; set; }
 
+    public bool BuffAlertsEnabled { get; set; } = true;
+
+    public bool TuairimAlertsEnabled { get; set; } = true;
+
     [JsonPropertyName("TuarimMonitorEnabled")]
     public bool LegacyTuarimMonitorEnabled
     {

@@ -15,6 +15,7 @@ public partial class CompactControlWindow : Window
     private readonly MainWindow _host;
     private bool _closingFromHost;
     private bool _refreshing;
+    private string _erinAlarmSignature = string.Empty;
 
     public CompactControlWindow(MainWindow host)
     {
@@ -23,7 +24,12 @@ public partial class CompactControlWindow : Window
         Activated += (_, _) => RefreshState();
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
         Closing += Window_Closing;
-        Closed += (_, _) => LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
+        _host.CompactErinStateChanged += Host_CompactErinStateChanged;
+        Closed += (_, _) =>
+        {
+            LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
+            _host.CompactErinStateChanged -= Host_CompactErinStateChanged;
+        };
         RefreshState();
     }
 
@@ -42,6 +48,8 @@ public partial class CompactControlWindow : Window
             OverlayStateText.Text = L.T(state.IsOverlayRunning ? "compact.overlay.running" : "compact.overlay.stopped");
             OverlayStateDot.Fill = state.IsOverlayRunning ? RunningBrush : StoppedBrush;
             OverlayToggleButton.Content = L.T(state.IsOverlayRunning ? "Overlay stop" : "Overlay start");
+            BuffAlertsEnabledCheckBox.IsChecked = state.BuffAlertsEnabled;
+            TuairimAlertsEnabledCheckBox.IsChecked = state.TuairimAlertsEnabled;
 
             ApplyBuffState(BattleBuffCheckBox, state, "monitor.buff.battle.overture");
             ApplyBuffState(MarchBuffCheckBox, state, "monitor.buff.march.song");
@@ -53,6 +61,7 @@ public partial class CompactControlWindow : Window
             TuairimConfigurationText.Text = L.T(state.IsTuairimMonitorConfigured
                 ? "compact.tuairim.configured"
                 : "compact.tuairim.not.configured");
+            RefreshErinState();
         }
         finally
         {
@@ -115,7 +124,95 @@ public partial class CompactControlWindow : Window
         }
     }
 
-    private void OpenErinTimerButton_Click(object sender, RoutedEventArgs e) => _host.OpenErinTimerFromCompact();
+    private void AlertEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (_refreshing)
+        {
+            return;
+        }
+
+        _host.SetCompactAlertsEnabled(
+            BuffAlertsEnabledCheckBox.IsChecked == true,
+            TuairimAlertsEnabledCheckBox.IsChecked == true);
+    }
+
+    private void Host_CompactErinStateChanged(object? sender, EventArgs e)
+    {
+        if (IsVisible)
+        {
+            Dispatcher.InvokeAsync(RefreshErinState);
+        }
+    }
+
+    private void RefreshErinState()
+    {
+        var state = _host.GetCompactErinState();
+        ErinGameTimeText.Text = state.GameTime;
+        ErinRealTimeText.Text = state.RealTime;
+        ErinNextAlarmText.Text = state.NextAlarm;
+
+        var signature = string.Join('|', state.Alarms.Select(alarm =>
+            $"{alarm.Id}:{alarm.Name}:{alarm.Time}:{alarm.Enabled}:{alarm.Repeat}"));
+        if (signature == _erinAlarmSignature)
+        {
+            return;
+        }
+
+        _erinAlarmSignature = signature;
+        ErinAlarmList.Children.Clear();
+        if (state.Alarms.Count == 0)
+        {
+            ErinAlarmList.Children.Add(new TextBlock
+            {
+                Text = L.T("erin.no.alarms.registered"),
+                Foreground = (Brush)FindResource("OverlayMutedBrush")
+            });
+            return;
+        }
+
+        foreach (var alarm in state.Alarms)
+        {
+            var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var enabled = new CheckBox
+            {
+                IsChecked = alarm.Enabled,
+                Tag = alarm.Id,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            enabled.Click += ErinAlarmEnabledCheckBox_Click;
+            var name = new TextBlock
+            {
+                Text = alarm.Name,
+                Margin = new Thickness(8, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            var time = new TextBlock
+            {
+                Text = alarm.Repeat ? $"{alarm.Time} · {L.T("erin.repeat")}" : alarm.Time,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontFamily = new FontFamily("Cascadia Mono, Consolas")
+            };
+            Grid.SetColumn(enabled, 0);
+            Grid.SetColumn(name, 1);
+            Grid.SetColumn(time, 2);
+            row.Children.Add(enabled);
+            row.Children.Add(name);
+            row.Children.Add(time);
+            ErinAlarmList.Children.Add(row);
+        }
+    }
+
+    private void ErinAlarmEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { Tag: int alarmId } checkBox)
+        {
+            _host.SetCompactErinAlarmEnabled(alarmId, checkBox.IsChecked == true);
+        }
+    }
 
     private void FullModeButton_Click(object sender, RoutedEventArgs e) => _host.RestoreFullMode();
 
@@ -177,5 +274,7 @@ public sealed record CompactControlState(
     bool IsOverlayRunning,
     bool IsBuffMonitorConfigured,
     bool IsTuairimMonitorConfigured,
+    bool BuffAlertsEnabled,
+    bool TuairimAlertsEnabled,
     IReadOnlySet<string> RecognizedBuffNameKeys,
     IReadOnlySet<string> SelectedBuffNameKeys);

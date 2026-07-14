@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:TestOverlay.App.Services"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Compact controls"
-        loc:Localize.TitleKey="compact.title"
+        Title="Mabinogi Overlay"
+        loc:Localize.TitleKey="Mabinogi Overlay"
         Icon="/Image/AppIcon.ico"
         Width="480"
         Height="560"
@@ -36,16 +36,22 @@
                 </Grid.ColumnDefinitions>
                 <Image Width="24" Height="24" Source="/Image/Logo.png" Stretch="Uniform"
                        RenderOptions.BitmapScalingMode="HighQuality"/>
-                <TextBlock Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Text="Compact controls" loc:Localize.TextKey="compact.title"
-                           FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock HorizontalAlignment="Center" Text="Mabinogi Overlay" loc:Localize.TextKey="Mabinogi Overlay"
+                               FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                    <TextBlock HorizontalAlignment="Center" Text="Compact mode" loc:Localize.TextKey="compact.mode"
+                               FontSize="10" Foreground="{StaticResource OverlayMutedBrush}"/>
+                </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Width="34" Height="28" Click="MinimizeButton_Click">
-                        <TextBlock Text="&#x1F5D5;" FontFamily="Segoe UI Symbol, Segoe UI Emoji" FontWeight="Bold"
+                    <Button Width="34" Height="28" Padding="0" Click="MinimizeButton_Click">
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="{StaticResource OverlayAccentBrush}"/>
                     </Button>
-                    <Button Width="34" Height="28" Margin="4,0,0,0" Click="CloseButton_Click">
-                        <TextBlock Text="&#x2715;" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                    <Button Width="34" Height="28" Padding="0" Margin="4,0,0,0" Click="CloseButton_Click">
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{StaticResource OverlayAccentBrush}"/>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -80,6 +86,15 @@
                                            loc:Localize.TextKey="compact.layout.description" Style="{StaticResource MutedTextStyle}"/>
                                 <Button Height="38" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout"
                                         Click="ManageLayoutButton_Click"/>
+                                <Separator Margin="0,12,0,10"/>
+                                <CheckBox x:Name="BuffAlertsEnabledCheckBox" Margin="0,3"
+                                          Content="Buff alerts" loc:Localize.ContentKey="compact.buff.alerts"
+                                          Click="AlertEnabledCheckBox_Click"/>
+                                <CheckBox x:Name="TuairimAlertsEnabledCheckBox" Margin="0,6,0,3"
+                                          Content="Tuairim alerts" loc:Localize.ContentKey="compact.tuairim.alerts"
+                                          Click="AlertEnabledCheckBox_Click"/>
+                                <TextBlock Margin="0,8,0,0" Text="Monitoring continues while alerts are off."
+                                           loc:Localize.TextKey="compact.alerts.description" Style="{StaticResource MutedTextStyle}"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -115,17 +130,26 @@
                 </TabItem>
 
                 <TabItem Header="Erin Timer" loc:Localize.HeaderKey="erin.timer" Style="{StaticResource MonitorTabItemStyle}">
-                    <StackPanel Margin="4,10,4,4">
+                    <ScrollViewer Margin="4,10,4,4" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
                         <Border Style="{StaticResource InsetPanelStyle}">
                             <StackPanel>
-                                <TextBlock Text="Erin Timer" loc:Localize.TextKey="erin.timer" Style="{StaticResource PanelTitleStyle}"/>
-                                <TextBlock Margin="0,6,0,12" Text="Open the full Erin timer to view time and manage alarms."
-                                           loc:Localize.TextKey="compact.erin.description" Style="{StaticResource MutedTextStyle}"/>
-                                <Button Height="38" Content="Open Erin Timer" loc:Localize.ContentKey="compact.erin.open"
-                                        Click="OpenErinTimerButton_Click"/>
+                                <TextBlock Text="Current Erin time" loc:Localize.TextKey="erin.current.time" Style="{StaticResource PanelTitleStyle}"/>
+                                <TextBlock x:Name="ErinGameTimeText" Margin="0,6,0,0" FontSize="42"
+                                           FontFamily="Bahnschrift Light, Segoe UI Variable" Foreground="{StaticResource OverlayTextBrush}"/>
+                                <TextBlock x:Name="ErinRealTimeText" Margin="0,2,0,0" Style="{StaticResource MutedTextStyle}"/>
+                                <TextBlock x:Name="ErinNextAlarmText" Margin="0,7,0,0" TextWrapping="Wrap"
+                                           FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="0,10,0,0" Style="{StaticResource InsetPanelStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Alarms" loc:Localize.TextKey="erin.alarms" Style="{StaticResource PanelTitleStyle}"/>
+                                <StackPanel x:Name="ErinAlarmList" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
+                    </ScrollViewer>
                 </TabItem>
             </TabControl>
         </Border>
