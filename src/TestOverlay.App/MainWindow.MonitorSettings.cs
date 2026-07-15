@@ -357,13 +357,16 @@ public partial class MainWindow
         index = -1;
         return sender is Button { Tag: var tag } &&
                int.TryParse(tag?.ToString(), out index) &&
-               index is >= 0 and < 4;
+               index >= 0 &&
+               index < InternalBuffTimerPreviewRenderer.BuffNameKeys.Count;
     }
 
     private static bool TryReadSoundSlotTagIndex(object? tag, out int index)
     {
         index = -1;
-        return int.TryParse(tag?.ToString(), out index) && index is >= 0 and < 4;
+        return int.TryParse(tag?.ToString(), out index) &&
+               index >= 0 &&
+               index < InternalBuffTimerPreviewRenderer.BuffNameKeys.Count;
     }
 
     private static int ReadAlertThreshold(string? text, int minimum, int maximum, int fallback) =>

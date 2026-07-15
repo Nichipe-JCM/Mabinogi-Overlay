@@ -534,9 +534,9 @@
                 <TabItem Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="3*"/>
+                            <RowDefinition Height="*"/>
                             <RowDefinition Height="5"/>
-                            <RowDefinition Height="1*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
@@ -578,8 +578,7 @@
                                 <Grid Grid.Row="1" Margin="12,8">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
                                     <Border Grid.Row="0" Style="{StaticResource InsetPanelStyle}">
                                         <StackPanel>
@@ -666,8 +665,12 @@
                                         </StackPanel>
                                     </Border>
                                     <Border x:Name="BuffAlertSettingsPanel" Grid.Row="1" Margin="0,6,0,0" Style="{StaticResource InsetPanelStyle}">
-                                        <StackPanel>
-                                            <Grid>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/><ColumnDefinition Width="72"/>
                                                     <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
@@ -690,7 +693,8 @@
                                                     <ComboBoxItem Tag="individual" Content="Per buff" loc:Localize.ContentKey="monitor.alert.sound.mode.individual"/>
                                                 </ComboBox>
                                             </Grid>
-                                            <ScrollViewer MaxHeight="164" Margin="0,2,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <ScrollViewer x:Name="BuffAlertSoundScrollViewer" Grid.Row="1" Margin="0,2,0,0"
+                                                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                             <StackPanel>
                                             <Grid x:Name="BuffAlertSoundRow1" Margin="0,8,0,0">
                                                 <Grid.ColumnDefinitions>
@@ -773,7 +777,7 @@
                                             </Grid>
                                             </StackPanel>
                                             </ScrollViewer>
-                                        </StackPanel>
+                                        </Grid>
                                     </Border>
                                 </Grid>
                             </Grid>

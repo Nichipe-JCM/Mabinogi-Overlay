@@ -29,12 +29,13 @@ Expected: zero build errors.
 3. Enable `Buff icons only` and verify that names collapse while checkboxes, icons, and detection O/X indicators remain visible. At the normal window width, verify that all seven compact items fit on one row, the selection area becomes shorter, and the preference is retained after restart.
 4. Switch alert sounds to per-buff mode and verify that the entire list, including Battle Overture, scrolls together.
 5. Verify that the Detect buff window and Detect Tuairim UI buttons remain visible at the right edge of their card headers.
-6. Select two status buffs together and verify that the music-buff March restriction is not applied.
-7. Refresh an active status buff and verify that a large time increase is applied only after at least three seconds of consistent readings.
-8. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
-9. Keep the icon confidently inactive for at least three seconds and verify that its timer is removed.
-10. Let the timer reach zero and verify that it is removed immediately.
-11. Feed or observe an implausible large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down.
+6. Verify that per-buff sound settings use the remaining buff-card height before showing a scrollbar, and that the bottom edge of the Tuairim card remains fully visible.
+7. Select two status buffs together and verify that the music-buff March restriction is not applied.
+8. Refresh an active status buff and verify that a large time increase is applied only after at least three seconds of consistent readings.
+9. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
+10. Keep the icon confidently inactive for at least three seconds and verify that its timer is removed.
+11. Let the timer reach zero and verify that it is removed immediately.
+12. Feed or observe an implausible large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down.
 
 ## Capture and quickslot workflow
 
