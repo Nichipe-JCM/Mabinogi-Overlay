@@ -648,7 +648,7 @@ public partial class MainWindow
         foreach (var checkBox in BuffSelectionCheckBoxes())
         {
             checkBox.MinWidth = 0;
-            checkBox.Width = iconsOnly ? 64 : double.NaN;
+            checkBox.Width = double.NaN;
             checkBox.Margin = iconsOnly
                 ? new Thickness(0, 0, 6, 0)
                 : new Thickness(0, 0, 18, 0);
