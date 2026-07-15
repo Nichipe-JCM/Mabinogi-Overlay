@@ -37,6 +37,8 @@ Expected: zero build errors.
 11. Let the timer reach zero and verify that it is removed immediately.
 12. Feed or observe an isolated large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down. Then provide consistent decreasing readings for at least three seconds and verify that the timer resynchronizes.
 13. Stall the UI thread briefly while a status buff is active and verify that its countdown catches up to real elapsed time instead of losing one second per delayed timer tick.
+14. Activate several selected buffs and verify that the log reports one `Buff OCR batch` per cycle. Confirm that `fallbacks=0` during normal recognition and that only missing rows use `row-fallback`.
+15. Compare an in-game buff time with the overlay after several OCR cycles and verify that capture-to-OCR processing time does not accumulate as timer drift.
 
 ## Capture and quickslot workflow
 

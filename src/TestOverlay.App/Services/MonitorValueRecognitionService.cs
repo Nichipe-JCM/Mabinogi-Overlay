@@ -7,6 +7,7 @@ using Windows.Globalization;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
 using Windows.Storage.Streams;
+using TestOverlay.App.Models;
 
 namespace TestOverlay.App.Services;
 
@@ -14,6 +15,33 @@ public sealed partial class MonitorValueRecognitionService
 {
     private const int OcrScale = 8;
     private readonly Lazy<OcrEngine> _engine = new(CreateEngine);
+
+    public async Task<BatchBuffTimeReadResult> ReadBuffTimesAsync(
+        BitmapSource source,
+        Rect monitorRoi,
+        IReadOnlyList<BuffIconMatch> activeAnchors)
+    {
+        var columnBounds = CreateBuffTimeColumnBounds(source, monitorRoi, activeAnchors);
+        if (columnBounds.IsEmpty || activeAnchors.Count == 0)
+        {
+            return new BatchBuffTimeReadResult(new Dictionary<string, BuffTimeReadResult>(), string.Empty, columnBounds);
+        }
+
+        var crop = Crop(source, columnBounds);
+        var layout = await RecognizeLayoutAsync(crop).ConfigureAwait(false);
+        var lines = layout.Lines
+            .Select(line => line with
+            {
+                Bounds = new Rect(
+                    line.Bounds.X + columnBounds.X,
+                    line.Bounds.Y + columnBounds.Y,
+                    line.Bounds.Width,
+                    line.Bounds.Height)
+            })
+            .ToArray();
+        var reads = MatchBuffTimeLines(activeAnchors, lines);
+        return new BatchBuffTimeReadResult(reads, NormalizeText(layout.Text), columnBounds);
+    }
 
     public async Task<BuffTimeReadResult> ReadBuffTimeAsync(
         BitmapSource source,
@@ -177,10 +205,14 @@ public sealed partial class MonitorValueRecognitionService
     }
 
     private async Task<string> RecognizeAsync(BitmapSource source)
+        => (await RecognizeLayoutAsync(source).ConfigureAwait(false)).Text;
+
+    private async Task<OcrLayoutResult> RecognizeLayoutAsync(BitmapSource source)
     {
         var maxDimension = Math.Max(source.PixelWidth, source.PixelHeight);
         var scale = Math.Clamp(2400 / Math.Max(1, maxDimension), 1, OcrScale);
-        var scaled = AddPadding(Scale(source, scale), Math.Max(24, scale * 4));
+        var padding = Math.Max(24, scale * 4);
+        var scaled = AddPadding(Scale(source, scale), padding);
         using var stream = new InMemoryRandomAccessStream();
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(scaled));
@@ -194,7 +226,41 @@ public sealed partial class MonitorValueRecognitionService
             BitmapPixelFormat.Bgra8,
             BitmapAlphaMode.Premultiplied);
         var result = await _engine.Value.RecognizeAsync(bitmap);
-        return result.Text ?? string.Empty;
+        var lines = result.Lines
+            .Select(line => CreateRecognizedLine(line, scale, padding, source.PixelWidth, source.PixelHeight))
+            .Where(line => line is not null)
+            .Cast<RecognizedTextLine>()
+            .ToArray();
+        return new OcrLayoutResult(result.Text ?? string.Empty, lines);
+    }
+
+    private static RecognizedTextLine? CreateRecognizedLine(
+        OcrLine line,
+        int scale,
+        int padding,
+        int sourceWidth,
+        int sourceHeight)
+    {
+        if (line.Words.Count == 0)
+        {
+            return null;
+        }
+
+        var left = line.Words.Min(word => word.BoundingRect.X);
+        var top = line.Words.Min(word => word.BoundingRect.Y);
+        var right = line.Words.Max(word => word.BoundingRect.X + word.BoundingRect.Width);
+        var bottom = line.Words.Max(word => word.BoundingRect.Y + word.BoundingRect.Height);
+        var bounds = ClampRect(
+            new Rect(
+                (left - padding) / scale,
+                (top - padding) / scale,
+                (right - left) / scale,
+                (bottom - top) / scale),
+            sourceWidth,
+            sourceHeight);
+        return bounds.IsEmpty
+            ? null
+            : new RecognizedTextLine(NormalizeText(line.Text), bounds);
     }
 
     private static OcrEngine CreateEngine()
@@ -220,6 +286,72 @@ public sealed partial class MonitorValueRecognitionService
             monitorRoi.Bottom,
             iconBounds.Bottom + Math.Max(3, iconBounds.Height * 0.3));
         return ClampRect(new Rect(left, top, right - left, bottom - top), source.PixelWidth, source.PixelHeight);
+    }
+
+    private static Rect CreateBuffTimeColumnBounds(
+        BitmapSource source,
+        Rect monitorRoi,
+        IReadOnlyList<BuffIconMatch> anchors)
+    {
+        if (anchors.Count == 0)
+        {
+            return Rect.Empty;
+        }
+
+        var averageIconHeight = anchors.Average(anchor => anchor.Bounds.Height);
+        var left = Math.Max(
+            monitorRoi.Left + monitorRoi.Width * 0.52,
+            anchors.Max(anchor => anchor.Bounds.Right) + Math.Max(4, averageIconHeight * 0.5));
+        var top = anchors.Min(anchor => anchor.Bounds.Top) - Math.Max(3, averageIconHeight * 0.35);
+        var right = monitorRoi.Right;
+        var bottom = anchors.Max(anchor => anchor.Bounds.Bottom) + Math.Max(4, averageIconHeight * 0.4);
+        return ClampRect(new Rect(left, top, right - left, bottom - top), source.PixelWidth, source.PixelHeight);
+    }
+
+    internal static IReadOnlyDictionary<string, BuffTimeReadResult> MatchBuffTimeLines(
+        IReadOnlyList<BuffIconMatch> anchors,
+        IReadOnlyList<RecognizedTextLine> lines)
+    {
+        var candidates = lines
+            .Select((line, index) => new
+            {
+                Index = index,
+                Line = line,
+                Seconds = ParseDurationSeconds(line.Text)
+            })
+            .Where(candidate => candidate.Seconds is not null)
+            .ToArray();
+        var usedLines = new HashSet<int>();
+        var usedAnchors = new HashSet<string>(StringComparer.Ordinal);
+        var results = new Dictionary<string, BuffTimeReadResult>(StringComparer.Ordinal);
+        var matches = anchors
+            .SelectMany(anchor => candidates.Select(candidate => new
+            {
+                Anchor = anchor,
+                Candidate = candidate,
+                Distance = Math.Abs(
+                    candidate.Line.Bounds.Top + candidate.Line.Bounds.Height / 2 -
+                    (anchor.Bounds.Top + anchor.Bounds.Height / 2))
+            }))
+            .Where(match => match.Distance <= Math.Max(10, match.Anchor.Bounds.Height * 1.25))
+            .OrderBy(match => match.Distance)
+            .ToArray();
+        foreach (var match in matches)
+        {
+            if (usedAnchors.Contains(match.Anchor.NameKey) || usedLines.Contains(match.Candidate.Index))
+            {
+                continue;
+            }
+
+            usedAnchors.Add(match.Anchor.NameKey);
+            usedLines.Add(match.Candidate.Index);
+            results[match.Anchor.NameKey] = new BuffTimeReadResult(
+                match.Candidate.Seconds,
+                match.Candidate.Line.Text,
+                match.Candidate.Line.Bounds);
+        }
+
+        return results;
     }
 
     private static Rect CreateTuairimPercentBounds(BitmapSource source, Rect anchorBounds)
@@ -410,5 +542,14 @@ public sealed partial class MonitorValueRecognitionService
 }
 
 public sealed record BuffTimeReadResult(int? RemainingSeconds, string RecognizedText, Rect Bounds);
+
+public sealed record BatchBuffTimeReadResult(
+    IReadOnlyDictionary<string, BuffTimeReadResult> Reads,
+    string RecognizedText,
+    Rect Bounds);
+
+internal sealed record RecognizedTextLine(string Text, Rect Bounds);
+
+internal sealed record OcrLayoutResult(string Text, IReadOnlyList<RecognizedTextLine> Lines);
 
 public sealed record TuairimPercentReadResult(int? Percent, string RecognizedText, Rect Bounds);

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -188,6 +189,7 @@ public partial class MainWindow
             _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
             return;
         }
+        var frameCapturedAt = DateTimeOffset.UtcNow;
 
         _isMonitorValueRecognitionBusy = true;
         var generation = _monitorValueRecognitionGeneration;
@@ -207,6 +209,7 @@ public partial class MainWindow
                     _buffIconMatches[match.NameKey] = match;
                 }
 
+                var activeMatches = new List<BuffIconMatch>();
                 foreach (var nameKey in _selectedBuffNameKeys.ToArray())
                 {
                     var match = evaluatedMatches.FirstOrDefault(candidate => candidate.NameKey == nameKey);
@@ -229,14 +232,40 @@ public partial class MainWindow
                         _pendingInitialBuffMinuteValidation.Add(nameKey);
                     }
 
-                    var read = await _monitorValueRecognition.ReadBuffTimeAsync(frame, buffRoi, activeMatch.Bounds);
-                    if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                    activeMatches.Add(activeMatch);
+                }
+
+                var batchStartedAt = Stopwatch.GetTimestamp();
+                var batch = await _monitorValueRecognition.ReadBuffTimesAsync(frame, buffRoi, activeMatches);
+                var batchElapsed = Stopwatch.GetElapsedTime(batchStartedAt);
+                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                {
+                    return;
+                }
+
+                _log.Info(
+                    $"Buff OCR batch: reason={reason}, active={activeMatches.Count}, matched={batch.Reads.Count}, " +
+                    $"elapsedMs={batchElapsed.TotalMilliseconds:0}, bounds={FormatRect(batch.Bounds)}, text={batch.RecognizedText}");
+                var fallbackCount = 0;
+                foreach (var activeMatch in activeMatches)
+                {
+                    var nameKey = activeMatch.NameKey;
+                    var usedFallback = false;
+                    if (!batch.Reads.TryGetValue(nameKey, out var read))
                     {
-                        return;
+                        usedFallback = true;
+                        fallbackCount++;
+                        read = await _monitorValueRecognition.ReadBuffTimeAsync(frame, buffRoi, activeMatch.Bounds);
+                        if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                        {
+                            return;
+                        }
                     }
+
                     if (read.RemainingSeconds is int remainingSeconds)
                     {
-                        ApplyBuffTimeObservation(nameKey, remainingSeconds, read.RecognizedText, reason);
+                        var compensatedSeconds = CompensateCapturedTimerValue(remainingSeconds, frameCapturedAt);
+                        ApplyBuffTimeObservation(nameKey, compensatedSeconds, read.RecognizedText, reason);
                     }
                     else
                     {
@@ -244,10 +273,14 @@ public partial class MainWindow
                     }
 
                     _log.Info(
-                        $"Buff OCR: reason={reason}, key={nameKey}, state={anchorState}, " +
+                        $"Buff OCR: reason={reason}, key={nameKey}, source={(usedFallback ? "row-fallback" : "batch")}, " +
                         $"stateConfidence={activeMatch.StateConfidence:0.000}, seconds={read.RemainingSeconds?.ToString() ?? "none"}, " +
                         $"bounds={FormatRect(read.Bounds)}, text={read.RecognizedText}");
                 }
+                _log.Info(
+                    $"Buff OCR cycle complete: reason={reason}, active={activeMatches.Count}, " +
+                    $"batchMatched={batch.Reads.Count}, fallbacks={fallbackCount}, " +
+                    $"elapsedMs={Stopwatch.GetElapsedTime(batchStartedAt).TotalMilliseconds:0}");
             }
 
             if (shouldReadTuairim && _tuairimAnchor is Rect tuairimAnchor)
@@ -327,6 +360,19 @@ public partial class MainWindow
     }
     private BitmapSource? CaptureMonitorFrame()
         => _captureSession.CaptureCurrentFrame(CurrentCaptureBackend);
+
+    private static int CompensateCapturedTimerValue(int capturedSeconds, DateTimeOffset capturedAt)
+    {
+        if (capturedSeconds <= 0)
+        {
+            return 0;
+        }
+
+        var elapsedSeconds = Math.Max(
+            0,
+            (int)Math.Floor((DateTimeOffset.UtcNow - capturedAt).TotalSeconds));
+        return Math.Max(1, capturedSeconds - elapsedSeconds);
+    }
 
     private void SaveMonitorDiagnosticOnce(BitmapSource source, Rect bounds, string kind)
     {
