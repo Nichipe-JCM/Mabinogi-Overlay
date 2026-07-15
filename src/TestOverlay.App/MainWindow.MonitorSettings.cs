@@ -616,6 +616,32 @@ public partial class MainWindow
         ScheduleProfileAutoSave();
     }
 
+    private void BuffIconsOnlyCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _appSettings.BuffIconsOnly = BuffIconsOnlyCheckBox.IsChecked == true;
+        ApplyBuffSelectionDisplayMode();
+        try
+        {
+            _settingsStore.Save(_appSettings);
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Buff icon-only preference could not be saved.", exception);
+        }
+    }
+
+    private void ApplyBuffSelectionDisplayMode()
+    {
+        var visibility = _appSettings.BuffIconsOnly ? Visibility.Collapsed : Visibility.Visible;
+        BattleOvertureBuffNameText.Visibility = visibility;
+        MarchSongBuffNameText.Visibility = visibility;
+        VivaceBuffNameText.Visibility = visibility;
+        HarvestSongBuffNameText.Visibility = visibility;
+        DivineLinkBuffNameText.Visibility = visibility;
+        ConditionSupportBuffNameText.Visibility = visibility;
+        PurificationWaveBuffNameText.Visibility = visibility;
+    }
+
     private void ApplyRecognizedBuffs(IEnumerable<string> nameKeys)
     {
         _recognizedBuffNameKeys.Clear();
@@ -675,7 +701,32 @@ public partial class MainWindow
             }
 
             checkBox.IsChecked = _selectedBuffNameKeys.Contains(nameKey);
+            var statusText = DetectionStatusTextFor(nameKey);
+            if (statusText is not null)
+            {
+                ApplyDetectionStatus(statusText, _recognizedBuffNameKeys.Contains(nameKey));
+            }
         }
+    }
+
+    private TextBlock? DetectionStatusTextFor(string nameKey) => nameKey switch
+    {
+        MonitoredBuffCatalog.BattleOverture => BattleOvertureDetectionStatusText,
+        MonitoredBuffCatalog.MarchSong => MarchSongDetectionStatusText,
+        MonitoredBuffCatalog.Vivace => VivaceDetectionStatusText,
+        MonitoredBuffCatalog.HarvestSong => HarvestSongDetectionStatusText,
+        MonitoredBuffCatalog.DivineLink => DivineLinkDetectionStatusText,
+        MonitoredBuffCatalog.ConditionSupport => ConditionSupportDetectionStatusText,
+        MonitoredBuffCatalog.PurificationWave => PurificationWaveDetectionStatusText,
+        _ => null
+    };
+
+    private static void ApplyDetectionStatus(TextBlock textBlock, bool detected)
+    {
+        textBlock.Text = detected ? "O" : "X";
+        textBlock.Foreground = detected
+            ? System.Windows.Media.Brushes.LimeGreen
+            : System.Windows.Media.Brushes.IndianRed;
     }
 
     private void UpdateMonitorControlAvailability()

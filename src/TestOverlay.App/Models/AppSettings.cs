@@ -15,5 +15,7 @@ public sealed class AppSettings
     public string Language { get; set; } = TestOverlay.App.Services.LocalizationService.English;
 
     public bool CompactModeEnabled { get; set; }
+
+    public bool BuffIconsOnly { get; set; }
 }
 

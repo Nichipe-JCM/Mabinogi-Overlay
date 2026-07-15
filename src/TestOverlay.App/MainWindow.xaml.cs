@@ -212,6 +212,8 @@ public partial class MainWindow : Window
             _log.LogDirectory,
             $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         InitializeComponent();
+        BuffIconsOnlyCheckBox.IsChecked = _appSettings.BuffIconsOnly;
+        ApplyBuffSelectionDisplayMode();
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
         DataContext = new { Candidates = _candidates };
         SectionCombo.ItemsSource = _sections;

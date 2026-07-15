@@ -51,13 +51,13 @@ public partial class CompactControlWindow : Window
             BuffAlertsEnabledCheckBox.IsChecked = state.BuffAlertsEnabled;
             TuairimAlertsEnabledCheckBox.IsChecked = state.TuairimAlertsEnabled;
 
-            ApplyBuffState(BattleBuffCheckBox, state, "monitor.buff.battle.overture");
-            ApplyBuffState(MarchBuffCheckBox, state, "monitor.buff.march.song");
-            ApplyBuffState(VivaceBuffCheckBox, state, "monitor.buff.vivace");
-            ApplyBuffState(HarvestBuffCheckBox, state, "monitor.buff.harvest.song");
-            ApplyBuffState(DivineLinkBuffCheckBox, state, MonitoredBuffCatalog.DivineLink);
-            ApplyBuffState(ConditionSupportBuffCheckBox, state, MonitoredBuffCatalog.ConditionSupport);
-            ApplyBuffState(PurificationWaveBuffCheckBox, state, MonitoredBuffCatalog.PurificationWave);
+            ApplyBuffState(BattleBuffCheckBox, BattleDetectionStatusText, state, MonitoredBuffCatalog.BattleOverture);
+            ApplyBuffState(MarchBuffCheckBox, MarchDetectionStatusText, state, MonitoredBuffCatalog.MarchSong);
+            ApplyBuffState(VivaceBuffCheckBox, VivaceDetectionStatusText, state, MonitoredBuffCatalog.Vivace);
+            ApplyBuffState(HarvestBuffCheckBox, HarvestDetectionStatusText, state, MonitoredBuffCatalog.HarvestSong);
+            ApplyBuffState(DivineLinkBuffCheckBox, DivineLinkDetectionStatusText, state, MonitoredBuffCatalog.DivineLink);
+            ApplyBuffState(ConditionSupportBuffCheckBox, ConditionSupportDetectionStatusText, state, MonitoredBuffCatalog.ConditionSupport);
+            ApplyBuffState(PurificationWaveBuffCheckBox, PurificationWaveDetectionStatusText, state, MonitoredBuffCatalog.PurificationWave);
             BuffConfigurationText.Text = L.T(state.IsBuffMonitorConfigured
                 ? "compact.buff.configured"
                 : "compact.buff.not.configured");
@@ -78,10 +78,13 @@ public partial class CompactControlWindow : Window
         Close();
     }
 
-    private static void ApplyBuffState(CheckBox checkBox, CompactControlState state, string key)
+    private static void ApplyBuffState(CheckBox checkBox, TextBlock statusText, CompactControlState state, string key)
     {
+        var detected = state.RecognizedBuffNameKeys.Contains(key);
         checkBox.IsChecked = state.SelectedBuffNameKeys.Contains(key);
-        checkBox.IsEnabled = state.IsBuffMonitorConfigured && state.RecognizedBuffNameKeys.Contains(key);
+        checkBox.IsEnabled = state.IsBuffMonitorConfigured && detected;
+        statusText.Text = detected ? "O" : "X";
+        statusText.Foreground = detected ? Brushes.LimeGreen : Brushes.IndianRed;
     }
 
     private async void OverlayToggleButton_Click(object sender, RoutedEventArgs e)

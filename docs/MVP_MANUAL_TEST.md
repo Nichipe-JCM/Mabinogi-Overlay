@@ -25,12 +25,16 @@ Expected: zero build errors.
 ## Status buff monitoring
 
 1. Detect Divine Link, Condition Support, and Purification Wave in the buff monitoring area and verify that each OFF/ON icon is classified correctly.
-2. Select two status buffs together and verify that the music-buff March restriction is not applied.
-3. Refresh an active status buff and verify that a large time increase is applied only after at least three seconds of consistent readings.
-4. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
-5. Keep the icon confidently inactive for at least three seconds and verify that its timer is removed.
-6. Let the timer reach zero and verify that it is removed immediately.
-7. Feed or observe an implausible large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down.
+2. Verify that every buff shows a red `X` before detection and a green `O` after detection.
+3. Enable `Buff icons only` and verify that names collapse while checkboxes, icons, and detection O/X indicators remain visible; restart and verify the preference is retained.
+4. Switch alert sounds to per-buff mode and verify that the entire list, including Battle Overture, scrolls together.
+5. Verify that the Detect buff window button remains visible below the settings.
+6. Select two status buffs together and verify that the music-buff March restriction is not applied.
+7. Refresh an active status buff and verify that a large time increase is applied only after at least three seconds of consistent readings.
+8. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
+9. Keep the icon confidently inactive for at least three seconds and verify that its timer is removed.
+10. Let the timer reach zero and verify that it is removed immediately.
+11. Feed or observe an implausible large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down.
 
 ## Capture and quickslot workflow
 

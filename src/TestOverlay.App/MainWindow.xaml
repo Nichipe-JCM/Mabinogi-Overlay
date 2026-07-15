@@ -575,13 +575,19 @@
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Border Grid.Row="0" Style="{StaticResource InsetPanelStyle}">
                                         <StackPanel>
-                                            <TextBlock Text="Detected buffs / overlay selection"
-                                                       loc:Localize.TextKey="monitor.buff.selection.title"
-                                                       Style="{StaticResource PanelTitleStyle}"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="Detected buffs / overlay selection"
+                                                           loc:Localize.TextKey="monitor.buff.selection.title"
+                                                           Style="{StaticResource PanelTitleStyle}"/>
+                                                <CheckBox x:Name="BuffIconsOnlyCheckBox" Grid.Column="1"
+                                                          Content="Buff icons only" loc:Localize.ContentKey="monitor.buff.icons.only"
+                                                          Click="BuffIconsOnlyCheckBox_Click"/>
+                                            </Grid>
                                             <WrapPanel Margin="0,10,0,0">
                                                 <CheckBox x:Name="BattleOvertureBuffCheckBox"
                                                           Margin="0,0,18,0"
@@ -589,7 +595,8 @@
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/BattlefieldOn.png" Stretch="Uniform"/>
-                                                        <TextBlock VerticalAlignment="Center" Text="Battle Overture" loc:Localize.TextKey="monitor.buff.battle.overture"/>
+                                                        <TextBlock x:Name="BattleOvertureBuffNameText" VerticalAlignment="Center" Text="Battle Overture" loc:Localize.TextKey="monitor.buff.battle.overture"/>
+                                                        <TextBlock x:Name="BattleOvertureDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                                 <CheckBox x:Name="MarchSongBuffCheckBox"
@@ -598,7 +605,8 @@
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/MarchOn.png" Stretch="Uniform"/>
-                                                        <TextBlock VerticalAlignment="Center" Text="March Song" loc:Localize.TextKey="monitor.buff.march.song"/>
+                                                        <TextBlock x:Name="MarchSongBuffNameText" VerticalAlignment="Center" Text="March Song" loc:Localize.TextKey="monitor.buff.march.song"/>
+                                                        <TextBlock x:Name="MarchSongDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                                 <CheckBox x:Name="VivaceBuffCheckBox"
@@ -607,7 +615,8 @@
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/VivaceOn.png" Stretch="Uniform"/>
-                                                        <TextBlock VerticalAlignment="Center" Text="Vivace" loc:Localize.TextKey="monitor.buff.vivace"/>
+                                                        <TextBlock x:Name="VivaceBuffNameText" VerticalAlignment="Center" Text="Vivace" loc:Localize.TextKey="monitor.buff.vivace"/>
+                                                        <TextBlock x:Name="VivaceDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                                 <CheckBox x:Name="HarvestSongBuffCheckBox"
@@ -616,7 +625,8 @@
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/RichyearOn.png" Stretch="Uniform"/>
-                                                        <TextBlock VerticalAlignment="Center" Text="Harvest Song" loc:Localize.TextKey="monitor.buff.harvest.song"/>
+                                                        <TextBlock x:Name="HarvestSongBuffNameText" VerticalAlignment="Center" Text="Harvest Song" loc:Localize.TextKey="monitor.buff.harvest.song"/>
+                                                        <TextBlock x:Name="HarvestSongDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                                 <CheckBox x:Name="DivineLinkBuffCheckBox"
@@ -625,7 +635,8 @@
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/DivineLinkOn.png" Stretch="Uniform"/>
-                                                        <TextBlock VerticalAlignment="Center" Text="Divine Link" loc:Localize.TextKey="monitor.buff.divine.link"/>
+                                                        <TextBlock x:Name="DivineLinkBuffNameText" VerticalAlignment="Center" Text="Divine Link" loc:Localize.TextKey="monitor.buff.divine.link"/>
+                                                        <TextBlock x:Name="DivineLinkDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                                 <CheckBox x:Name="ConditionSupportBuffCheckBox"
@@ -634,7 +645,8 @@
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/ConditionSupportOn.png" Stretch="Uniform"/>
-                                                        <TextBlock VerticalAlignment="Center" Text="Condition Support" loc:Localize.TextKey="monitor.buff.condition.support"/>
+                                                        <TextBlock x:Name="ConditionSupportBuffNameText" VerticalAlignment="Center" Text="Condition Support" loc:Localize.TextKey="monitor.buff.condition.support"/>
+                                                        <TextBlock x:Name="ConditionSupportDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                                 <CheckBox x:Name="PurificationWaveBuffCheckBox"
@@ -642,14 +654,11 @@
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/PurificationWaveOn.png" Stretch="Uniform"/>
-                                                        <TextBlock VerticalAlignment="Center" Text="Purification Wave" loc:Localize.TextKey="monitor.buff.purification.wave"/>
+                                                        <TextBlock x:Name="PurificationWaveBuffNameText" VerticalAlignment="Center" Text="Purification Wave" loc:Localize.TextKey="monitor.buff.purification.wave"/>
+                                                        <TextBlock x:Name="PurificationWaveDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                             </WrapPanel>
-                                            <TextBlock Margin="0,9,0,0" TextWrapping="Wrap"
-                                                       Text="Status buffs confirm refreshes and inactive states for 3 seconds and expire immediately at 0."
-                                                       loc:Localize.TextKey="monitor.buff.status.policy"
-                                                       Style="{StaticResource MutedTextStyle}"/>
                                         </StackPanel>
                                     </Border>
                                     <Border x:Name="BuffAlertSettingsPanel" Grid.Row="1" Margin="0,6,0,0" Style="{StaticResource InsetPanelStyle}">
@@ -677,7 +686,9 @@
                                                     <ComboBoxItem Tag="individual" Content="Per buff" loc:Localize.ContentKey="monitor.alert.sound.mode.individual"/>
                                                 </ComboBox>
                                             </Grid>
-                                            <Grid x:Name="BuffAlertSoundRow1" Margin="0,10,0,0">
+                                            <ScrollViewer MaxHeight="164" Margin="0,2,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <StackPanel>
+                                            <Grid x:Name="BuffAlertSoundRow1" Margin="0,8,0,0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="130"/><ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
@@ -696,8 +707,6 @@
                                                 <TextBox x:Name="BuffAlertVolumeBox1" Grid.Column="6" Tag="0" Height="32" Padding="7,4" MaxLength="3"
                                                          PreviewTextInput="AlertNumberTextBox_PreviewTextInput" LostKeyboardFocus="BuffAlertVolumeBox_LostKeyboardFocus"/>
                                             </Grid>
-                                            <ScrollViewer MaxHeight="164" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                            <StackPanel>
                                             <Grid x:Name="BuffAlertSoundRow2" Margin="0,8,0,0" Visibility="Collapsed">
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="56"/></Grid.ColumnDefinitions>
                                                 <TextBlock VerticalAlignment="Center" Text="March" loc:Localize.TextKey="monitor.buff.sound.march"/>
