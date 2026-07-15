@@ -524,7 +524,7 @@
 
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="14,0,14,14">
                             <Button x:Name="OpenLayoutEditorButton" MinWidth="126" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Manage Layout" loc:Localize.ContentKey="Manage Layout" Click="OpenLayoutEditorButton_Click"/>
-                            <Button x:Name="ClearLayoutButton" MinWidth="66" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearLayoutButton_Click"/>
+                            <Button x:Name="ClearLayoutButton" MinWidth="112" Height="34" Padding="12,0" Margin="4,0,0,0" Content="Reset layout" loc:Localize.ContentKey="layout.reset" Click="ClearLayoutButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>
@@ -534,9 +534,9 @@
                 <TabItem Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="13*"/>
+                            <RowDefinition Height="3*"/>
                             <RowDefinition Height="5"/>
-                            <RowDefinition Height="7*"/>
+                            <RowDefinition Height="1*"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
@@ -551,6 +551,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Buff alerts"
                                                    loc:Localize.TextKey="monitor.buff.title"
@@ -569,6 +570,9 @@
                                                    TextWrapping="NoWrap"
                                                    TextTrimming="CharacterEllipsis"
                                                    Style="{StaticResource MutedTextStyle}"/>
+                                        <Button x:Name="DetectBuffWindowButton" Grid.Column="3" MinWidth="150" Height="34" Padding="14,0" Margin="12,0,0,0"
+                                                Content="Detect buff window" loc:Localize.ContentKey="monitor.buff.detect"
+                                                Click="DetectBuffWindowButton_Click"/>
                                     </Grid>
                                 </Border>
                                 <Grid Grid.Row="1" Margin="12,8">
@@ -771,12 +775,6 @@
                                             </ScrollViewer>
                                         </StackPanel>
                                     </Border>
-                                    <WrapPanel Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,6,0,0">
-                                        <Button x:Name="DetectBuffWindowButton" MinWidth="150" Height="36" Padding="14,0"
-                                                Content="Detect buff window"
-                                                loc:Localize.ContentKey="monitor.buff.detect"
-                                                Click="DetectBuffWindowButton_Click"/>
-                                    </WrapPanel>
                                 </Grid>
                             </Grid>
                         </Border>
@@ -793,6 +791,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Tuairim alerts"
                                                    loc:Localize.TextKey="monitor.tuairim.title"
@@ -811,13 +810,12 @@
                                                    TextWrapping="NoWrap"
                                                    TextTrimming="CharacterEllipsis"
                                                    Style="{StaticResource MutedTextStyle}"/>
+                                        <Button x:Name="DetectTuairimUiButton" Grid.Column="3" MinWidth="150" Height="34" Padding="14,0" Margin="12,0,0,0"
+                                                Content="Detect Tuairim UI" loc:Localize.ContentKey="monitor.tuairim.detect"
+                                                Click="DetectTuairimUiButton_Click"/>
                                     </Grid>
                                 </Border>
                                 <Grid Grid.Row="1" Margin="12,8">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
                                     <Border x:Name="TuairimAlertSettingsPanel" Grid.Row="0" Style="{StaticResource InsetPanelStyle}">
                                         <StackPanel>
                                             <Grid>
@@ -878,16 +876,6 @@
                                             </Grid>
                                         </StackPanel>
                                     </Border>
-                                    <WrapPanel Grid.Row="1" Margin="0,6,0,0" HorizontalAlignment="Right">
-                                        <Button x:Name="DetectTuairimUiButton"
-                                                MinWidth="150"
-                                                Height="36"
-                                                Padding="14,0"
-                                                Margin="6,0,0,0"
-                                                Content="Detect Tuairim UI"
-                                                loc:Localize.ContentKey="monitor.tuairim.detect"
-                                                Click="DetectTuairimUiButton_Click"/>
-                                    </WrapPanel>
                                 </Grid>
                             </Grid>
                         </Border>
@@ -931,6 +919,37 @@
                        ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
                        Text="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."
                        loc:Localize.TextKey="The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start."/>
+        </Border>
+
+        <Border x:Name="LayoutResetConfirmationOverlay" Grid.RowSpan="5" Panel.ZIndex="300"
+                Background="#B0000000" Visibility="Collapsed">
+            <Border Width="480" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Style="{StaticResource GlassCardStyle}">
+                <Grid Margin="22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Reset overlay layout" loc:Localize.TextKey="layout.reset.confirm.title"
+                               Style="{StaticResource SectionTitleStyle}"/>
+                    <TextBlock Grid.Row="1" Margin="0,14,0,0" TextWrapping="Wrap"
+                               Text="Remove every slot from the current overlay layout?"
+                               loc:Localize.TextKey="layout.reset.confirm.message" Style="{StaticResource MutedTextStyle}"/>
+                    <Border Grid.Row="2" Margin="0,12,0,0" Padding="12,10" CornerRadius="5"
+                            Background="#33FF5F57" BorderBrush="#99FF6B63" BorderThickness="1">
+                        <TextBlock Text="This action cannot be undone." loc:Localize.TextKey="layout.reset.confirm.warning"
+                                   Foreground="#FFFFB4AB" FontWeight="SemiBold"/>
+                    </Border>
+                    <StackPanel Grid.Row="3" Margin="0,18,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button MinWidth="88" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel"
+                                Click="CancelLayoutResetButton_Click"/>
+                        <Button x:Name="ConfirmLayoutResetButton" MinWidth="112" Height="34" Padding="14,0" Margin="8,0,0,0"
+                                Content="Reset layout" loc:Localize.ContentKey="layout.reset" Click="ConfirmLayoutResetButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Border>
 
         <Border x:Name="InAppNoticeBorder" Grid.RowSpan="5" Panel.ZIndex="200"

@@ -26,9 +26,9 @@ Expected: zero build errors.
 
 1. Detect Divine Link, Condition Support, and Purification Wave in the buff monitoring area and verify that each OFF/ON icon is classified correctly.
 2. Verify that every buff shows a red `X` before detection and a green `O` after detection.
-3. Enable `Buff icons only` and verify that names collapse while checkboxes, icons, and detection O/X indicators remain visible; restart and verify the preference is retained.
+3. Enable `Buff icons only` and verify that names collapse while checkboxes, icons, and detection O/X indicators remain visible. At the normal window width, verify that all seven compact items fit on one row, the selection area becomes shorter, and the preference is retained after restart.
 4. Switch alert sounds to per-buff mode and verify that the entire list, including Battle Overture, scrolls together.
-5. Verify that the Detect buff window button remains visible below the settings.
+5. Verify that the Detect buff window and Detect Tuairim UI buttons remain visible at the right edge of their card headers.
 6. Select two status buffs together and verify that the music-buff March restriction is not applied.
 7. Refresh an active status buff and verify that a large time increase is applied only after at least three seconds of consistent readings.
 8. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
@@ -63,6 +63,7 @@ Expected:
 6. Click `Overlay start`.
 7. Click through the visible overlay onto the game and verify the game retains focus.
 8. Verify that the configured stop hotkey and `Overlay stop` both end the session.
+9. Click `Reset layout` and verify that an in-app confirmation appears with an irreversible-action warning. Verify that Cancel preserves the layout and Confirm removes every slot.
 
 Expected:
 

@@ -961,20 +961,22 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (MessageBox.Show(
-                this,
-                L.T("clear.layout.confirm"),
-                L.T("confirm.clear"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) != MessageBoxResult.Yes)
-        {
-            SetStatus("clear.canceled");
-            return;
-        }
+        LayoutResetConfirmationOverlay.Visibility = Visibility.Visible;
+        ConfirmLayoutResetButton.Focus();
+    }
 
+    private void CancelLayoutResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        LayoutResetConfirmationOverlay.Visibility = Visibility.Collapsed;
+        SetStatus("clear.canceled");
+    }
+
+    private void ConfirmLayoutResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        LayoutResetConfirmationOverlay.Visibility = Visibility.Collapsed;
         ClearLayout();
         ScheduleProfileAutoSave();
-        SetStatus("Overlay layout cleared.");
+        SetStatus("overlay.layout.cleared");
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)

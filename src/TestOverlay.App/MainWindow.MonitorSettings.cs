@@ -632,7 +632,8 @@ public partial class MainWindow
 
     private void ApplyBuffSelectionDisplayMode()
     {
-        var visibility = _appSettings.BuffIconsOnly ? Visibility.Collapsed : Visibility.Visible;
+        var iconsOnly = _appSettings.BuffIconsOnly;
+        var visibility = iconsOnly ? Visibility.Collapsed : Visibility.Visible;
         BattleOvertureBuffNameText.Visibility = visibility;
         MarchSongBuffNameText.Visibility = visibility;
         VivaceBuffNameText.Visibility = visibility;
@@ -640,6 +641,15 @@ public partial class MainWindow
         DivineLinkBuffNameText.Visibility = visibility;
         ConditionSupportBuffNameText.Visibility = visibility;
         PurificationWaveBuffNameText.Visibility = visibility;
+
+        foreach (var checkBox in BuffSelectionCheckBoxes())
+        {
+            checkBox.MinWidth = 0;
+            checkBox.Width = iconsOnly ? 64 : double.NaN;
+            checkBox.Margin = iconsOnly
+                ? new Thickness(0, 0, 6, 0)
+                : new Thickness(0, 0, 18, 0);
+        }
     }
 
     private void ApplyRecognizedBuffs(IEnumerable<string> nameKeys)
