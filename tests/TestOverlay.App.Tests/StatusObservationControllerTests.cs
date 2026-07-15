@@ -124,5 +124,96 @@ public sealed class StatusObservationControllerTests
         Assert.Equal(0, controller.Timers[0].ConsecutiveZeroConfirmations);
     }
 
+    [Fact]
+    public void Status_buff_refresh_requires_three_seconds_of_consistent_observations()
+    {
+        var controller = CreateController();
+        var key = MonitoredBuffCatalog.DivineLink;
+        controller.ObserveBuffTime(key, 100, "100", "test", 30, StartedAt);
+
+        controller.ObserveBuffTime(key, 200, "200", "test", 30, StartedAt.AddSeconds(1));
+        controller.ObserveBuffTime(key, 198, "198", "test", 30, StartedAt.AddSeconds(3));
+        Assert.Equal(100, controller.Timers.Single().RemainingSeconds);
+
+        controller.ObserveBuffTime(key, 197, "197", "test", 30, StartedAt.AddSeconds(4));
+
+        Assert.Equal(197, controller.Timers.Single().RemainingSeconds);
+    }
+
+    [Fact]
+    public void Status_buff_rejects_large_downward_jump_without_pending_acceptance()
+    {
+        var controller = CreateController();
+        var key = MonitoredBuffCatalog.ConditionSupport;
+        controller.ObserveBuffTime(key, 100, "100", "test", 30, StartedAt);
+
+        for (var index = 1; index <= 8; index++)
+        {
+            controller.ObserveBuffTime(key, 50 - index, (50 - index).ToString(), "test", 30, StartedAt.AddSeconds(index));
+        }
+
+        Assert.Equal(100, controller.Timers.Single().RemainingSeconds);
+        Assert.False(controller.NeedsVerification);
+    }
+
+    [Fact]
+    public void Status_buff_inactive_state_requires_three_seconds_before_removal()
+    {
+        var controller = CreateController();
+        var key = MonitoredBuffCatalog.PurificationWave;
+        controller.ObserveBuffTime(key, 100, "100", "test", 30, StartedAt);
+
+        controller.ObserveBuffAnchorState(key, BuffAnchorObservationState.Inactive, "test", StartedAt.AddSeconds(1));
+        controller.ObserveBuffAnchorState(key, BuffAnchorObservationState.Inactive, "test", StartedAt.AddSeconds(2));
+        Assert.Single(controller.Timers);
+
+        controller.ObserveBuffAnchorState(key, BuffAnchorObservationState.Inactive, "test", StartedAt.AddSeconds(4));
+
+        Assert.Empty(controller.Timers);
+    }
+
+    [Fact]
+    public void Status_buff_zero_expires_immediately()
+    {
+        var controller = CreateController();
+        var key = MonitoredBuffCatalog.DivineLink;
+        controller.ObserveBuffTime(key, 100, "100", "test", 30, StartedAt);
+
+        controller.ObserveBuffTime(key, 0, "0", "test", 30, StartedAt.AddSeconds(1));
+
+        Assert.Empty(controller.Timers);
+    }
+
+    [Fact]
+    public void Status_buff_countdown_zero_expires_immediately()
+    {
+        var controller = CreateController();
+        var key = MonitoredBuffCatalog.ConditionSupport;
+        controller.ObserveBuffTime(key, 1, "1", "test", 30, StartedAt);
+
+        var expired = controller.ExpireBuffAtCountdownZero(key);
+
+        Assert.True(expired);
+        Assert.Empty(controller.Timers);
+    }
+
+    [Fact]
+    public void Status_buff_ignores_music_extension_tags()
+    {
+        var controller = CreateController();
+
+        controller.ObserveBuffTime(
+            MonitoredBuffCatalog.DivineLink,
+            100,
+            "투안의 노래 하모니 1:40",
+            "test",
+            30,
+            StartedAt);
+
+        var timer = Assert.Single(controller.Timers);
+        Assert.False(timer.HasTuanExtension);
+        Assert.False(timer.HasHarmony);
+    }
+
     private static StatusObservationController CreateController() => new(new AppLog(enabled: false));
 }

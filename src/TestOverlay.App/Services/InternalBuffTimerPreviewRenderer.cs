@@ -12,13 +12,7 @@ public static class InternalBuffTimerPreviewRenderer
     public const int RowHeight = 22;
     public const int VerticalPadding = 16;
 
-    public static IReadOnlyList<string> BuffNameKeys { get; } =
-    [
-        "monitor.buff.battle.overture",
-        "monitor.buff.march.song",
-        "monitor.buff.vivace",
-        "monitor.buff.harvest.song"
-    ];
+    public static IReadOnlyList<string> BuffNameKeys { get; } = MonitoredBuffCatalog.AllBuffNameKeys;
 
     public static BitmapSource Render(
         IReadOnlyList<InternalBuffTimer> timers,
@@ -82,6 +76,11 @@ public static class InternalBuffTimerPreviewRenderer
 
     public static string BuildDisplayName(string nameKey, InternalBuffTimer? timer)
     {
+        if (!MonitoredBuffCatalog.IsMusicBuff(nameKey))
+        {
+            return L.T(nameKey);
+        }
+
         var tags = new List<string>();
         if (timer?.HasHarmony == true)
         {

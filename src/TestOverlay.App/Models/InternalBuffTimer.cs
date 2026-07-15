@@ -24,6 +24,8 @@ public sealed class InternalBuffTimer
 
     public int ConsecutiveZeroConfirmations { get; set; }
 
+    public DateTimeOffset? ZeroConfirmationStartedAt { get; set; }
+
     public int? PendingObservedSeconds { get; set; }
 
     public int PendingObservationConfirmations { get; set; }

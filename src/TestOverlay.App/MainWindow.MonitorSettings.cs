@@ -389,7 +389,7 @@ public partial class MainWindow
             90,
             100,
             settings.TuairimAlertPercent);
-        var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4 };
+        var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4, BuffAlertVolumeBox5, BuffAlertVolumeBox6, BuffAlertVolumeBox7 };
         for (var index = 0; index < volumeBoxes.Length; index++)
         {
             _alertAudio.SetBuffVolume(
@@ -423,11 +423,14 @@ public partial class MainWindow
             BuffAlertSoundRow2.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
             BuffAlertSoundRow3.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
             BuffAlertSoundRow4.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
+            BuffAlertSoundRow5.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
+            BuffAlertSoundRow6.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
+            BuffAlertSoundRow7.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
 
-            var pathBoxes = new[] { BuffAlertSoundPathBox1, BuffAlertSoundPathBox2, BuffAlertSoundPathBox3, BuffAlertSoundPathBox4 };
-            var clearButtons = new[] { ClearBuffAlertSoundButton1, ClearBuffAlertSoundButton2, ClearBuffAlertSoundButton3, ClearBuffAlertSoundButton4 };
-            var testButtons = new[] { TestBuffAlertSoundButton1, TestBuffAlertSoundButton2, TestBuffAlertSoundButton3, TestBuffAlertSoundButton4 };
-            var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4 };
+            var pathBoxes = new[] { BuffAlertSoundPathBox1, BuffAlertSoundPathBox2, BuffAlertSoundPathBox3, BuffAlertSoundPathBox4, BuffAlertSoundPathBox5, BuffAlertSoundPathBox6, BuffAlertSoundPathBox7 };
+            var clearButtons = new[] { ClearBuffAlertSoundButton1, ClearBuffAlertSoundButton2, ClearBuffAlertSoundButton3, ClearBuffAlertSoundButton4, ClearBuffAlertSoundButton5, ClearBuffAlertSoundButton6, ClearBuffAlertSoundButton7 };
+            var testButtons = new[] { TestBuffAlertSoundButton1, TestBuffAlertSoundButton2, TestBuffAlertSoundButton3, TestBuffAlertSoundButton4, TestBuffAlertSoundButton5, TestBuffAlertSoundButton6, TestBuffAlertSoundButton7 };
+            var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4, BuffAlertVolumeBox5, BuffAlertVolumeBox6, BuffAlertVolumeBox7 };
             for (var index = 0; index < pathBoxes.Length; index++)
             {
                 var path = _alertAudio.GetBuffPath(index);
@@ -642,8 +645,13 @@ public partial class MainWindow
             return true;
         }
 
-        const string marchSongKey = "monitor.buff.march.song";
-        return nameKey == marchSongKey || _selectedBuffNameKeys.Contains(marchSongKey);
+        var existingKey = _selectedBuffNameKeys.Single();
+        if (!MonitoredBuffCatalog.IsMusicBuff(nameKey) || !MonitoredBuffCatalog.IsMusicBuff(existingKey))
+        {
+            return true;
+        }
+
+        return nameKey == MonitoredBuffCatalog.MarchSong || existingKey == MonitoredBuffCatalog.MarchSong;
     }
 
     private IEnumerable<CheckBox> BuffSelectionCheckBoxes()
@@ -652,6 +660,9 @@ public partial class MainWindow
         yield return MarchSongBuffCheckBox;
         yield return VivaceBuffCheckBox;
         yield return HarvestSongBuffCheckBox;
+        yield return DivineLinkBuffCheckBox;
+        yield return ConditionSupportBuffCheckBox;
+        yield return PurificationWaveBuffCheckBox;
     }
 
     private void UpdateBuffSelectionCheckStates()

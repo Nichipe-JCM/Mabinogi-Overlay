@@ -122,6 +122,21 @@
                                           Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
                                     <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/RichyearOn.png"/><TextBlock Text="Song of rich year" loc:Localize.TextKey="monitor.buff.harvest.song"/></StackPanel>
                                 </CheckBox>
+                                <CheckBox x:Name="DivineLinkBuffCheckBox" Tag="monitor.buff.divine.link" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/DivineLinkOn.png"/><TextBlock Text="Divine Link" loc:Localize.TextKey="monitor.buff.divine.link"/></StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="ConditionSupportBuffCheckBox" Tag="monitor.buff.condition.support" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/ConditionSupportOn.png"/><TextBlock Text="Condition Support" loc:Localize.TextKey="monitor.buff.condition.support"/></StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="PurificationWaveBuffCheckBox" Tag="monitor.buff.purification.wave" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/PurificationWaveOn.png"/><TextBlock Text="Purification Wave" loc:Localize.TextKey="monitor.buff.purification.wave"/></StackPanel>
+                                </CheckBox>
+                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                           Text="Status buffs confirm refreshes and inactive states for 3 seconds and expire immediately at 0."
+                                           loc:Localize.TextKey="monitor.buff.status.policy" Style="{StaticResource MutedTextStyle}"/>
                             </StackPanel>
                         </Border>
                         <TextBlock x:Name="BuffConfigurationText" Margin="2,9,2,0" Style="{StaticResource MutedTextStyle}"/>

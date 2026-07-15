@@ -55,6 +55,9 @@ public partial class CompactControlWindow : Window
             ApplyBuffState(MarchBuffCheckBox, state, "monitor.buff.march.song");
             ApplyBuffState(VivaceBuffCheckBox, state, "monitor.buff.vivace");
             ApplyBuffState(HarvestBuffCheckBox, state, "monitor.buff.harvest.song");
+            ApplyBuffState(DivineLinkBuffCheckBox, state, MonitoredBuffCatalog.DivineLink);
+            ApplyBuffState(ConditionSupportBuffCheckBox, state, MonitoredBuffCatalog.ConditionSupport);
+            ApplyBuffState(PurificationWaveBuffCheckBox, state, MonitoredBuffCatalog.PurificationWave);
             BuffConfigurationText.Text = L.T(state.IsBuffMonitorConfigured
                 ? "compact.buff.configured"
                 : "compact.buff.not.configured");

@@ -5,6 +5,8 @@ namespace TestOverlay.App.Services;
 public sealed class StatusObservationController
 {
     private const int RecognitionIntervalSeconds = 2;
+    private const int StatusBuffConfirmationSeconds = 3;
+    private const int StatusBuffMinimumConfirmations = 3;
     private readonly AppLog _log;
     private bool _hasTuairimObservation;
     private int? _pendingTuairimPercent;
@@ -22,8 +24,10 @@ public sealed class StatusObservationController
     public bool ObserveBuffAnchorState(
         string nameKey,
         BuffAnchorObservationState state,
-        string reason)
+        string reason,
+        DateTimeOffset? observedAt = null)
     {
+        var now = observedAt ?? DateTimeOffset.UtcNow;
         switch (state)
         {
             case BuffAnchorObservationState.Active:
@@ -31,7 +35,7 @@ public sealed class StatusObservationController
                 return true;
             case BuffAnchorObservationState.Inactive:
                 PendingInitialBuffValidation.Remove(nameKey);
-                RegisterBuffZeroConfirmation(nameKey, reason, "inactive");
+                RegisterBuffZeroConfirmation(nameKey, reason, "inactive", now);
                 return false;
             default:
                 return false;
@@ -105,17 +109,28 @@ public sealed class StatusObservationController
         var now = observedAt ?? DateTimeOffset.UtcNow;
         var timer = Timers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
         var previousSeconds = timer?.RemainingSeconds;
-        var recognizedTuan =
-            recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal) ||
-            recognizedText.Contains("\uC758 \uB178\uB798", StringComparison.Ordinal) ||
-            recognizedText.Contains("\uC758\uB178\uB798", StringComparison.Ordinal);
+        var isMusicBuff = MonitoredBuffCatalog.IsMusicBuff(nameKey);
+        var recognizedTuan = isMusicBuff &&
+            (recognizedText.Contains("\uD22C\uC548", StringComparison.Ordinal) ||
+             recognizedText.Contains("\uC758 \uB178\uB798", StringComparison.Ordinal) ||
+             recognizedText.Contains("\uC758\uB178\uB798", StringComparison.Ordinal));
         if (observedSeconds <= 0)
         {
-            RegisterBuffZeroConfirmation(nameKey, reason, "ocr-zero");
+            if (MonitoredBuffCatalog.IsStatusBuff(nameKey))
+            {
+                ExpireBuffImmediately(nameKey, reason, "ocr-zero");
+            }
+            else
+            {
+                RegisterBuffZeroConfirmation(nameKey, reason, "ocr-zero", now);
+            }
             return BuffObservationResult.Unchanged(timer, previousSeconds);
         }
 
-        if (timer is null && PendingInitialBuffValidation.Contains(nameKey) && observedSeconds < 60)
+        if (!MonitoredBuffCatalog.IsStatusBuff(nameKey) &&
+            timer is null &&
+            PendingInitialBuffValidation.Contains(nameKey) &&
+            observedSeconds < 60)
         {
             _log.Info(
                 $"Buff OCR rejected short initial activation: reason={reason}, key={nameKey}, observed={observedSeconds}");
@@ -137,12 +152,26 @@ public sealed class StatusObservationController
         }
 
         timer.LastRecognizedText = recognizedText;
-        timer.HasTuanExtension |= recognizedTuan;
-        timer.HasHarmony = recognizedText.Contains("\uD558\uBAA8\uB2C8", StringComparison.Ordinal);
+        timer.HasTuanExtension = isMusicBuff && (timer.HasTuanExtension || recognizedTuan);
+        timer.HasHarmony = isMusicBuff && recognizedText.Contains("\uD558\uBAA8\uB2C8", StringComparison.Ordinal);
         return new BuffObservationResult(true, timer, previousSeconds, timer.RemainingSeconds);
     }
 
-    private void RegisterBuffZeroConfirmation(string nameKey, string reason, string source)
+    public bool ExpireBuffAtCountdownZero(string nameKey)
+    {
+        if (!MonitoredBuffCatalog.IsStatusBuff(nameKey))
+        {
+            return false;
+        }
+
+        return ExpireBuffImmediately(nameKey, "countdown", "timer-zero");
+    }
+
+    private void RegisterBuffZeroConfirmation(
+        string nameKey,
+        string reason,
+        string source,
+        DateTimeOffset now)
     {
         var timer = Timers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
         if (timer is null)
@@ -152,16 +181,33 @@ public sealed class StatusObservationController
 
         timer.RemainingSeconds = Math.Max(1, timer.RemainingSeconds);
         ClearPendingTimeObservation(timer);
+        timer.ZeroConfirmationStartedAt ??= now;
         timer.ConsecutiveZeroConfirmations++;
+        var validFor = now - timer.ZeroConfirmationStartedAt.Value;
+        var isStatusBuff = MonitoredBuffCatalog.IsStatusBuff(nameKey);
+        var requiredConfirmations = isStatusBuff ? StatusBuffMinimumConfirmations : 5;
         _log.Info(
             $"Buff zero confirmation: reason={reason}, key={nameKey}, source={source}, " +
-            $"count={timer.ConsecutiveZeroConfirmations}/5");
-        if (timer.ConsecutiveZeroConfirmations >= 5)
+            $"count={timer.ConsecutiveZeroConfirmations}/{requiredConfirmations}, validMs={validFor.TotalMilliseconds:0}");
+        if (timer.ConsecutiveZeroConfirmations >= requiredConfirmations &&
+            (!isStatusBuff || validFor >= TimeSpan.FromSeconds(StatusBuffConfirmationSeconds)))
         {
-            Timers.Remove(timer);
-            PendingInitialBuffValidation.Remove(nameKey);
-            _log.Info($"Buff expired after confirmation: key={nameKey}");
+            ExpireBuffImmediately(nameKey, reason, source);
         }
+    }
+
+    private bool ExpireBuffImmediately(string nameKey, string reason, string source)
+    {
+        var timer = Timers.FirstOrDefault(candidate => candidate.NameKey == nameKey);
+        if (timer is null)
+        {
+            return false;
+        }
+
+        Timers.Remove(timer);
+        PendingInitialBuffValidation.Remove(nameKey);
+        _log.Info($"Buff expired: reason={reason}, key={nameKey}, source={source}");
+        return true;
     }
 
     private void ResetBuffZeroConfirmation(string nameKey)
@@ -170,6 +216,7 @@ public sealed class StatusObservationController
         if (timer is not null)
         {
             timer.ConsecutiveZeroConfirmations = 0;
+            timer.ZeroConfirmationStartedAt = null;
         }
     }
 
@@ -216,6 +263,13 @@ public sealed class StatusObservationController
         DateTimeOffset now)
     {
         timer.ConsecutiveZeroConfirmations = 0;
+        timer.ZeroConfirmationStartedAt = null;
+        if (MonitoredBuffCatalog.IsStatusBuff(timer.NameKey))
+        {
+            ApplyStatusBuffObservation(timer, observedSeconds, reason, now);
+            return;
+        }
+
         if (recognizedTuan && !timer.HasTuanExtension && timer.RemainingSeconds <= 5)
         {
             timer.AwaitingTuanExtensionRefresh = true;
@@ -264,6 +318,63 @@ public sealed class StatusObservationController
                 $"Buff OCR deferred: reason={reason}, key={timer.NameKey}, " +
                 $"current={timer.RemainingSeconds}, observed={observedSeconds}");
         }
+    }
+
+    private void ApplyStatusBuffObservation(
+        InternalBuffTimer timer,
+        int observedSeconds,
+        string reason,
+        DateTimeOffset now)
+    {
+        var difference = observedSeconds - timer.RemainingSeconds;
+        if (difference < -3)
+        {
+            ClearPendingTimeObservation(timer);
+            _log.Info(
+                $"Status buff OCR rejected implausible downward jump: reason={reason}, key={timer.NameKey}, " +
+                $"current={timer.RemainingSeconds}, observed={observedSeconds}");
+            return;
+        }
+
+        if (difference <= 12)
+        {
+            timer.RemainingSeconds = observedSeconds;
+            ClearPendingTimeObservation(timer);
+            return;
+        }
+
+        var continues = !timer.PendingObservationIsDownward &&
+                        timer.PendingObservedSeconds is int pending &&
+                        observedSeconds <= pending + 2 &&
+                        observedSeconds >= pending - 4;
+        if (continues)
+        {
+            timer.PendingObservationConfirmations++;
+        }
+        else
+        {
+            timer.PendingObservedSeconds = observedSeconds;
+            timer.PendingObservationConfirmations = 1;
+            timer.PendingObservationStartedAt = now;
+            timer.PendingObservationIsDownward = false;
+        }
+
+        var validFor = now - (timer.PendingObservationStartedAt ?? now);
+        if (validFor >= TimeSpan.FromSeconds(StatusBuffConfirmationSeconds) &&
+            timer.PendingObservationConfirmations >= StatusBuffMinimumConfirmations)
+        {
+            timer.RemainingSeconds = observedSeconds;
+            ClearPendingTimeObservation(timer);
+            _log.Info(
+                $"Status buff refresh accepted: reason={reason}, key={timer.NameKey}, " +
+                $"observed={observedSeconds}, validMs={validFor.TotalMilliseconds:0}");
+            return;
+        }
+
+        _log.Info(
+            $"Status buff refresh validating: reason={reason}, key={timer.NameKey}, " +
+            $"current={timer.RemainingSeconds}, observed={observedSeconds}, " +
+            $"count={timer.PendingObservationConfirmations}, validMs={validFor.TotalMilliseconds:0}");
     }
 
     private void ApplyDownwardObservation(

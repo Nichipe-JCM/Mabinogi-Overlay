@@ -12,10 +12,17 @@ public partial class MainWindow
     {
         var now = DateTimeOffset.UtcNow;
         var reachedVerificationPoint = false;
-        foreach (var timer in _internalBuffTimers)
+        foreach (var timer in _internalBuffTimers.ToArray())
         {
             var previousSeconds = timer.RemainingSeconds;
-            timer.RemainingSeconds = Math.Max(_monitorTestMode ? 0 : 1, timer.RemainingSeconds - 1);
+            var minimumSeconds = MonitoredBuffCatalog.IsStatusBuff(timer.NameKey)
+                ? 0
+                : _monitorTestMode ? 0 : 1;
+            timer.RemainingSeconds = Math.Max(minimumSeconds, timer.RemainingSeconds - 1);
+            if (timer.RemainingSeconds == 0 && _statusObservations.ExpireBuffAtCountdownZero(timer.NameKey))
+            {
+                continue;
+            }
             TryFireBuffAlert(timer, previousSeconds, timer.RemainingSeconds);
             reachedVerificationPoint |= previousSeconds > 30 && timer.RemainingSeconds <= 30;
         }

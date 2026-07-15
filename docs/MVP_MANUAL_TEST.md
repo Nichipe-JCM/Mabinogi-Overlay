@@ -22,6 +22,16 @@ Expected: zero build errors.
 8. Open the Erin Timer tab and verify that the current Erin time, next alarm, and alarm enable switches update without leaving Compact mode.
 9. Restart the application from Compact mode and verify that Compact mode is restored.
 
+## Status buff monitoring
+
+1. Detect Divine Link, Condition Support, and Purification Wave in the buff monitoring area and verify that each OFF/ON icon is classified correctly.
+2. Select two status buffs together and verify that the music-buff March restriction is not applied.
+3. Refresh an active status buff and verify that a large time increase is applied only after at least three seconds of consistent readings.
+4. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
+5. Keep the icon confidently inactive for at least three seconds and verify that its timer is removed.
+6. Let the timer reach zero and verify that it is removed immediately.
+7. Feed or observe an implausible large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down.
+
 ## Capture and quickslot workflow
 
 1. Open Mabinogi and make the intended quickslot sections visible.

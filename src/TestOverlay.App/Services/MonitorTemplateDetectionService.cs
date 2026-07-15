@@ -356,7 +356,19 @@ public sealed class MonitorTemplateDetectionService
             new BuffTemplateDescriptor(
                 "monitor.buff.harvest.song",
                 LoadTemplate("RichyearOn.png"),
-                LoadTemplate("RichyearOff.png"))
+                LoadTemplate("RichyearOff.png")),
+            new BuffTemplateDescriptor(
+                MonitoredBuffCatalog.DivineLink,
+                LoadTemplate("DivineLinkOn.png"),
+                LoadTemplate("DivineLinkOff.png")),
+            new BuffTemplateDescriptor(
+                MonitoredBuffCatalog.ConditionSupport,
+                LoadTemplate("ConditionSupportOn.png"),
+                LoadTemplate("ConditionSupportOff.png")),
+            new BuffTemplateDescriptor(
+                MonitoredBuffCatalog.PurificationWave,
+                LoadTemplate("PurificationWaveOn.png"),
+                LoadTemplate("PurificationWaveOff.png"))
         ],
         LoadTemplate("Tuairim.png"));
 
