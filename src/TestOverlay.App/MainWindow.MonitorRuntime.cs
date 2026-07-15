@@ -9,6 +9,8 @@ namespace TestOverlay.App;
 
 public partial class MainWindow
 {
+    private const int MonitorVisibilityRecoveryFrames = 2;
+
     private async void InternalTimerDebugTimer_Tick(object? sender, EventArgs e)
     {
         var now = DateTimeOffset.UtcNow;
@@ -140,6 +142,8 @@ public partial class MainWindow
         _internalTimerOverlayWindow.SetTuairimPercent(_statusObservations.TuairimPercent);
         _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
         _lastInternalTimerCountdownAt = DateTimeOffset.UtcNow;
+        _monitorFrameObscured = false;
+        _monitorVisibleRecoveryFrames = 0;
         _monitorRecognitionRetryPolicy.Reset();
         _monitorValueRecognitionGeneration++;
         _internalTimerDebugTimer.Start();
@@ -195,13 +199,41 @@ public partial class MainWindow
         var generation = _monitorValueRecognitionGeneration;
         try
         {
+            var visibilityRoi = MonitorVisibilityRoi(shouldReadBuffs, shouldReadTuairim);
+            if (visibilityRoi is Rect roi)
+            {
+                var visibility = MonitorFrameVisibilityEvaluator.Evaluate(frame, roi);
+                if (visibility.IsObscured)
+                {
+                    MarkMonitorFrameObscured(
+                        $"pixels:{visibility.Reason}, mean={visibility.MeanLuminance:0.0}, " +
+                        $"deviation={visibility.LuminanceDeviation:0.0}, dark={visibility.DarkRatio:0.000}, " +
+                        $"bright={visibility.BrightRatio:0.000}");
+                    return;
+                }
+
+                if (!ConfirmMonitorFrameRecovery())
+                {
+                    return;
+                }
+            }
+
             if (shouldReadBuffs && _buffMonitorRoi is Rect buffRoi)
             {
                 var previousMatches = _buffIconMatches.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+                var expectedAnchorCount = _buffIconMatches.Count;
                 var evaluatedMatches = await Task.Run(() =>
                     _monitorTemplateDetection.EvaluateBuffAnchors(frame, _buffIconMatches.Values.ToArray()));
                 if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
                 {
+                    return;
+                }
+                var minimumVisibleAnchors = expectedAnchorCount >= 2
+                    ? Math.Max(1, (int)Math.Ceiling(expectedAnchorCount * 0.4))
+                    : 0;
+                if (minimumVisibleAnchors > 0 && evaluatedMatches.Count < minimumVisibleAnchors)
+                {
+                    MarkMonitorFrameObscured($"anchors:{evaluatedMatches.Count}/{expectedAnchorCount}");
                     return;
                 }
                 foreach (var match in evaluatedMatches)
@@ -372,6 +404,58 @@ public partial class MainWindow
             0,
             (int)Math.Floor((DateTimeOffset.UtcNow - capturedAt).TotalSeconds));
         return Math.Max(1, capturedSeconds - elapsedSeconds);
+    }
+
+    private Rect? MonitorVisibilityRoi(bool shouldReadBuffs, bool shouldReadTuairim)
+    {
+        Rect? result = shouldReadBuffs ? _buffMonitorRoi : null;
+        var tuairimRoi = shouldReadTuairim
+            ? _tuairimMonitorRoi ?? _tuairimAnchor
+            : null;
+        if (tuairimRoi is not Rect next)
+        {
+            return result;
+        }
+
+        if (result is not Rect current)
+        {
+            return next;
+        }
+
+        current.Union(next);
+        return current;
+    }
+
+    private void MarkMonitorFrameObscured(string detail)
+    {
+        _statusObservations.DiscardTransientVerificationEvidence();
+        _monitorVisibleRecoveryFrames = 0;
+        if (_monitorFrameObscured)
+        {
+            return;
+        }
+
+        _monitorFrameObscured = true;
+        _log.Info($"Monitor frame obscured; preserving values and skipping OCR: {detail}");
+    }
+
+    private bool ConfirmMonitorFrameRecovery()
+    {
+        if (!_monitorFrameObscured)
+        {
+            return true;
+        }
+
+        _monitorVisibleRecoveryFrames++;
+        if (_monitorVisibleRecoveryFrames < MonitorVisibilityRecoveryFrames)
+        {
+            return false;
+        }
+
+        _monitorFrameObscured = false;
+        _monitorVisibleRecoveryFrames = 0;
+        _log.Info("Monitor frame visibility recovered; OCR resumed after two visible frames.");
+        return true;
     }
 
     private void SaveMonitorDiagnosticOnce(BitmapSource source, Rect bounds, string kind)

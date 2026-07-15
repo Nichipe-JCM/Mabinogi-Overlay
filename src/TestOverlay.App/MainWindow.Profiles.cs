@@ -115,6 +115,11 @@ public partial class MainWindow
             var path = _profileStore.Save(profile, profileName);
             _selectedProfileName = System.IO.Path.GetFileNameWithoutExtension(path);
             _isProfileDirty = false;
+            _log.Info(
+                $"Profile saved: path={path}, automatic={!showStatus}, " +
+                $"buffEnabled={profile.BuffMonitorEnabled}, tuairimEnabled={profile.TuairimMonitorEnabled}, " +
+                $"recognizedBuffs={profile.RecognizedBuffNameKeys.Count}, selectedBuffs={profile.SelectedBuffNameKeys.Count}, " +
+                $"buffRoi={profile.BuffMonitorRoi is not null}, tuairimRoi={profile.TuairimMonitorRoi is not null}");
             if (showStatus)
             {
                 _log.Info($"Profile created: {path}, candidates={profile.Candidates.Count}, slots={profile.Slots.Count}");
@@ -170,10 +175,10 @@ public partial class MainWindow
                 ? profile.RefreshFps
                 : FpsFromInterval(profile.RefreshIntervalMs));
             OverlayProfileMapper.ApplyLayoutAndSectionSettings(profile, _workspace, refreshFps);
-        _buffMonitorEnabled = profile.BuffMonitorEnabled && profile.BuffAlertsEnabled;
-        _tuairimMonitorEnabled = profile.TuairimMonitorEnabled && profile.TuairimAlertsEnabled;
-        _buffAlertsEnabled = _buffMonitorEnabled;
-        _tuairimAlertsEnabled = _tuairimMonitorEnabled;
+        _buffMonitorEnabled = profile.BuffMonitorEnabled;
+        _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
+        _buffAlertsEnabled = profile.BuffAlertsEnabled;
+        _tuairimAlertsEnabled = profile.TuairimAlertsEnabled;
         ApplyMonitorAlertSettings(profile);
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();

@@ -171,6 +171,8 @@ public partial class MainWindow : Window
     private DateTimeOffset _nextMonitorValueRecognitionAt;
     private DateTimeOffset _lastInternalTimerCountdownAt;
     private bool _tuairimAlertFired;
+    private bool _monitorFrameObscured;
+    private int _monitorVisibleRecoveryFrames;
     private bool _isUpdatingMonitorAlertSettings;
     private bool _monitorTestMode;
     private int _monitorTestScenario;

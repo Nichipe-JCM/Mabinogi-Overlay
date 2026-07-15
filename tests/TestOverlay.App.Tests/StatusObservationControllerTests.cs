@@ -116,7 +116,11 @@ public sealed class StatusObservationControllerTests
 
         for (var index = 0; index < 5; index++)
         {
-            controller.ObserveBuffAnchorState("buff", BuffAnchorObservationState.Inactive, "test");
+            controller.ObserveBuffAnchorState(
+                "buff",
+                BuffAnchorObservationState.Inactive,
+                "test",
+                StartedAt.AddMilliseconds(index * 500));
         }
 
         Assert.Empty(controller.Timers);

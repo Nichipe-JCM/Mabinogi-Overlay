@@ -39,6 +39,7 @@ Expected: zero build errors.
 13. Stall the UI thread briefly while a status buff is active and verify that its countdown catches up to real elapsed time instead of losing one second per delayed timer tick.
 14. Activate several selected buffs and verify that the log reports one `Buff OCR batch` per cycle. Confirm that `fallbacks=0` during normal recognition and that only missing rows use `row-fallback`.
 15. Compare an in-game buff time with the overlay after several OCR cycles and verify that capture-to-OCR processing time does not accumulate as timer drift.
+16. Trigger or simulate a full-screen darkening and white flash over the buff window. Verify that existing buff timers and the Tuairim value are preserved, OFF/0% confirmation does not advance, and OCR resumes only after two visible frames.
 
 ## Capture and quickslot workflow
 
@@ -118,6 +119,7 @@ When a failure occurs, use Settings > Log and collect `%LocalAppData%\Mabinogi O
 4. Save the migrated profile and verify it contains `TuairimMonitorEnabled` but not the legacy misspelled property.
 5. Verify that `settings.json.bak` and profile `.json.bak` recovery still works after migration.
 6. For a side-by-side portable upgrade, leave the legacy `settings.json`, `save`, and `Logs` beside the old executable and verify that first launch copies missing files into LocalAppData without overwriting existing user data.
+7. Change buff/Tuairim activation, ROI, and selected buffs, wait at least 400 ms, and verify that the active profile JSON and the `Profile saved` log contain the updated monitor state. Enter Compact mode immediately after another change and verify that the pending save is flushed first.
 
 ## Monitor capture performance
 

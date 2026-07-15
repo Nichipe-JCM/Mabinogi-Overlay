@@ -7,6 +7,7 @@ public sealed class StatusObservationController
     private const int RecognitionIntervalSeconds = 2;
     private const int StatusBuffConfirmationSeconds = 3;
     private const int StatusBuffMinimumConfirmations = 3;
+    private const int MusicBuffInactiveConfirmationSeconds = 2;
     private const int MusicBuffFastCorrectionMaxSeconds = 15;
     private const int MusicBuffFastCorrectionConfirmations = 2;
     private readonly AppLog _log;
@@ -169,6 +170,18 @@ public sealed class StatusObservationController
         return ExpireBuffImmediately(nameKey, "countdown", "timer-zero");
     }
 
+    public void DiscardTransientVerificationEvidence()
+    {
+        foreach (var timer in Timers)
+        {
+            timer.ConsecutiveZeroConfirmations = 0;
+            timer.ZeroConfirmationStartedAt = null;
+            ClearPendingTimeObservation(timer);
+        }
+
+        ClearPendingTuairimPercent();
+    }
+
     private void RegisterBuffZeroConfirmation(
         string nameKey,
         string reason,
@@ -188,11 +201,14 @@ public sealed class StatusObservationController
         var validFor = now - timer.ZeroConfirmationStartedAt.Value;
         var isStatusBuff = MonitoredBuffCatalog.IsStatusBuff(nameKey);
         var requiredConfirmations = isStatusBuff ? StatusBuffMinimumConfirmations : 5;
+        var requiredDuration = TimeSpan.FromSeconds(
+            isStatusBuff ? StatusBuffConfirmationSeconds : MusicBuffInactiveConfirmationSeconds);
         _log.Info(
             $"Buff zero confirmation: reason={reason}, key={nameKey}, source={source}, " +
-            $"count={timer.ConsecutiveZeroConfirmations}/{requiredConfirmations}, validMs={validFor.TotalMilliseconds:0}");
+            $"count={timer.ConsecutiveZeroConfirmations}/{requiredConfirmations}, " +
+            $"validMs={validFor.TotalMilliseconds:0}/{requiredDuration.TotalMilliseconds:0}");
         if (timer.ConsecutiveZeroConfirmations >= requiredConfirmations &&
-            (!isStatusBuff || validFor >= TimeSpan.FromSeconds(StatusBuffConfirmationSeconds)))
+            validFor >= requiredDuration)
         {
             ExpireBuffImmediately(nameKey, reason, source);
         }

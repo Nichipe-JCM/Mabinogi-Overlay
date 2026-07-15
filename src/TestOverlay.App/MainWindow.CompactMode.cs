@@ -127,6 +127,7 @@ public partial class MainWindow
 
     private void EnterCompactMode(bool savePreference)
     {
+        FlushProfileAutoSave();
         if (savePreference)
         {
             _appSettings.CompactModeEnabled = true;
