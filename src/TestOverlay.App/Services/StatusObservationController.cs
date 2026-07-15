@@ -7,6 +7,8 @@ public sealed class StatusObservationController
     private const int RecognitionIntervalSeconds = 2;
     private const int StatusBuffConfirmationSeconds = 3;
     private const int StatusBuffMinimumConfirmations = 3;
+    private const int MusicBuffFastCorrectionMaxSeconds = 15;
+    private const int MusicBuffFastCorrectionConfirmations = 2;
     private readonly AppLog _log;
     private bool _hasTuairimObservation;
     private int? _pendingTuairimPercent;
@@ -421,6 +423,8 @@ public sealed class StatusObservationController
         string reason,
         DateTimeOffset now)
     {
+        var downwardGap = timer.RemainingSeconds - observedSeconds;
+        var isFastCorrection = downwardGap <= MusicBuffFastCorrectionMaxSeconds;
         var continues = timer.PendingObservationIsDownward &&
                         timer.PendingObservedSeconds is int pending &&
                         observedSeconds <= pending + 1 &&
@@ -439,19 +443,23 @@ public sealed class StatusObservationController
         }
 
         var validFor = now - (timer.PendingObservationStartedAt ?? now);
-        if (validFor >= TimeSpan.FromSeconds(5) && timer.PendingObservationConfirmations >= 5)
+        var accepted = isFastCorrection
+            ? timer.PendingObservationConfirmations >= MusicBuffFastCorrectionConfirmations
+            : validFor >= TimeSpan.FromSeconds(5) && timer.PendingObservationConfirmations >= 5;
+        if (accepted)
         {
             timer.RemainingSeconds = observedSeconds;
             ClearPendingTimeObservation(timer);
             _log.Info(
-                $"Buff OCR accepted sustained downward value: reason={reason}, key={timer.NameKey}, " +
-                $"observed={observedSeconds}, validMs={validFor.TotalMilliseconds:0}");
+                $"Buff OCR accepted {(isFastCorrection ? "fast correction" : "sustained downward value")}: " +
+                $"reason={reason}, key={timer.NameKey}, observed={observedSeconds}, " +
+                $"gap={downwardGap}, validMs={validFor.TotalMilliseconds:0}");
         }
         else
         {
             _log.Info(
                 $"Buff OCR validating downward value: reason={reason}, key={timer.NameKey}, " +
-                $"current={timer.RemainingSeconds}, observed={observedSeconds}, " +
+                $"current={timer.RemainingSeconds}, observed={observedSeconds}, gap={downwardGap}, " +
                 $"count={timer.PendingObservationConfirmations}, validMs={validFor.TotalMilliseconds:0}");
         }
     }

@@ -76,6 +76,39 @@ public sealed class StatusObservationControllerTests
     }
 
     [Fact]
+    public void Buff_corrects_small_timer_lead_after_two_consistent_observations()
+    {
+        var controller = CreateController();
+        controller.ObserveBuffTime(
+            MonitoredBuffCatalog.BattleOverture,
+            316,
+            "5분 16초",
+            "test",
+            30,
+            StartedAt);
+
+        controller.ObserveBuffTime(
+            MonitoredBuffCatalog.BattleOverture,
+            307,
+            "5분 7초",
+            "test",
+            30,
+            StartedAt.AddSeconds(1));
+        Assert.Equal(316, controller.Timers.Single().RemainingSeconds);
+
+        controller.ObserveBuffTime(
+            MonitoredBuffCatalog.BattleOverture,
+            306,
+            "5분 6초",
+            "test",
+            30,
+            StartedAt.AddSeconds(2));
+
+        Assert.Equal(306, controller.Timers.Single().RemainingSeconds);
+        Assert.False(controller.NeedsVerification);
+    }
+
+    [Fact]
     public void Buff_is_removed_after_five_zero_confirmations()
     {
         var controller = CreateController();
