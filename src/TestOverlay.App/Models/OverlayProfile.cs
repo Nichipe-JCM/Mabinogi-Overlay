@@ -34,6 +34,12 @@ public sealed class OverlayProfile
 
     public bool TuairimAlertsEnabled { get; set; } = true;
 
+    public bool ShowInternalBuffTimer { get; set; } = true;
+
+    public bool ShowAlertNotification { get; set; } = true;
+
+    public bool ShowTuairimGauge { get; set; } = true;
+
     [JsonPropertyName("TuarimMonitorEnabled")]
     public bool LegacyTuarimMonitorEnabled
     {

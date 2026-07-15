@@ -577,6 +577,11 @@ public partial class MainWindow
             OverlayElementKind.AlertNotification => EnsureAlertNotificationCandidate(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only monitor elements can be auto-placed.")
         };
+        if (_hiddenMonitorElementKinds.Contains(kind))
+        {
+            UpdateCandidateOverlayFlags();
+            return;
+        }
         var existingSlot = _overlaySlots.FirstOrDefault(slot => slot.Kind == kind);
         if (existingSlot is not null)
         {
@@ -638,9 +643,36 @@ public partial class MainWindow
     private void ClearLayout()
     {
         _overlaySlots.Clear();
-        EnsureEnabledMonitorElementsPlaced();
+        HideAllMonitorElements();
         UpdateLayoutSummary();
         UpdateCandidateOverlayFlags();
+    }
+
+    private void HideAllMonitorElements()
+    {
+        _hiddenMonitorElementKinds.Add(OverlayElementKind.InternalBuffTimer);
+        _hiddenMonitorElementKinds.Add(OverlayElementKind.AlertNotification);
+        _hiddenMonitorElementKinds.Add(OverlayElementKind.TuairimGauge);
+    }
+
+    private void SynchronizeHiddenMonitorElementsFromLayout()
+    {
+        foreach (var kind in new[]
+                 {
+                     OverlayElementKind.InternalBuffTimer,
+                     OverlayElementKind.AlertNotification,
+                     OverlayElementKind.TuairimGauge
+                 })
+        {
+            if (_overlaySlots.Any(slot => slot.Kind == kind))
+            {
+                _hiddenMonitorElementKinds.Remove(kind);
+            }
+            else
+            {
+                _hiddenMonitorElementKinds.Add(kind);
+            }
+        }
     }
 
     private int RemoveOverlaySlotsForCandidates(IEnumerable<SlotCandidate> candidates)

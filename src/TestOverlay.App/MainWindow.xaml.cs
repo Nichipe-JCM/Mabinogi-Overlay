@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     private HashSet<string> _pendingInitialBuffMinuteValidation =>
         _statusObservations.PendingInitialBuffValidation;
     private readonly Dictionary<string, BuffIconMatch> _buffIconMatches = new(StringComparer.Ordinal);
+    private readonly HashSet<OverlayElementKind> _hiddenMonitorElementKinds = [];
     private readonly HashSet<string> _monitorDiagnosticKindsSaved = new(StringComparer.Ordinal);
     private readonly List<Rectangle> _monitorDetectionRects = new();
     private readonly Dictionary<SlotCandidate, Rectangle> _candidateRects = new();
@@ -554,6 +555,10 @@ public partial class MainWindow : Window
         var rowHeight = 0.0;
         foreach (var candidate in selected)
         {
+            if (candidate.IsBuiltIn)
+            {
+                _hiddenMonitorElementKinds.Remove(candidate.Kind);
+            }
             var crop = candidate.Kind == OverlayElementKind.Quickslot
                 ? _captureSession.Crop(_capturedImage!, candidate.SourceRect)
                 : RenderMonitorElementPreview(candidate.Kind);
@@ -837,8 +842,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        var builtInCandidates = selected.Where(candidate => candidate.IsBuiltIn).ToList();
+        var removableCandidates = selected.Where(candidate => !candidate.IsBuiltIn).ToList();
         var before = CaptureCandidateSnapshot();
-        foreach (var candidate in selected)
+        foreach (var candidate in removableCandidates)
         {
             if (_candidateRects.Remove(candidate, out var rect))
             {
@@ -846,23 +853,33 @@ public partial class MainWindow : Window
             }
         }
 
-        _candidateWorkspace.DeleteCandidates(selected);
+        _candidateWorkspace.DeleteCandidates(removableCandidates);
+        var hiddenSlots = 0;
+        foreach (var candidate in builtInCandidates)
+        {
+            hiddenSlots += _overlaySlots.RemoveAll(slot => slot.Kind == candidate.Kind);
+            _hiddenMonitorElementKinds.Add(candidate.Kind);
+        }
 
         RefreshSectionLabels();
+        UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         PushUndoIfChanged(before);
-        SetStatus(L.F("Deleted {0} selected candidates.", selected.Count));
+        ScheduleProfileAutoSave();
+        SetStatus(builtInCandidates.Count > 0
+            ? L.F("profile.monitor.slots.hidden", hiddenSlots)
+            : L.F("Deleted {0} selected candidates.", removableCandidates.Count));
     }
 
     private List<SlotCandidate> GetCandidatesToDelete()
     {
-        var checkedCandidates = _candidates.Where(candidate => candidate.IsSelected && !candidate.IsBuiltIn).ToList();
+        var checkedCandidates = _candidates.Where(candidate => candidate.IsSelected).ToList();
         if (checkedCandidates.Count > 0)
         {
             return checkedCandidates;
         }
 
-        return CandidateList.SelectedItem is SlotCandidate { IsBuiltIn: false } highlighted
+        return CandidateList.SelectedItem is SlotCandidate highlighted
             ? [highlighted]
             : [];
     }
@@ -893,9 +910,9 @@ public partial class MainWindow : Window
             _candidates.Remove(candidate);
         }
         _overlaySlots.Clear();
+        HideAllMonitorElements();
         ClearCandidateRects();
         ClearSections();
-        EnsureEnabledMonitorElementsPlaced();
         UpdateCandidateOverlayFlags();
         PushUndoIfChanged(before);
         SetStatus("Candidate list cleared.");
@@ -937,6 +954,7 @@ public partial class MainWindow : Window
             _refreshFps = editor.RefreshFps;
             _layoutSlotScale = editor.SlotScale;
             _layoutGridSnapSize = editor.GridSnapSize;
+            SynchronizeHiddenMonitorElementsFromLayout();
             EnsureEnabledMonitorElementsPlaced();
             UpdateCandidateOverlayFlags();
             UpdateLayoutSummary();

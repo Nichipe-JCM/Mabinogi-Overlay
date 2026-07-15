@@ -60,6 +60,9 @@ public partial class MainWindow
         profile.TuairimMonitorEnabled = _tuairimMonitorEnabled;
         profile.BuffAlertsEnabled = _buffAlertsEnabled;
         profile.TuairimAlertsEnabled = _tuairimAlertsEnabled;
+        profile.ShowInternalBuffTimer = !_hiddenMonitorElementKinds.Contains(OverlayElementKind.InternalBuffTimer);
+        profile.ShowAlertNotification = !_hiddenMonitorElementKinds.Contains(OverlayElementKind.AlertNotification);
+        profile.ShowTuairimGauge = !_hiddenMonitorElementKinds.Contains(OverlayElementKind.TuairimGauge);
         _alertAudio.WriteProfile(profile);
         profile.RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
             .Where(_recognizedBuffNameKeys.Contains)
@@ -179,6 +182,19 @@ public partial class MainWindow
         _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
         _buffAlertsEnabled = profile.BuffAlertsEnabled;
         _tuairimAlertsEnabled = profile.TuairimAlertsEnabled;
+        _hiddenMonitorElementKinds.Clear();
+        if (!profile.ShowInternalBuffTimer)
+        {
+            _hiddenMonitorElementKinds.Add(OverlayElementKind.InternalBuffTimer);
+        }
+        if (!profile.ShowAlertNotification)
+        {
+            _hiddenMonitorElementKinds.Add(OverlayElementKind.AlertNotification);
+        }
+        if (!profile.ShowTuairimGauge)
+        {
+            _hiddenMonitorElementKinds.Add(OverlayElementKind.TuairimGauge);
+        }
         ApplyMonitorAlertSettings(profile);
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();
