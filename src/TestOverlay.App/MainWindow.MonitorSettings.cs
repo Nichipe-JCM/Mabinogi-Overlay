@@ -11,51 +11,76 @@ namespace TestOverlay.App;
 public partial class MainWindow
 {
     private void BuffMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+        => SetBuffMonitorEnabled(BuffMonitorEnabledCheckBox.IsChecked == true, beginDetectionIfMissing: true);
+
+    private void SetBuffMonitorEnabled(bool enabled, bool beginDetectionIfMissing)
     {
-        _buffMonitorEnabled = BuffMonitorEnabledCheckBox.IsChecked == true;
-        if (!_buffMonitorEnabled)
+        var changed = _buffMonitorEnabled != enabled;
+        _buffMonitorEnabled = enabled;
+        _buffAlertsEnabled = enabled;
+        BuffMonitorEnabledCheckBox.IsChecked = enabled;
+        if (changed)
         {
-            if (_monitorDetectionMode == MonitorDetectionMode.BuffWindow)
-            {
-                SetMonitorDetectionMode(MonitorDetectionMode.None);
-            }
-            _recognizedBuffNameKeys.Clear();
-            _selectedBuffNameKeys.Clear();
-            _pendingInitialBuffMinuteValidation.Clear();
-            _buffMonitorRoi = null;
-            _buffIconMatches.Clear();
-            RefreshMonitorDetectionVisuals();
+            _monitorValueRecognitionGeneration++;
+            _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
         }
-        SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled);
-        SynchronizeAlertNotificationElement();
+        if (!enabled && _monitorDetectionMode == MonitorDetectionMode.BuffWindow)
+        {
+            SetMonitorDetectionMode(MonitorDetectionMode.None);
+        }
+        if (!enabled)
+        {
+            _internalBuffTimers.Clear();
+            _pendingInitialBuffMinuteValidation.Clear();
+        }
+        if (enabled)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer, scheduleAutoSave: false);
+            EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave: false);
+        }
         UpdateMonitorControlAvailability();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
-        if (_buffMonitorEnabled)
+        ScheduleProfileAutoSave();
+        RefreshCompactControlState();
+        if (enabled && beginDetectionIfMissing && _buffMonitorRoi is null)
         {
             DetectBuffWindowButton_Click(DetectBuffWindowButton, new RoutedEventArgs());
         }
     }
 
     private void TuairimMonitorEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+        => SetTuairimMonitorEnabled(TuairimMonitorEnabledCheckBox.IsChecked == true, beginDetectionIfMissing: true);
+
+    private void SetTuairimMonitorEnabled(bool enabled, bool beginDetectionIfMissing)
     {
-        _tuairimMonitorEnabled = TuairimMonitorEnabledCheckBox.IsChecked == true;
-        if (!_tuairimMonitorEnabled && _monitorDetectionMode == MonitorDetectionMode.Tuairim)
+        var changed = _tuairimMonitorEnabled != enabled;
+        _tuairimMonitorEnabled = enabled;
+        _tuairimAlertsEnabled = enabled;
+        TuairimMonitorEnabledCheckBox.IsChecked = enabled;
+        if (changed)
+        {
+            _monitorValueRecognitionGeneration++;
+            _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
+        }
+        if (!enabled && _monitorDetectionMode == MonitorDetectionMode.Tuairim)
         {
             SetMonitorDetectionMode(MonitorDetectionMode.None);
         }
-        if (!_tuairimMonitorEnabled)
+        if (!enabled)
         {
-            _tuairimMonitorRoi = null;
-            _tuairimAnchor = null;
             ResetTuairimPercentRecognitionState();
-            RefreshMonitorDetectionVisuals();
         }
-        SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled);
-        SynchronizeAlertNotificationElement();
+        if (enabled)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave: false);
+            EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave: false);
+        }
         UpdateMonitorControlAvailability();
         RefreshInternalTimerOverlay();
-        if (_tuairimMonitorEnabled)
+        ScheduleProfileAutoSave();
+        RefreshCompactControlState();
+        if (enabled && beginDetectionIfMissing && _tuairimAnchor is null)
         {
             DetectTuairimUiButton_Click(DetectTuairimUiButton, new RoutedEventArgs());
         }
@@ -670,28 +695,7 @@ public partial class MainWindow
     }
 
     private bool CanAddBuffSelection(string nameKey)
-    {
-        if (_selectedBuffNameKeys.Contains(nameKey))
-        {
-            return true;
-        }
-        if (_selectedBuffNameKeys.Count >= 2)
-        {
-            return false;
-        }
-        if (_selectedBuffNameKeys.Count == 0)
-        {
-            return true;
-        }
-
-        var existingKey = _selectedBuffNameKeys.Single();
-        if (!MonitoredBuffCatalog.IsMusicBuff(nameKey) || !MonitoredBuffCatalog.IsMusicBuff(existingKey))
-        {
-            return true;
-        }
-
-        return nameKey == MonitoredBuffCatalog.MarchSong || existingKey == MonitoredBuffCatalog.MarchSong;
-    }
+        => MonitoredBuffCatalog.CanAddSelection(_selectedBuffNameKeys, nameKey);
 
     private IEnumerable<CheckBox> BuffSelectionCheckBoxes()
     {

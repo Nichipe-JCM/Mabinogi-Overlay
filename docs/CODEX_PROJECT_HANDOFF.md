@@ -133,7 +133,7 @@ The most recent commits on the active branch repaired Erin alarm state persisten
 1. `MainWindow.xaml.cs` is a large orchestration file. New work should avoid adding more unrelated state directly there when a focused service/controller can own it.
 2. DXGI currently creates capture resources for each captured frame. At high FPS this is materially more expensive than WGC's persistent frame session.
 3. CPU render paths copy full frames into managed memory before cropping or compositing. This can be expensive at high resolution.
-4. OCR runs sequentially for selected buff rows. The effective interval can exceed two seconds when OCR work is slow.
+4. Buff times use one batch OCR pass over the time column. Missing or ambiguous rows fall back to sequential row OCR, so repeated fallbacks can still extend the effective interval.
 5. Monitor OCR and template matching require user runtime validation across UI scale, map brightness, and installed Windows OCR language packs.
 6. Existing legacy handoff and patch-note files were replaced or updated to avoid stale instructions. Keep future documentation in UTF-8.
 

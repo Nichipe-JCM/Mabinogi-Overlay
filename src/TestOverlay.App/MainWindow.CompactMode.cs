@@ -15,10 +15,10 @@ public partial class MainWindow
     internal CompactControlState GetCompactControlState() => new(
         ReadSelectedProfileName(),
         _overlayRuntime.IsRunning,
-        _buffMonitorEnabled && _buffMonitorRoi is not null,
-        _tuairimMonitorEnabled && _tuairimAnchor is not null,
-        _buffAlertsEnabled,
-        _tuairimAlertsEnabled,
+        _buffMonitorRoi is not null && _buffIconMatches.Count > 0,
+        _tuairimAnchor is not null,
+        _buffMonitorEnabled,
+        _tuairimMonitorEnabled,
         _recognizedBuffNameKeys.ToHashSet(StringComparer.Ordinal),
         _selectedBuffNameKeys.ToHashSet(StringComparer.Ordinal));
 
@@ -27,11 +27,10 @@ public partial class MainWindow
     internal void SetCompactErinAlarmEnabled(int alarmId, bool enabled) =>
         ErinTimerPanel.SetAlarmEnabled(alarmId, enabled);
 
-    internal void SetCompactAlertsEnabled(bool buffEnabled, bool tuairimEnabled)
+    internal void SetCompactMonitorEnabled(bool buffEnabled, bool tuairimEnabled)
     {
-        _buffAlertsEnabled = buffEnabled;
-        _tuairimAlertsEnabled = tuairimEnabled;
-        ScheduleProfileAutoSave();
+        SetBuffMonitorEnabled(buffEnabled, beginDetectionIfMissing: false);
+        SetTuairimMonitorEnabled(tuairimEnabled, beginDetectionIfMissing: false);
         RefreshCompactControlState();
     }
 

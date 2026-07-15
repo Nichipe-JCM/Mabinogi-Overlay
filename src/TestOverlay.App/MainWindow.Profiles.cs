@@ -170,10 +170,10 @@ public partial class MainWindow
                 ? profile.RefreshFps
                 : FpsFromInterval(profile.RefreshIntervalMs));
             OverlayProfileMapper.ApplyLayoutAndSectionSettings(profile, _workspace, refreshFps);
-        _buffMonitorEnabled = profile.BuffMonitorEnabled;
-        _tuairimMonitorEnabled = profile.TuairimMonitorEnabled;
-        _buffAlertsEnabled = profile.BuffAlertsEnabled;
-        _tuairimAlertsEnabled = profile.TuairimAlertsEnabled;
+        _buffMonitorEnabled = profile.BuffMonitorEnabled && profile.BuffAlertsEnabled;
+        _tuairimMonitorEnabled = profile.TuairimMonitorEnabled && profile.TuairimAlertsEnabled;
+        _buffAlertsEnabled = _buffMonitorEnabled;
+        _tuairimAlertsEnabled = _tuairimMonitorEnabled;
         ApplyMonitorAlertSettings(profile);
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();
@@ -183,34 +183,31 @@ public partial class MainWindow
         _tuairimMonitorRoi = FromProfileRect(profile.TuairimMonitorRoi);
         _tuairimAnchor = FromProfileRect(profile.TuairimAnchor);
         ResetTuairimPercentRecognitionState();
-        if (_buffMonitorEnabled)
+        foreach (var key in (profile.RecognizedBuffNameKeys ?? []).Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
         {
-            foreach (var key in (profile.RecognizedBuffNameKeys ?? []).Where(InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains))
+            _recognizedBuffNameKeys.Add(key);
+        }
+        foreach (var key in InternalBuffTimerPreviewRenderer.BuffNameKeys.Where((profile.SelectedBuffNameKeys ?? []).Contains))
+        {
+            if (_recognizedBuffNameKeys.Contains(key) && CanAddBuffSelection(key))
             {
-                _recognizedBuffNameKeys.Add(key);
+                _selectedBuffNameKeys.Add(key);
             }
-            foreach (var key in InternalBuffTimerPreviewRenderer.BuffNameKeys.Where((profile.SelectedBuffNameKeys ?? []).Contains))
+        }
+        foreach (var savedAnchor in profile.BuffAnchors ?? [])
+        {
+            var bounds = FromProfileRect(savedAnchor.Bounds);
+            if (bounds is null || !InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains(savedAnchor.NameKey))
             {
-                if (_recognizedBuffNameKeys.Contains(key) && CanAddBuffSelection(key))
-                {
-                    _selectedBuffNameKeys.Add(key);
-                }
+                continue;
             }
-            foreach (var savedAnchor in profile.BuffAnchors ?? [])
-            {
-                var bounds = FromProfileRect(savedAnchor.Bounds);
-                if (bounds is null || !InternalBuffTimerPreviewRenderer.BuffNameKeys.Contains(savedAnchor.NameKey))
-                {
-                    continue;
-                }
 
-                _buffIconMatches[savedAnchor.NameKey] = new BuffIconMatch(
-                    savedAnchor.NameKey,
-                    bounds.Value,
-                    savedAnchor.StructureScore,
-                    savedAnchor.IsActive,
-                    savedAnchor.StateConfidence);
-            }
+            _buffIconMatches[savedAnchor.NameKey] = new BuffIconMatch(
+                savedAnchor.NameKey,
+                bounds.Value,
+                savedAnchor.StructureScore,
+                savedAnchor.IsActive,
+                savedAnchor.StateConfidence);
         }
         BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
         TuairimMonitorEnabledCheckBox.IsChecked = _tuairimMonitorEnabled;
@@ -231,12 +228,6 @@ public partial class MainWindow
         {
             foreach (var savedCandidate in profile.Candidates.OrderBy(candidate => candidate.Id))
             {
-                if (savedCandidate.Kind != OverlayElementKind.Quickslot &&
-                    !IsMonitorElementEnabled(savedCandidate.Kind))
-                {
-                    continue;
-                }
-
                 var candidate = new SlotCandidate(
                     savedCandidate.Id,
                     new Rect(
@@ -300,13 +291,6 @@ public partial class MainWindow
         var nextCandidateId = loadedCandidates.Keys.Where(id => id > 0).DefaultIfEmpty(0).Max() + 1;
         foreach (var savedSlot in profile.Slots)
         {
-            if (savedKinds.TryGetValue(savedSlot.SourceCandidateId, out var savedKind) &&
-                savedKind != OverlayElementKind.Quickslot &&
-                !IsMonitorElementEnabled(savedKind))
-            {
-                continue;
-            }
-
             var candidate = ResolveProfileSlotSource(savedSlot, loadedCandidates);
             if (candidate is null)
             {

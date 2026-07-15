@@ -31,4 +31,23 @@ public static class MonitoredBuffCatalog
     public static bool IsMusicBuff(string nameKey) => MusicBuffNameKeys.Contains(nameKey);
 
     public static bool IsStatusBuff(string nameKey) => StatusBuffNameKeys.Contains(nameKey);
+
+    internal static bool CanAddSelection(IEnumerable<string> selectedNameKeys, string nameKey)
+    {
+        var selected = selectedNameKeys.ToHashSet(StringComparer.Ordinal);
+        if (selected.Contains(nameKey) || !IsMusicBuff(nameKey))
+        {
+            return true;
+        }
+
+        var selectedMusicBuffs = selected.Where(IsMusicBuff).ToArray();
+        if (selectedMusicBuffs.Length >= 2)
+        {
+            return false;
+        }
+
+        return selectedMusicBuffs.Length == 0 ||
+               nameKey == MarchSong ||
+               selectedMusicBuffs[0] == MarchSong;
+    }
 }

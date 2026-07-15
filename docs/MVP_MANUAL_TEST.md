@@ -18,7 +18,7 @@ Expected: zero build errors.
 4. Change a previously recognized buff selection while the overlay is running and verify that the overlay restarts and monitoring continues.
 5. Open Manage Layout and verify that the full window remains hidden and the modal editor opens centered on the compact window's current monitor.
 6. Move the compact window to another monitor, select Full mode, and verify that the full window opens on that monitor.
-7. Toggle Buff alerts and Tuairim alerts off and verify that monitoring continues without visual or audio alerts.
+7. Toggle Buff alerts and Tuairim alerts in Compact mode and verify that the matching main-window checkboxes update. Toggle them in the main window and verify that Compact mode updates. Confirm that disabling either feature preserves its detection settings, selected buffs, and layout placement.
 8. Open the Erin Timer tab and verify that the current Erin time, next alarm, and alarm enable switches update without leaving Compact mode.
 9. Restart the application from Compact mode and verify that Compact mode is restored.
 
@@ -30,7 +30,7 @@ Expected: zero build errors.
 4. Switch alert sounds to per-buff mode and verify that the entire list, including Battle Overture, scrolls together.
 5. Verify that the Detect buff window and Detect Tuairim UI buttons remain visible at the right edge of their card headers.
 6. Verify that per-buff sound settings use the remaining buff-card height before showing a scrollbar, and that the bottom edge of the Tuairim card remains fully visible.
-7. Select two status buffs together and verify that the music-buff March restriction is not applied.
+7. Select all three status buffs together and verify that they remain selected regardless of the music-buff selection. Verify that music buffs still allow at most two selections and require March Song when two are selected.
 8. Refresh an active status buff and verify that a large time increase is applied only after at least three seconds of consistent readings.
 9. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
 10. Keep the icon confidently inactive for at least three seconds and verify that its timer is removed.
@@ -121,6 +121,6 @@ When a failure occurs, use Settings > Log and collect `%LocalAppData%\Mabinogi O
 ## Monitor capture performance
 
 1. Run WGC + automatic GPU rendering with buff monitoring enabled.
-2. Compare overlay smoothness and CPU usage with one and four selected buffs.
+2. Compare overlay smoothness and CPU usage with one and four selected buffs. With successful batch OCR, verify that additional selected buffs do not multiply OCR passes.
 3. Verify buff activation and expiration still update within the expected recognition delay.
 4. Check the log for OCR failures and confirm diagnostic images are written only once per failure kind.

@@ -48,8 +48,10 @@ public partial class CompactControlWindow : Window
             OverlayStateText.Text = L.T(state.IsOverlayRunning ? "compact.overlay.running" : "compact.overlay.stopped");
             OverlayStateDot.Fill = state.IsOverlayRunning ? RunningBrush : StoppedBrush;
             OverlayToggleButton.Content = L.T(state.IsOverlayRunning ? "Overlay stop" : "Overlay start");
-            BuffAlertsEnabledCheckBox.IsChecked = state.BuffAlertsEnabled;
-            TuairimAlertsEnabledCheckBox.IsChecked = state.TuairimAlertsEnabled;
+            BuffAlertsEnabledCheckBox.IsChecked = state.BuffEnabled;
+            TuairimAlertsEnabledCheckBox.IsChecked = state.TuairimEnabled;
+            BuffAlertsEnabledCheckBox.IsEnabled = state.IsBuffMonitorConfigured || state.BuffEnabled;
+            TuairimAlertsEnabledCheckBox.IsEnabled = state.IsTuairimMonitorConfigured || state.TuairimEnabled;
 
             ApplyBuffState(BattleBuffCheckBox, BattleDetectionStatusText, state, MonitoredBuffCatalog.BattleOverture);
             ApplyBuffState(MarchBuffCheckBox, MarchDetectionStatusText, state, MonitoredBuffCatalog.MarchSong);
@@ -137,7 +139,7 @@ public partial class CompactControlWindow : Window
             return;
         }
 
-        _host.SetCompactAlertsEnabled(
+        _host.SetCompactMonitorEnabled(
             BuffAlertsEnabledCheckBox.IsChecked == true,
             TuairimAlertsEnabledCheckBox.IsChecked == true);
     }
@@ -280,7 +282,7 @@ public sealed record CompactControlState(
     bool IsOverlayRunning,
     bool IsBuffMonitorConfigured,
     bool IsTuairimMonitorConfigured,
-    bool BuffAlertsEnabled,
-    bool TuairimAlertsEnabled,
+    bool BuffEnabled,
+    bool TuairimEnabled,
     IReadOnlySet<string> RecognizedBuffNameKeys,
     IReadOnlySet<string> SelectedBuffNameKeys);
