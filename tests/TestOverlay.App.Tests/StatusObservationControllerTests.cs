@@ -141,19 +141,33 @@ public sealed class StatusObservationControllerTests
     }
 
     [Fact]
-    public void Status_buff_rejects_large_downward_jump_without_pending_acceptance()
+    public void Status_buff_accepts_large_downward_value_after_sustained_confirmation()
     {
         var controller = CreateController();
         var key = MonitoredBuffCatalog.ConditionSupport;
         controller.ObserveBuffTime(key, 100, "100", "test", 30, StartedAt);
 
-        for (var index = 1; index <= 8; index++)
-        {
-            controller.ObserveBuffTime(key, 50 - index, (50 - index).ToString(), "test", 30, StartedAt.AddSeconds(index));
-        }
+        controller.ObserveBuffTime(key, 50, "50", "test", 30, StartedAt.AddSeconds(1));
+        controller.ObserveBuffTime(key, 48, "48", "test", 30, StartedAt.AddSeconds(3));
+        Assert.Equal(100, controller.Timers.Single().RemainingSeconds);
+
+        controller.ObserveBuffTime(key, 46, "46", "test", 30, StartedAt.AddSeconds(5));
+
+        Assert.Equal(46, controller.Timers.Single().RemainingSeconds);
+        Assert.False(controller.NeedsVerification);
+    }
+
+    [Fact]
+    public void Status_buff_rejects_isolated_large_downward_value()
+    {
+        var controller = CreateController();
+        var key = MonitoredBuffCatalog.DivineLink;
+        controller.ObserveBuffTime(key, 100, "100", "test", 30, StartedAt);
+
+        controller.ObserveBuffTime(key, 50, "50", "test", 30, StartedAt.AddSeconds(1));
 
         Assert.Equal(100, controller.Timers.Single().RemainingSeconds);
-        Assert.False(controller.NeedsVerification);
+        Assert.True(controller.NeedsVerification);
     }
 
     [Fact]

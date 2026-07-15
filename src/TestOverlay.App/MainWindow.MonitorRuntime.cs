@@ -11,6 +11,13 @@ public partial class MainWindow
     private async void InternalTimerDebugTimer_Tick(object? sender, EventArgs e)
     {
         var now = DateTimeOffset.UtcNow;
+        var elapsedCountdownSeconds = Math.Max(
+            0,
+            (int)Math.Floor((now - _lastInternalTimerCountdownAt).TotalSeconds));
+        if (elapsedCountdownSeconds > 0)
+        {
+            _lastInternalTimerCountdownAt = _lastInternalTimerCountdownAt.AddSeconds(elapsedCountdownSeconds);
+        }
         var reachedVerificationPoint = false;
         foreach (var timer in _internalBuffTimers.ToArray())
         {
@@ -18,7 +25,9 @@ public partial class MainWindow
             var minimumSeconds = MonitoredBuffCatalog.IsStatusBuff(timer.NameKey)
                 ? 0
                 : _monitorTestMode ? 0 : 1;
-            timer.RemainingSeconds = Math.Max(minimumSeconds, timer.RemainingSeconds - 1);
+            timer.RemainingSeconds = Math.Max(
+                minimumSeconds,
+                timer.RemainingSeconds - elapsedCountdownSeconds);
             if (timer.RemainingSeconds == 0 && _statusObservations.ExpireBuffAtCountdownZero(timer.NameKey))
             {
                 continue;
@@ -129,6 +138,7 @@ public partial class MainWindow
         _internalTimerOverlayWindow.UpdateLayout();
         _internalTimerOverlayWindow.SetTuairimPercent(_statusObservations.TuairimPercent);
         _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
+        _lastInternalTimerCountdownAt = DateTimeOffset.UtcNow;
         _monitorRecognitionRetryPolicy.Reset();
         _monitorValueRecognitionGeneration++;
         _internalTimerDebugTimer.Start();

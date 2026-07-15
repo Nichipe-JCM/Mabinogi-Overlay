@@ -169,6 +169,7 @@ public partial class MainWindow : Window
     private Rect? _tuairimMonitorRoi;
     private Rect? _tuairimAnchor;
     private DateTimeOffset _nextMonitorValueRecognitionAt;
+    private DateTimeOffset _lastInternalTimerCountdownAt;
     private bool _tuairimAlertFired;
     private bool _isUpdatingMonitorAlertSettings;
     private bool _monitorTestMode;

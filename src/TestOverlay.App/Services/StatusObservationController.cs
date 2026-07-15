@@ -329,10 +329,7 @@ public sealed class StatusObservationController
         var difference = observedSeconds - timer.RemainingSeconds;
         if (difference < -3)
         {
-            ClearPendingTimeObservation(timer);
-            _log.Info(
-                $"Status buff OCR rejected implausible downward jump: reason={reason}, key={timer.NameKey}, " +
-                $"current={timer.RemainingSeconds}, observed={observedSeconds}");
+            ApplyStatusBuffDownwardObservation(timer, observedSeconds, reason, now);
             return;
         }
 
@@ -373,6 +370,47 @@ public sealed class StatusObservationController
 
         _log.Info(
             $"Status buff refresh validating: reason={reason}, key={timer.NameKey}, " +
+            $"current={timer.RemainingSeconds}, observed={observedSeconds}, " +
+            $"count={timer.PendingObservationConfirmations}, validMs={validFor.TotalMilliseconds:0}");
+    }
+
+    private void ApplyStatusBuffDownwardObservation(
+        InternalBuffTimer timer,
+        int observedSeconds,
+        string reason,
+        DateTimeOffset now)
+    {
+        var continues = timer.PendingObservationIsDownward &&
+                        timer.PendingObservedSeconds is int pending &&
+                        observedSeconds <= pending + 1 &&
+                        observedSeconds >= pending - 4;
+        if (continues)
+        {
+            timer.PendingObservedSeconds = observedSeconds;
+            timer.PendingObservationConfirmations++;
+        }
+        else
+        {
+            timer.PendingObservedSeconds = observedSeconds;
+            timer.PendingObservationConfirmations = 1;
+            timer.PendingObservationStartedAt = now;
+            timer.PendingObservationIsDownward = true;
+        }
+
+        var validFor = now - (timer.PendingObservationStartedAt ?? now);
+        if (validFor >= TimeSpan.FromSeconds(StatusBuffConfirmationSeconds) &&
+            timer.PendingObservationConfirmations >= StatusBuffMinimumConfirmations)
+        {
+            timer.RemainingSeconds = observedSeconds;
+            ClearPendingTimeObservation(timer);
+            _log.Info(
+                $"Status buff OCR resynchronized sustained downward value: reason={reason}, key={timer.NameKey}, " +
+                $"observed={observedSeconds}, validMs={validFor.TotalMilliseconds:0}");
+            return;
+        }
+
+        _log.Info(
+            $"Status buff OCR validating downward value: reason={reason}, key={timer.NameKey}, " +
             $"current={timer.RemainingSeconds}, observed={observedSeconds}, " +
             $"count={timer.PendingObservationConfirmations}, validMs={validFor.TotalMilliseconds:0}");
     }

@@ -597,7 +597,7 @@
                                                           Tag="monitor.buff.battle.overture"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/BattlefieldOn.png" Stretch="Uniform"/>
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/BattlefieldOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="BattleOvertureBuffNameText" VerticalAlignment="Center" Text="Battle Overture" loc:Localize.TextKey="monitor.buff.battle.overture"/>
                                                         <TextBlock x:Name="BattleOvertureDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
@@ -607,7 +607,7 @@
                                                           Tag="monitor.buff.march.song"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/MarchOn.png" Stretch="Uniform"/>
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/MarchOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="MarchSongBuffNameText" VerticalAlignment="Center" Text="March Song" loc:Localize.TextKey="monitor.buff.march.song"/>
                                                         <TextBlock x:Name="MarchSongDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
@@ -617,7 +617,7 @@
                                                           Tag="monitor.buff.vivace"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/VivaceOn.png" Stretch="Uniform"/>
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/VivaceOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="VivaceBuffNameText" VerticalAlignment="Center" Text="Vivace" loc:Localize.TextKey="monitor.buff.vivace"/>
                                                         <TextBlock x:Name="VivaceDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
@@ -627,7 +627,7 @@
                                                           Tag="monitor.buff.harvest.song"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/RichyearOn.png" Stretch="Uniform"/>
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/RichyearOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="HarvestSongBuffNameText" VerticalAlignment="Center" Text="Harvest Song" loc:Localize.TextKey="monitor.buff.harvest.song"/>
                                                         <TextBlock x:Name="HarvestSongDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
@@ -637,7 +637,7 @@
                                                           Tag="monitor.buff.divine.link"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/DivineLinkOn.png" Stretch="Uniform"/>
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/DivineLinkOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="DivineLinkBuffNameText" VerticalAlignment="Center" Text="Divine Link" loc:Localize.TextKey="monitor.buff.divine.link"/>
                                                         <TextBlock x:Name="DivineLinkDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
@@ -647,7 +647,7 @@
                                                           Tag="monitor.buff.condition.support"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/ConditionSupportOn.png" Stretch="Uniform"/>
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/ConditionSupportOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="ConditionSupportBuffNameText" VerticalAlignment="Center" Text="Condition Support" loc:Localize.TextKey="monitor.buff.condition.support"/>
                                                         <TextBlock x:Name="ConditionSupportDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
@@ -656,7 +656,7 @@
                                                           Tag="monitor.buff.purification.wave"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Image Width="18" Height="18" Margin="0,0,6,0" Source="/Image/PurificationWaveOn.png" Stretch="Uniform"/>
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/PurificationWaveOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="PurificationWaveBuffNameText" VerticalAlignment="Center" Text="Purification Wave" loc:Localize.TextKey="monitor.buff.purification.wave"/>
                                                         <TextBlock x:Name="PurificationWaveDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>

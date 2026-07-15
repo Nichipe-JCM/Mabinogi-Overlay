@@ -26,7 +26,7 @@ Expected: zero build errors.
 
 1. Detect Divine Link, Condition Support, and Purification Wave in the buff monitoring area and verify that each OFF/ON icon is classified correctly.
 2. Verify that every buff shows a red `X` before detection and a green `O` after detection.
-3. Enable `Buff icons only` and verify that names collapse while checkboxes, icons, and detection O/X indicators remain visible. At the normal window width, verify that all seven compact items fit on one row, the selection area becomes shorter, and the preference is retained after restart.
+3. Enable `Buff icons only` and verify that names collapse while checkboxes, native-size icons, and detection O/X indicators remain fully visible without clipping. At the normal window width, verify that all seven compact items fit on one row, the selection area becomes shorter, and the preference is retained after restart.
 4. Switch alert sounds to per-buff mode and verify that the entire list, including Battle Overture, scrolls together.
 5. Verify that the Detect buff window and Detect Tuairim UI buttons remain visible at the right edge of their card headers.
 6. Verify that per-buff sound settings use the remaining buff-card height before showing a scrollbar, and that the bottom edge of the Tuairim card remains fully visible.
@@ -35,7 +35,8 @@ Expected: zero build errors.
 9. Temporarily obscure an active status buff for less than three seconds and verify that its timer remains visible.
 10. Keep the icon confidently inactive for at least three seconds and verify that its timer is removed.
 11. Let the timer reach zero and verify that it is removed immediately.
-12. Feed or observe an implausible large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down.
+12. Feed or observe an isolated large downward OCR jump while the icon remains active and verify that the displayed timer does not jump down. Then provide consistent decreasing readings for at least three seconds and verify that the timer resynchronizes.
+13. Stall the UI thread briefly while a status buff is active and verify that its countdown catches up to real elapsed time instead of losing one second per delayed timer tick.
 
 ## Capture and quickslot workflow
 
