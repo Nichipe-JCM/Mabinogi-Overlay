@@ -36,6 +36,12 @@
     <Resource Include="..\..\Image\MarchOn.png" Link="Image\MarchOn.png" />
     <Resource Include="..\..\Image\RichyearOff.png" Link="Image\RichyearOff.png" />
     <Resource Include="..\..\Image\RichyearOn.png" Link="Image\RichyearOn.png" />
+    <Resource Include="..\..\Image\DivineLinkOff.png" Link="Image\DivineLinkOff.png" />
+    <Resource Include="..\..\Image\DivineLinkOn.png" Link="Image\DivineLinkOn.png" />
+    <Resource Include="..\..\Image\ConditionSupportOff.png" Link="Image\ConditionSupportOff.png" />
+    <Resource Include="..\..\Image\ConditionSupportOn.png" Link="Image\ConditionSupportOn.png" />
+    <Resource Include="..\..\Image\PurificationWaveOff.png" Link="Image\PurificationWaveOff.png" />
+    <Resource Include="..\..\Image\PurificationWaveOn.png" Link="Image\PurificationWaveOn.png" />
     <Resource Include="..\..\Image\Tuairim.png" Link="Image\Tuairim.png" />
     <Resource Include="..\..\Image\VivaceOff.png" Link="Image\VivaceOff.png" />
     <Resource Include="..\..\Image\VivaceOn.png" Link="Image\VivaceOn.png" />
