@@ -1,6 +1,7 @@
 <Window x:Class="TestOverlay.App.OverlayPlacementPreviewWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
         Title="Overlay Placement Preview"
         Icon="/Image/AppIcon.ico"
         WindowStyle="None"
@@ -12,6 +13,37 @@
         MinWidth="120"
         MinHeight="114">
     <Grid>
+        <Border x:Name="DragHeader"
+                Height="28"
+                Margin="0,0,34,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                Background="#F024272A"
+                BorderBrush="#E689DED4"
+                BorderThickness="1"
+                CornerRadius="4"
+                Cursor="SizeAll"
+                MouseLeftButtonDown="DragHeader_MouseLeftButtonDown">
+            <Grid Margin="9,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="⋮⋮"
+                           Foreground="#89DED4"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1"
+                           Margin="8,0,0,0"
+                           Text="Overlay preview"
+                           loc:Localize.TextKey="layout.preview.drag.header"
+                           Foreground="White"
+                           FontSize="12"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
         <Border x:Name="PreviewBorder"
                 Margin="0,34,0,0"
                 BorderBrush="#00A6FF"

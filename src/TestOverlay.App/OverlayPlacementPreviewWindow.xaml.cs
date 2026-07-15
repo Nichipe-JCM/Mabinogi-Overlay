@@ -13,7 +13,15 @@ public partial class OverlayPlacementPreviewWindow : Window
     private const double MinimumOverlayHeight = 80;
     private readonly IReadOnlyList<OverlaySlot> _slots;
     private readonly Action<double, double, double, double> _placementChanged;
-    private readonly double _defaultSlotOpacity;
+    private readonly Action<OverlaySlot> _slotDragStarted;
+    private readonly Action<OverlaySlot, double, double> _slotMoved;
+    private readonly Action<OverlaySlot> _slotDragCompleted;
+    private double _defaultSlotOpacity;
+    private bool _isPositionEditingEnabled;
+    private Image? _draggingImage;
+    private OverlaySlot? _draggingSlot;
+    private Point _slotDragPointerOrigin;
+    private Rect _slotDragOrigin;
 
     public OverlayPlacementPreviewWindow(
         double left,
@@ -22,12 +30,21 @@ public partial class OverlayPlacementPreviewWindow : Window
         double height,
         double opacity,
         IReadOnlyList<OverlaySlot> slots,
-        Action<double, double, double, double> placementChanged)
+        bool isPositionEditingEnabled,
+        Action<double, double, double, double> placementChanged,
+        Action<OverlaySlot> slotDragStarted,
+        Action<OverlaySlot, double, double> slotMoved,
+        Action<OverlaySlot> slotDragCompleted)
     {
         InitializeComponent();
         _slots = slots;
         _placementChanged = placementChanged;
+        _slotDragStarted = slotDragStarted;
+        _slotMoved = slotMoved;
+        _slotDragCompleted = slotDragCompleted;
         _defaultSlotOpacity = Math.Clamp(opacity, 0, 1);
+        _isPositionEditingEnabled = isPositionEditingEnabled;
+        PreviewCanvas.IsHitTestVisible = isPositionEditingEnabled;
         Left = left;
         Top = top - ControlHeaderHeight;
         Width = Math.Max(MinWidth, width);
@@ -57,12 +74,89 @@ public partial class OverlayPlacementPreviewWindow : Window
                 Height = slot.OverlayRect.Height,
                 Stretch = Stretch.Fill,
                 Opacity = slot.EffectiveOpacity(_defaultSlotOpacity) * 0.9,
-                IsHitTestVisible = false
+                Cursor = _isPositionEditingEnabled ? Cursors.SizeAll : Cursors.Arrow,
+                IsHitTestVisible = _isPositionEditingEnabled,
+                Tag = slot
             };
+            image.MouseLeftButtonDown += SlotImage_MouseLeftButtonDown;
+            image.MouseMove += SlotImage_MouseMove;
+            image.MouseLeftButtonUp += SlotImage_MouseLeftButtonUp;
             Canvas.SetLeft(image, slot.OverlayRect.X);
             Canvas.SetTop(image, slot.OverlayRect.Y);
             PreviewCanvas.Children.Add(image);
         }
+    }
+
+    public void RefreshSlots(double opacity, bool isPositionEditingEnabled)
+    {
+        _defaultSlotOpacity = Math.Clamp(opacity, 0, 1);
+        _isPositionEditingEnabled = isPositionEditingEnabled;
+        PreviewCanvas.IsHitTestVisible = isPositionEditingEnabled;
+        RenderSlots();
+    }
+
+    private void SlotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isPositionEditingEnabled || sender is not Image image)
+        {
+            return;
+        }
+
+        if (image.Tag is not OverlaySlot slot)
+        {
+            return;
+        }
+
+        _draggingImage = image;
+        _draggingSlot = slot;
+        _slotDragPointerOrigin = e.GetPosition(PreviewCanvas);
+        _slotDragOrigin = slot.OverlayRect;
+        _slotDragStarted(slot);
+        image.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void SlotImage_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_draggingImage is null || _draggingSlot is null || e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var position = e.GetPosition(PreviewCanvas);
+        _slotMoved(
+            _draggingSlot,
+            _slotDragOrigin.X + position.X - _slotDragPointerOrigin.X,
+            _slotDragOrigin.Y + position.Y - _slotDragPointerOrigin.Y);
+        Canvas.SetLeft(_draggingImage, _draggingSlot.OverlayRect.X);
+        Canvas.SetTop(_draggingImage, _draggingSlot.OverlayRect.Y);
+        e.Handled = true;
+    }
+
+    private void SlotImage_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_draggingImage is null || _draggingSlot is null)
+        {
+            return;
+        }
+
+        _draggingImage.ReleaseMouseCapture();
+        var slot = _draggingSlot;
+        _draggingImage = null;
+        _draggingSlot = null;
+        _slotDragCompleted(slot);
+        e.Handled = true;
+    }
+
+    private void DragHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ButtonState != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        DragMove();
+        NotifyPlacementChanged();
     }
 
     private void PreviewBorder_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

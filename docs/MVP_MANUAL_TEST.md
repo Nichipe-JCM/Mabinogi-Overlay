@@ -61,13 +61,14 @@ Expected:
 
 1. Open `Manage Layout`.
 2. Drag slots, use grid snap, test multi-selection, and adjust canvas size, global scale, opacity, and slot overrides.
-3. Open screen preview and place the overlay on the target monitor.
-4. Apply and close the editor.
-5. Choose a capture backend in Settings and leave automatic renderer selection enabled.
-6. Click `Overlay start`.
-7. Click through the visible overlay onto the game and verify the game retains focus.
-8. Verify that the configured stop hotkey and `Overlay stop` both end the session.
-9. Click `Reset layout` and verify that an in-app confirmation appears with an irreversible-action warning. Verify that Cancel preserves the layout and Confirm removes every slot.
+3. Open screen preview and place the overlay on the target monitor. Verify that the separated header bar moves the whole preview without changing the overlay's configured screen coordinates by the header height.
+4. Enable `Allow position editing in preview`, reopen screen preview, and drag individual overlay elements. Verify that they remain inside the canvas and snap to the editor's current grid size.
+5. Apply and close the editor.
+6. Choose a capture backend in Settings and leave automatic renderer selection enabled.
+7. Click `Overlay start`.
+8. Click through the visible overlay onto the game and verify the game retains focus.
+9. Verify that the configured stop hotkey and `Overlay stop` both end the session.
+10. Click `Reset layout` and verify that an in-app confirmation appears with an irreversible-action warning. Verify that Cancel preserves the layout and Confirm removes every slot.
 
 Expected:
 

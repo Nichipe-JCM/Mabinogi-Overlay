@@ -91,7 +91,13 @@ public partial class LayoutEditorWindow : Window
             ResizeSlotsToScale(SlotScaleSlider.Value);
             PushUndoIfChanged(before);
         };
-        GridSizeSlider.ValueChanged += (_, _) => UpdateGridSizeText();
+        GridSizeSlider.ValueChanged += (_, _) =>
+        {
+            UpdateGridSizeText();
+            UpdateOverlayPreview();
+        };
+        AllowPreviewPositionEditingCheckBox.Checked += (_, _) => UpdateOverlayPreview();
+        AllowPreviewPositionEditingCheckBox.Unchecked += (_, _) => UpdateOverlayPreview();
         SelectedOpacitySlider.ValueChanged += (_, _) =>
         {
             if (_isPopulatingControls)
@@ -332,7 +338,11 @@ public partial class LayoutEditorWindow : Window
             CanvasHeight,
             OverlayOpacity,
             _slots.ToList(),
-            ApplyPlacementFromPreview);
+            AllowPreviewPositionEditingCheckBox.IsChecked == true,
+            ApplyPlacementFromPreview,
+            BeginSlotMoveFromPreview,
+            MoveSlotFromPreview,
+            CompleteSlotMoveFromPreview);
         _placementPreviewWindow.Closed += (_, _) =>
         {
             RestoreWindowsAfterPlacementPreview();
@@ -355,7 +365,28 @@ public partial class LayoutEditorWindow : Window
         ApplyCanvasSize();
         ClampSlotsToCanvas();
         RenderSlots();
-        UpdateOverlayPreview();
+    }
+
+    private void BeginSlotMoveFromPreview(OverlaySlot slot)
+    {
+        _selectedSlots.Clear();
+        _selectedSlots.Add(slot);
+        _dragSnapshotBefore = CaptureLayoutSnapshot();
+    }
+
+    private void MoveSlotFromPreview(OverlaySlot slot, double x, double y) =>
+        MoveSlot(slot, x, y, snap: true);
+
+    private void CompleteSlotMoveFromPreview(OverlaySlot slot)
+    {
+        MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
+        if (_dragSnapshotBefore is not null)
+        {
+            PushUndoIfChanged(_dragSnapshotBefore);
+        }
+
+        _dragSnapshotBefore = null;
+        RenderSlots();
     }
 
     private void ApplySettingsFromControls()
@@ -812,8 +843,11 @@ public partial class LayoutEditorWindow : Window
         UpdateOverlayPreview();
     }
 
-    private static void UpdateOverlayPreview()
+    private void UpdateOverlayPreview()
     {
+        _placementPreviewWindow?.RefreshSlots(
+            OverlayOpacity,
+            AllowPreviewPositionEditingCheckBox.IsChecked == true);
     }
 
     private void ClampSlotsToCanvas()

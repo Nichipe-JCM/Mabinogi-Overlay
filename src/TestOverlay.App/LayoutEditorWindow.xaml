@@ -208,6 +208,11 @@
         </Border>
 
         <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <CheckBox x:Name="AllowPreviewPositionEditingCheckBox"
+                      Margin="0,0,16,0"
+                      VerticalAlignment="Center"
+                      Content="Allow position editing in preview"
+                      loc:Localize.ContentKey="layout.preview.position.editing"/>
             <Button MinWidth="104" Height="34" Padding="14,0" Content="Default Pos" loc:Localize.ContentKey="Default Pos" Click="DefaultPositionButton_Click"/>
             <Button MinWidth="132" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Screen Preview" loc:Localize.ContentKey="Screen Preview" Click="ScreenPreviewButton_Click"/>
             <Button MinWidth="122" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Delete Selected" loc:Localize.ContentKey="Delete Selected" Click="DeleteSelectedButton_Click"/>
