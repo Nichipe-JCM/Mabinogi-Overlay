@@ -69,7 +69,20 @@ public sealed class ProfileStoreTests : IDisposable
         profile.BuffMonitorEnabled = true;
         profile.SelectedBuffNameKeys.Add("battlefield");
         profile.BuffMonitorRoi = new OverlayProfileRect { X = 10, Y = 20, Width = 300, Height = 80 };
+        profile.BuffAnchors.Add(new OverlayProfileBuffAnchor
+        {
+            NameKey = "battlefield",
+            Bounds = new OverlayProfileRect { X = 18, Y = 27, Width = 18, Height = 18 },
+            StructureScore = 0.91,
+            IsActive = true,
+            StateConfidence = 0.88
+        });
         profile.Candidates.Add(CreateCandidate(7));
+        profile.Candidates.Add(CreateBuiltInCandidate(
+            -1,
+            OverlayElementKind.InternalBuffTimer,
+            width: 250,
+            height: 76));
         profile.Sections.Add(new OverlayProfileSection
         {
             Id = 3,
@@ -90,6 +103,15 @@ public sealed class ProfileStoreTests : IDisposable
             Scale = 1.5,
             HasOpacityOverride = true
         });
+        profile.Slots.Add(new OverlayProfileSlot
+        {
+            SourceCandidateId = -1,
+            SourceWidth = 250,
+            SourceHeight = 76,
+            OverlayWidth = 250,
+            OverlayHeight = 76,
+            Scale = 1
+        });
 
         store.Save(profile, profile.Name);
         var loaded = store.Load(profile.Name);
@@ -98,9 +120,33 @@ public sealed class ProfileStoreTests : IDisposable
         Assert.Equal(960, loaded.CanvasWidth);
         Assert.True(loaded.BuffMonitorEnabled);
         Assert.Equal("battlefield", Assert.Single(loaded.SelectedBuffNameKeys));
-        Assert.Equal(7, Assert.Single(loaded.Candidates).Id);
+        Assert.Contains(loaded.Candidates, candidate => candidate.Id == 7);
+        Assert.Contains(loaded.Candidates, candidate =>
+            candidate.Id == -1 && candidate.Kind == OverlayElementKind.InternalBuffTimer && candidate.IsBuiltIn);
         Assert.Equal(3, Assert.Single(loaded.Sections).Id);
-        Assert.Equal(0.8, Assert.Single(loaded.Slots).Opacity);
+        Assert.Contains(loaded.Slots, slot => slot.SourceCandidateId == 7 && slot.Opacity == 0.8);
+        Assert.Contains(loaded.Slots, slot => slot.SourceCandidateId == -1);
+        Assert.Equal(10, loaded.BuffMonitorRoi!.X);
+        var anchor = Assert.Single(loaded.BuffAnchors);
+        Assert.Equal("battlefield", anchor.NameKey);
+        Assert.Equal(18, anchor.Bounds.X);
+    }
+
+    [Fact]
+    public void Save_RejectsBuiltInCandidateUsingWrongReservedId()
+    {
+        var store = new ProfileStore(_directory);
+        var profile = CreateValidProfile();
+        profile.Candidates.Add(CreateBuiltInCandidate(
+            -2,
+            OverlayElementKind.InternalBuffTimer,
+            width: 250,
+            height: 76));
+
+        var exception = Assert.Throws<InvalidDataException>(() => store.Save(profile, "invalid-built-in"));
+
+        Assert.Contains("reserved ID -1", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(store.GetProfilePath("invalid-built-in")));
     }
 
     [Fact]
@@ -159,5 +205,18 @@ public sealed class ProfileStoreTests : IDisposable
         SourceWidth = 32,
         SourceHeight = 32,
         Kind = OverlayElementKind.Quickslot
+    };
+
+    private static OverlayProfileCandidate CreateBuiltInCandidate(
+        int id,
+        OverlayElementKind kind,
+        double width,
+        double height) => new()
+    {
+        Id = id,
+        SourceWidth = width,
+        SourceHeight = height,
+        Kind = kind,
+        IsBuiltIn = true
     };
 }

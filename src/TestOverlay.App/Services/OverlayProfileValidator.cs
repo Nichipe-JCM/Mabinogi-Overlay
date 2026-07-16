@@ -32,14 +32,31 @@ internal static class OverlayProfileValidator
         var candidateIds = new HashSet<int>();
         foreach (var candidate in profile.Candidates)
         {
-            if (candidate.Id <= 0 || !candidateIds.Add(candidate.Id))
+            if (!candidateIds.Add(candidate.Id))
             {
-                throw Invalid($"Candidate IDs must be positive and unique: {candidate.Id}.");
+                throw Invalid($"Candidate IDs must be unique: {candidate.Id}.");
             }
 
             if (!Enum.IsDefined(candidate.Kind))
             {
                 throw Invalid($"Candidate {candidate.Id} has an unknown element kind: {candidate.Kind}.");
+            }
+
+            if (candidate.Kind == OverlayElementKind.Quickslot)
+            {
+                if (candidate.Id <= 0 || candidate.IsBuiltIn)
+                {
+                    throw Invalid($"Quickslot candidate IDs must be positive and cannot be built-in: {candidate.Id}.");
+                }
+            }
+            else
+            {
+                var reservedId = BuiltInOverlayElementIds.For(candidate.Kind);
+                if (!candidate.IsBuiltIn || candidate.Id != reservedId)
+                {
+                    throw Invalid(
+                        $"Built-in candidate {candidate.Kind} must use reserved ID {reservedId}: {candidate.Id}.");
+                }
             }
 
             ValidateRect(

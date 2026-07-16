@@ -387,7 +387,7 @@ public partial class MainWindow
 
         var baseHeight = InternalBuffTimerPreviewRenderer.GetBaseHeight(_selectedBuffNameKeys.Count);
         var candidate = new SlotCandidate(
-            -1,
+            BuiltInOverlayElementIds.InternalBuffTimer,
             new Rect(0, 0, InternalBuffTimerPreviewRenderer.BaseWidth, baseHeight),
             100,
             OverlayElementKind.InternalBuffTimer,
@@ -410,7 +410,7 @@ public partial class MainWindow
         }
 
         var candidate = new SlotCandidate(
-            -2,
+            BuiltInOverlayElementIds.TuairimGauge,
             new Rect(0, 0, TuairimGaugePreviewRenderer.BaseWidth, TuairimGaugePreviewRenderer.BaseHeight),
             100,
             OverlayElementKind.TuairimGauge,
@@ -433,7 +433,7 @@ public partial class MainWindow
         }
 
         var candidate = new SlotCandidate(
-            -3,
+            BuiltInOverlayElementIds.AlertNotification,
             new Rect(0, 0, AlertNotificationPreviewRenderer.BaseWidth, AlertNotificationPreviewRenderer.BaseHeight),
             100,
             OverlayElementKind.AlertNotification,
