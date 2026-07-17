@@ -6,11 +6,13 @@ namespace TestOverlay.App;
 
 public partial class ProfileSlotValidationWindow : Window
 {
-    public ProfileSlotValidationWindow(ProfileSlotValidationReport report)
+    public ProfileSlotValidationWindow(ProfileSlotValidationReport report, bool profileApplied = false)
     {
         InitializeComponent();
         var hasInvalid = report.InvalidCount > 0;
-        Summary = hasInvalid
+        Summary = profileApplied
+            ? L.F("profile.validation.summary.applied", report.ValidCount, report.WarningCount)
+            : hasInvalid
             ? L.F("profile.validation.summary.invalid", report.InvalidCount, report.WarningCount)
             : L.F("profile.validation.summary.valid", report.ValidCount, report.WarningCount);
         SummaryBrush = hasInvalid ? Brushes.IndianRed : Brushes.LimeGreen;

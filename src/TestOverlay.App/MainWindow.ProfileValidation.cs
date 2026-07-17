@@ -40,10 +40,18 @@ public partial class MainWindow
             _log.Info(
                 $"Saved slot validation completed: profile={profileName}, valid={report.ValidCount}, " +
                 $"warnings={report.WarningCount}, invalid={report.InvalidCount}");
-            new ProfileSlotValidationWindow(report) { Owner = this }.ShowDialog();
-            SetStatus(report.InvalidCount > 0
-                ? "profile.validation.status.invalid"
-                : "profile.validation.status.valid");
+            var shouldApply = report.InvalidCount == 0 && report.ValidCount > 0;
+            var applied = shouldApply && LoadSelectedProfile();
+            if (applied)
+            {
+                _log.Info($"Validated profile applied: profile={profileName}.");
+            }
+            new ProfileSlotValidationWindow(report, applied) { Owner = this }.ShowDialog();
+            SetStatus(applied
+                ? "profile.validation.status.applied"
+                : report.InvalidCount > 0
+                    ? "profile.validation.status.invalid"
+                    : "profile.validation.status.valid");
         }
         catch (Exception exception)
         {

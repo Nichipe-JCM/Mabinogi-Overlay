@@ -142,7 +142,7 @@ public partial class MainWindow
 
     private void LoadProfileButton_Click(object sender, RoutedEventArgs e) => LoadSelectedProfile();
 
-    private void LoadSelectedProfile(bool allowDeferredQuickslots = false)
+    private bool LoadSelectedProfile(bool allowDeferredQuickslots = false)
     {
         FlushProfileAutoSave();
         var profileName = ReadProfileComboName();
@@ -156,13 +156,13 @@ public partial class MainWindow
             var path = _profileStore.GetProfilePath(profileName);
             _log.Error($"Profile load failed: {path}.", exception);
             SetStatus(L.F("profile.load.failed.arg", path, exception.Message));
-            return;
+            return false;
         }
 
         if (profile is null)
         {
             SetStatus(L.F("No saved profile exists: {0}", _profileStore.GetProfilePath(profileName)));
-            return;
+            return false;
         }
 
         var savedKinds = profile.Candidates.ToDictionary(candidate => candidate.Id, candidate => candidate.Kind);
@@ -171,7 +171,7 @@ public partial class MainWindow
         if (deferQuickslots && !allowDeferredQuickslots)
         {
             SetStatus("Capture the game window before loading a profile with quickslots.");
-            return;
+            return false;
         }
 
         _profileLayoutLoadPendingCapture = deferQuickslots;
@@ -419,6 +419,7 @@ public partial class MainWindow
             var path = _profileStore.GetProfilePath(profileName);
             _log.Error($"Validated profile could not be applied: {path}.", exception);
             SetStatus(L.F("profile.apply.failed.arg", path, exception.Message));
+            return false;
         }
         finally
         {
@@ -426,5 +427,7 @@ public partial class MainWindow
             _isProfileDirty = false;
             _isLoadingProfile = false;
         }
+
+        return true;
     }
 }
