@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using TestOverlay.App.Services;
 
 namespace TestOverlay.App.Controls;
 
@@ -10,18 +9,6 @@ public sealed class HotkeyInputBox : TextBox
     private readonly HashSet<Key> _pressedModifierKeys = [];
     private bool _capturing;
     private bool _chordCompleted;
-
-    public HotkeyInputBox()
-    {
-        ToolTip = L.T("hotkey.capture.hint");
-        WeakEventManager<LocalizationService, EventArgs>.AddHandler(
-            LocalizationService.Instance,
-            nameof(LocalizationService.LanguageChanged),
-            LocalizationService_LanguageChanged);
-    }
-
-    private void LocalizationService_LanguageChanged(object? sender, EventArgs e) =>
-        ToolTip = L.T("hotkey.capture.hint");
 
     protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
     {

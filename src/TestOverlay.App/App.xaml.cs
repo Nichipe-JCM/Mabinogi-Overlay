@@ -62,8 +62,16 @@ public partial class App : Application
             return;
         }
 
-        var mainWindow = new MainWindow(_log);
-        MainWindow = mainWindow;
-        mainWindow.Show();
+        try
+        {
+            var mainWindow = new MainWindow(_log);
+            MainWindow = mainWindow;
+            mainWindow.Show();
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Main window startup failed.", exception);
+            Shutdown(-1);
+        }
     }
 }
