@@ -25,6 +25,7 @@ public static class OverlayProfileMapper
             RefreshFps = layout.RefreshFps,
             LayoutSlotScale = Math.Clamp(layout.SlotScale, 0.1, 10),
             GridSnapSize = layout.GridSnapSize,
+            AlertPreviewRows = Math.Clamp(layout.AlertPreviewRows, 1, 4),
             SlotInnerSize = Math.Min(slotInnerWidth, slotInnerHeight),
             SlotInnerWidth = slotInnerWidth,
             SlotInnerHeight = slotInnerHeight,
@@ -97,6 +98,7 @@ public static class OverlayProfileMapper
         workspace.Layout.RefreshFps = refreshFps;
         workspace.Layout.SlotScale = Math.Clamp(profile.LayoutSlotScale, 0.1, 10);
         workspace.Layout.GridSnapSize = Math.Clamp(profile.GridSnapSize > 0 ? profile.GridSnapSize : 10, 1, 64);
+        workspace.Layout.AlertPreviewRows = Math.Clamp(profile.AlertPreviewRows > 0 ? profile.AlertPreviewRows : 2, 1, 4);
 
         foreach (var saved in profile.SectionSettings)
         {

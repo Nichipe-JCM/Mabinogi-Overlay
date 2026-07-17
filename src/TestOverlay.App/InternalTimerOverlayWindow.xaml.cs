@@ -20,6 +20,7 @@ public partial class InternalTimerOverlayWindow : Window
     private bool _alertPanelAvailable;
     private bool _customTimerPanelAvailable;
     private bool _alertBlinkVisible = true;
+    private int _maxAlertRows = 2;
 
     public InternalTimerOverlayWindow(
         double width,
@@ -29,6 +30,7 @@ public partial class InternalTimerOverlayWindow : Window
         OverlaySlot? tuairimSlot,
         OverlaySlot? alertSlot,
         OverlaySlot? customTimerSlot,
+        int alertPreviewRows,
         IReadOnlyList<InternalBuffTimer> timers,
         IReadOnlyCollection<string> visibleBuffNameKeys)
     {
@@ -47,7 +49,7 @@ public partial class InternalTimerOverlayWindow : Window
             TuairimGaugePreviewRenderer.BaseWidth,
             TuairimGaugePreviewRenderer.BaseHeight,
             defaultOpacity);
-        ConfigureAlertPanel(alertSlot, defaultOpacity);
+        ConfigureAlertPanel(alertSlot, defaultOpacity, alertPreviewRows);
         ConfigurePanel(
             CustomTimerPanel,
             customTimerSlot,
@@ -281,8 +283,9 @@ public partial class InternalTimerOverlayWindow : Window
         panel.Visibility = Visibility.Visible;
     }
 
-    private void ConfigureAlertPanel(OverlaySlot? slot, double defaultOpacity)
+    private void ConfigureAlertPanel(OverlaySlot? slot, double defaultOpacity, int alertPreviewRows)
     {
+        _maxAlertRows = Math.Clamp(alertPreviewRows, 1, 4);
         if (slot is null)
         {
             AlertPanel.Visibility = Visibility.Collapsed;
@@ -292,10 +295,11 @@ public partial class InternalTimerOverlayWindow : Window
         var scale = Math.Clamp(
             Math.Min(
                 slot.OverlayRect.Width / AlertNotificationPreviewRenderer.BaseWidth,
-                slot.OverlayRect.Height / AlertNotificationPreviewRenderer.BaseHeight),
+                slot.OverlayRect.Height / AlertNotificationPreviewRenderer.GetBaseHeight(alertPreviewRows)),
             0.1,
             10);
         AlertPanel.Width = AlertNotificationPreviewRenderer.BaseWidth;
+        AlertPanel.Height = AlertNotificationPreviewRenderer.GetBaseHeight(alertPreviewRows);
         _alertPanelBaseOpacity = slot.EffectiveOpacity(defaultOpacity);
         AlertPanel.LayoutTransform = new ScaleTransform(scale, scale);
         Canvas.SetLeft(AlertPanel, slot.OverlayRect.X);
@@ -314,6 +318,12 @@ public partial class InternalTimerOverlayWindow : Window
         if (!_alertPanelAvailable)
         {
             return;
+        }
+
+        if (!_activeAlerts.ContainsKey(alert.Id) && _activeAlerts.Count >= _maxAlertRows)
+        {
+            var oldest = _activeAlerts.Values.OrderBy(item => item.ExpiresAt).First();
+            _activeAlerts.Remove(oldest.Id);
         }
 
         _activeAlerts[alert.Id] = alert;

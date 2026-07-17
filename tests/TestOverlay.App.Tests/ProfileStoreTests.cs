@@ -66,6 +66,7 @@ public sealed class ProfileStoreTests : IDisposable
         profile.Name = "representative";
         profile.CanvasWidth = 960;
         profile.CanvasHeight = 420;
+        profile.AlertPreviewRows = 4;
         profile.BuffMonitorEnabled = true;
         profile.SelectedBuffNameKeys.Add("battlefield");
         profile.BuffMonitorRoi = new OverlayProfileRect { X = 10, Y = 20, Width = 300, Height = 80 };
@@ -134,6 +135,7 @@ public sealed class ProfileStoreTests : IDisposable
 
         Assert.NotNull(loaded);
         Assert.Equal(960, loaded.CanvasWidth);
+        Assert.Equal(4, loaded.AlertPreviewRows);
         Assert.True(loaded.BuffMonitorEnabled);
         Assert.Equal("battlefield", Assert.Single(loaded.SelectedBuffNameKeys));
         Assert.Contains(loaded.Candidates, candidate => candidate.Id == 7);

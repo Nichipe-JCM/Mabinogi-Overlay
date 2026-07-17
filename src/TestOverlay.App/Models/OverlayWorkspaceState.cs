@@ -44,4 +44,6 @@ public sealed class OverlayLayoutSettings
     public double SlotScale { get; set; } = 1.5;
 
     public double GridSnapSize { get; set; } = 10;
+
+    public int AlertPreviewRows { get; set; } = 2;
 }

@@ -14,6 +14,10 @@ internal static class OverlayProfileValidator
         RequireFinite(profile.Opacity, nameof(profile.Opacity));
         RequireFinitePositive(profile.LayoutSlotScale, nameof(profile.LayoutSlotScale));
         RequireFinitePositive(profile.GridSnapSize, nameof(profile.GridSnapSize));
+        if (profile.AlertPreviewRows is < 1 or > 4)
+        {
+            throw Invalid("AlertPreviewRows must be between 1 and 4.");
+        }
 
         RequireCollection(profile.Candidates, nameof(profile.Candidates));
         RequireCollection(profile.Sections, nameof(profile.Sections));

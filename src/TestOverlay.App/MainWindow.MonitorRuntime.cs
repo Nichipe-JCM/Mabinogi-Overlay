@@ -134,6 +134,7 @@ public partial class MainWindow
                 tuairimSlot,
                 alertSlot,
                 customTimerSlot,
+                _alertPreviewRows,
                 _internalBuffTimers,
                 _selectedBuffNameKeys)
             {

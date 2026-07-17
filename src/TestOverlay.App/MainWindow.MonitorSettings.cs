@@ -69,9 +69,12 @@ public partial class MainWindow
         {
             ResetTuairimPercentRecognitionState();
         }
-        if (enabled)
+        if (enabled && (_tuairimAnchor is not null || _monitorTestMode))
         {
             EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave: false);
+        }
+        if (enabled)
+        {
             EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave: false);
         }
         UpdateMonitorControlAvailability();
@@ -199,7 +202,10 @@ public partial class MainWindow
         _monitorTestPreviousSelectedBuffs = [];
 
         SetMonitorElementEnabled(OverlayElementKind.InternalBuffTimer, _buffMonitorEnabled, scheduleAutoSave: false);
-        SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, _tuairimMonitorEnabled, scheduleAutoSave: false);
+        SetMonitorElementEnabled(
+            OverlayElementKind.TuairimGauge,
+            _tuairimMonitorEnabled && _tuairimAnchor is not null,
+            scheduleAutoSave: false);
         SynchronizeAlertNotificationElement(scheduleAutoSave: false);
         _layoutCanvasHeight = _monitorTestPreviousLayoutCanvasHeight;
         UpdateBuffSelectionCheckStates();

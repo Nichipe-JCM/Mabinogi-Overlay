@@ -162,6 +162,11 @@ public partial class MainWindow : Window
         get => _workspace.Layout.GridSnapSize;
         set => _workspace.Layout.GridSnapSize = value;
     }
+    private int _alertPreviewRows
+    {
+        get => _workspace.Layout.AlertPreviewRows;
+        set => _workspace.Layout.AlertPreviewRows = Math.Clamp(value, 1, 4);
+    }
     private bool _buffMonitorEnabled;
     private bool _tuairimMonitorEnabled;
     private bool _buffAlertsEnabled = true;
@@ -961,6 +966,7 @@ public partial class MainWindow : Window
             _refreshFps,
             _layoutSlotScale,
             _layoutGridSnapSize,
+            _alertPreviewRows,
             _overlaySlots)
         {
             Owner = owner
@@ -976,6 +982,9 @@ public partial class MainWindow : Window
             _refreshFps = editor.RefreshFps;
             _layoutSlotScale = editor.SlotScale;
             _layoutGridSnapSize = editor.GridSnapSize;
+            _alertPreviewRows = editor.AlertPreviewRows;
+            SynchronizeMonitorElementDimensions();
+            RefreshInternalTimerElementPreviews();
             SynchronizeHiddenMonitorElementsFromLayout();
             EnsureEnabledMonitorElementsPlaced();
             UpdateCandidateOverlayFlags();

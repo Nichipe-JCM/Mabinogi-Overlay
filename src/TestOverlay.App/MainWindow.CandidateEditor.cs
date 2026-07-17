@@ -428,13 +428,13 @@ public partial class MainWindow
             ResizeMonitorElement(
                 existing,
                 AlertNotificationPreviewRenderer.BaseWidth,
-                AlertNotificationPreviewRenderer.BaseHeight);
+                AlertNotificationPreviewRenderer.GetBaseHeight(_alertPreviewRows));
             return existing;
         }
 
         var candidate = new SlotCandidate(
             BuiltInOverlayElementIds.AlertNotification,
-            new Rect(0, 0, AlertNotificationPreviewRenderer.BaseWidth, AlertNotificationPreviewRenderer.BaseHeight),
+            new Rect(0, 0, AlertNotificationPreviewRenderer.BaseWidth, AlertNotificationPreviewRenderer.GetBaseHeight(_alertPreviewRows)),
             100,
             OverlayElementKind.AlertNotification,
             "monitor.alert.element",
@@ -496,7 +496,7 @@ public partial class MainWindow
             ResizeMonitorElement(
                 alertCandidate,
                 AlertNotificationPreviewRenderer.BaseWidth,
-                AlertNotificationPreviewRenderer.BaseHeight);
+                AlertNotificationPreviewRenderer.GetBaseHeight(_alertPreviewRows));
         }
 
         var customTimerCandidate = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.CustomTimer);
@@ -543,6 +543,16 @@ public partial class MainWindow
         }
 
         candidate.ResizeTo(width, height);
+        if (slot is not null)
+        {
+            _layoutCanvasWidth = Math.Max(_layoutCanvasWidth, slot.OverlayRect.Width + 16);
+            _layoutCanvasHeight = Math.Max(_layoutCanvasHeight, slot.OverlayRect.Height + 16);
+            slot.OverlayRect = new Rect(
+                Math.Clamp(slot.OverlayRect.X, 0, Math.Max(0, _layoutCanvasWidth - slot.OverlayRect.Width)),
+                Math.Clamp(slot.OverlayRect.Y, 0, Math.Max(0, _layoutCanvasHeight - slot.OverlayRect.Height)),
+                slot.OverlayRect.Width,
+                slot.OverlayRect.Height);
+        }
     }
 
     private void SetMonitorElementEnabled(OverlayElementKind kind, bool enabled, bool scheduleAutoSave = true)
@@ -599,7 +609,7 @@ public partial class MainWindow
         {
             EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer, scheduleAutoSave);
         }
-        if (_tuairimMonitorEnabled)
+        if (_tuairimMonitorEnabled && (_tuairimAnchor is not null || _monitorTestMode))
         {
             EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave);
         }
@@ -624,7 +634,7 @@ public partial class MainWindow
     private bool IsMonitorElementEnabled(OverlayElementKind kind) => kind switch
     {
         OverlayElementKind.InternalBuffTimer => _buffMonitorEnabled,
-        OverlayElementKind.TuairimGauge => _tuairimMonitorEnabled,
+        OverlayElementKind.TuairimGauge => _tuairimMonitorEnabled && (_tuairimAnchor is not null || _monitorTestMode),
         OverlayElementKind.AlertNotification =>
             _buffMonitorEnabled || _tuairimMonitorEnabled || _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled),
         OverlayElementKind.CustomTimer => _customTimerDefinitions.Count > 0,
@@ -633,6 +643,11 @@ public partial class MainWindow
 
     private void EnsureMonitorElementPlaced(OverlayElementKind kind, bool scheduleAutoSave = true)
     {
+        if (kind == OverlayElementKind.TuairimGauge && _tuairimAnchor is null && !_monitorTestMode)
+        {
+            return;
+        }
+
         var candidate = kind switch
         {
             OverlayElementKind.InternalBuffTimer => EnsureInternalTimerCandidate(),
@@ -658,14 +673,12 @@ public partial class MainWindow
         var scale = ReadLayoutSlotScale();
         var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * scale);
         var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * scale);
-        var x = 8.0;
-        var y = _overlaySlots.Count == 0 ? 8.0 : _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + 8;
+        var placement = FindMonitorElementPlacement(width, height);
         _overlaySlots.Add(new OverlaySlot(
             candidate,
-            new Rect(x, y, width, height),
+            new Rect(placement.X, placement.Y, width, height),
             RenderMonitorElementPreview(kind),
             scale: scale));
-        _layoutCanvasHeight = Math.Max(_layoutCanvasHeight, y + height + 8);
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
         if (scheduleAutoSave)
@@ -674,13 +687,45 @@ public partial class MainWindow
         }
     }
 
+    private Point FindMonitorElementPlacement(double width, double height)
+    {
+        const double margin = 8;
+        const double step = 8;
+        _layoutCanvasWidth = Math.Max(_layoutCanvasWidth, width + margin * 2);
+        _layoutCanvasHeight = Math.Max(_layoutCanvasHeight, height + margin * 2);
+
+        for (var y = margin; y + height <= _layoutCanvasHeight - margin + 0.01; y += step)
+        {
+            for (var x = margin; x + width <= _layoutCanvasWidth - margin + 0.01; x += step)
+            {
+                var candidate = new Rect(x, y, width, height);
+                if (_overlaySlots.Any(slot => !Rect.Intersect(
+                        new Rect(
+                            slot.OverlayRect.X - margin,
+                            slot.OverlayRect.Y - margin,
+                            slot.OverlayRect.Width + margin * 2,
+                            slot.OverlayRect.Height + margin * 2),
+                        candidate).IsEmpty))
+                {
+                    continue;
+                }
+
+                return new Point(x, y);
+            }
+        }
+
+        var nextY = _overlaySlots.Count == 0 ? margin : _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + margin;
+        _layoutCanvasHeight = Math.Max(_layoutCanvasHeight, nextY + height + margin);
+        return new Point(margin, nextY);
+    }
+
     private BitmapSource RenderMonitorElementPreview(OverlayElementKind kind) => kind switch
     {
         OverlayElementKind.InternalBuffTimer => InternalBuffTimerPreviewRenderer.Render(
             _internalBuffTimers,
             _selectedBuffNameKeys),
         OverlayElementKind.TuairimGauge => TuairimGaugePreviewRenderer.Render(_statusObservations.TuairimPercent),
-        OverlayElementKind.AlertNotification => AlertNotificationPreviewRenderer.Render(),
+        OverlayElementKind.AlertNotification => AlertNotificationPreviewRenderer.Render(_alertPreviewRows),
         OverlayElementKind.CustomTimer => CustomTimerPreviewRenderer.Render(_customTimerDefinitions.Count),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A quickslot requires a captured image crop.")
     };

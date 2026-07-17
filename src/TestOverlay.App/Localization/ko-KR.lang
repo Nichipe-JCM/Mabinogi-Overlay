@@ -474,3 +474,6 @@ compact.full.mode = 전체 화면
 compact.buff.alerts = 버프 알림
 compact.tuairim.alerts = 투아림 알림
 compact.alerts.description = 활성화 상태는 메인 화면과 동일하게 적용되며, 꺼도 인식 설정과 레이아웃은 유지됩니다.
+monitor.alert.sound.enabled = 소리 알림
+layout.alert.preview.rows = 알림창 미리보기 개수
+hotkey.capture.hint = 클릭한 다음 사용할 키 조합을 누르세요. 보조 키 하나만 눌렀다 놓아도 단일 단축키로 설정됩니다.

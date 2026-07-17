@@ -193,10 +193,12 @@ public partial class MainWindow
                 RefreshMonitorDetectionVisuals();
                 if (result is null)
                 {
+                    SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, enabled: false, scheduleAutoSave: false);
                     SetStatus("monitor.tuairim.detect.none");
                 }
                 else
                 {
+                    SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, enabled: true, scheduleAutoSave: false);
                     _log.Info(
                         $"Tuairim template match: bounds={FormatRect(result.Bounds)}, score={result.Score:0.0000}, roi={FormatRect(result.Roi)}");
                     SetStatus(L.F("monitor.tuairim.detect.result", result.Score.ToString("0.000")));

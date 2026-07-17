@@ -118,6 +118,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="10"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -127,7 +129,7 @@
 
                         <StackPanel Grid.Row="0" Grid.Column="0">
                             <TextBlock Text="Stop hotkey" loc:Localize.TextKey="Stop hotkey" Style="{StaticResource MutedTextStyle}"/>
-                            <TextBox x:Name="HotkeyBox" Height="38"/>
+                            <controls:HotkeyInputBox x:Name="HotkeyBox" Height="38"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2">
                             <TextBlock Text="Max FPS" loc:Localize.TextKey="Max FPS" Style="{StaticResource MutedTextStyle}"/>
@@ -141,6 +143,10 @@
                         <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
                             <TextBlock x:Name="SelectedSlotScaleText" Text="Selected slot scale" loc:Localize.TextKey="Selected slot scale" Style="{StaticResource MutedTextStyle}"/>
                             <Slider x:Name="SelectedSlotScaleSlider" Minimum="0.1" Maximum="10" Value="1" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
+                            <TextBlock Text="Alert preview rows" loc:Localize.TextKey="layout.alert.preview.rows" Style="{StaticResource MutedTextStyle}"/>
+                            <ComboBox x:Name="AlertPreviewRowsCombo" Height="38"/>
                         </StackPanel>
                     </Grid>
                 </Grid>

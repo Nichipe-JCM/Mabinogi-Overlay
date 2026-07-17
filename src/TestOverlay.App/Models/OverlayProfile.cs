@@ -26,6 +26,8 @@ public sealed class OverlayProfile
 
     public double GridSnapSize { get; set; } = 10;
 
+    public int AlertPreviewRows { get; set; } = 2;
+
     public bool BuffMonitorEnabled { get; set; }
 
     public bool TuairimMonitorEnabled { get; set; }

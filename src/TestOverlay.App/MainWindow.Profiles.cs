@@ -265,6 +265,11 @@ public partial class MainWindow
         {
             foreach (var savedCandidate in profile.Candidates.OrderBy(candidate => candidate.Id))
             {
+                if (savedCandidate.Kind == OverlayElementKind.TuairimGauge && _tuairimAnchor is null)
+                {
+                    continue;
+                }
+
                 var candidate = new SlotCandidate(
                     savedCandidate.Id,
                     new Rect(
@@ -289,7 +294,7 @@ public partial class MainWindow
             var internalTimerCandidate = EnsureInternalTimerCandidate();
             loadedCandidates[internalTimerCandidate.Id] = internalTimerCandidate;
         }
-        if (_tuairimMonitorEnabled)
+        if (_tuairimMonitorEnabled && _tuairimAnchor is not null)
         {
             var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
             loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
@@ -335,6 +340,11 @@ public partial class MainWindow
         var nextCandidateId = loadedCandidates.Keys.Where(id => id > 0).DefaultIfEmpty(0).Max() + 1;
         foreach (var savedSlot in profile.Slots)
         {
+            if (savedSlot.SourceCandidateId == BuiltInOverlayElementIds.TuairimGauge && _tuairimAnchor is null)
+            {
+                continue;
+            }
+
             var candidate = ResolveProfileSlotSource(savedSlot, loadedCandidates);
             if (candidate is null)
             {

@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:TestOverlay.App"
+        xmlns:controls="clr-namespace:TestOverlay.App.Controls"
         xmlns:loc="clr-namespace:TestOverlay.App.Services"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Mabinogi Overlay"
@@ -668,9 +669,7 @@
                                                 <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" Text="Overlay display" loc:Localize.TextKey="monitor.display.title" Style="{StaticResource MutedTextStyle}"/>
                                                 <CheckBox x:Name="ShowBuffTimerCheckBox" Margin="0,0,16,0" Content="Buff timer" loc:Localize.ContentKey="monitor.display.buff.timer" Click="MonitorDisplayCheckBox_Click"/>
                                                 <CheckBox x:Name="ShowTuairimGaugeCheckBox" Margin="0,0,16,0" Content="Tuairim gauge" loc:Localize.ContentKey="monitor.display.tuairim" Click="MonitorDisplayCheckBox_Click"/>
-                                                <CheckBox x:Name="ShowVisualAlertCheckBox" Margin="0,0,22,0" Content="Visual alert" loc:Localize.ContentKey="monitor.display.visual.alert" Click="MonitorDisplayCheckBox_Click"/>
-                                                <CheckBox x:Name="BuffSoundAlertsEnabledCheckBox" Margin="0,0,16,0" Content="Buff sound" loc:Localize.ContentKey="monitor.sound.buff.enabled" Click="BuffSoundAlertsEnabledCheckBox_Click"/>
-                                                <CheckBox x:Name="TuairimSoundAlertsEnabledCheckBox" Content="Tuairim sound" loc:Localize.ContentKey="monitor.sound.tuairim.enabled" Click="TuairimSoundAlertsEnabledCheckBox_Click"/>
+                                                <CheckBox x:Name="ShowVisualAlertCheckBox" Content="Visual alert" loc:Localize.ContentKey="monitor.display.visual.alert" Click="MonitorDisplayCheckBox_Click"/>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
@@ -682,21 +681,24 @@
                                             </Grid.RowDefinitions>
                                             <Grid Grid.Row="0">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="72"/>
-                                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="190"/>
+                                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="72"/><ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="190"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                <CheckBox x:Name="BuffSoundAlertsEnabledCheckBox" Grid.Column="0" Margin="0,0,18,0"
+                                                          VerticalAlignment="Center" Content="Sound alert" loc:Localize.ContentKey="monitor.alert.sound.enabled"
+                                                          Click="BuffSoundAlertsEnabledCheckBox_Click"/>
+                                                <TextBlock Grid.Column="1" Margin="0,0,10,0" VerticalAlignment="Center"
                                                            Text="Alert at" loc:Localize.TextKey="monitor.buff.alert.seconds"/>
-                                                <TextBox x:Name="BuffAlertSecondsBox" Grid.Column="1" Height="32" Padding="8,4"
+                                                <TextBox x:Name="BuffAlertSecondsBox" Grid.Column="2" Height="32" Padding="8,4"
                                                          Text="30" MaxLength="2" PreviewTextInput="AlertNumberTextBox_PreviewTextInput"
                                                          LostKeyboardFocus="BuffAlertSecondsBox_LostKeyboardFocus"/>
-                                                <TextBlock Grid.Column="2" Margin="8,0,16,0" VerticalAlignment="Center"
+                                                <TextBlock Grid.Column="3" Margin="8,0,16,0" VerticalAlignment="Center"
                                                            Text="seconds (30 ~ 5)" loc:Localize.TextKey="monitor.buff.alert.seconds.range"
                                                            Style="{StaticResource MutedTextStyle}"/>
-                                                <TextBlock Grid.Column="3" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                <TextBlock Grid.Column="4" Margin="0,0,10,0" VerticalAlignment="Center"
                                                            Text="Sound mode" loc:Localize.TextKey="monitor.alert.sound.mode"/>
-                                                <ComboBox x:Name="BuffAlertSoundModeCombo" Grid.Column="4" Height="36"
+                                                <ComboBox x:Name="BuffAlertSoundModeCombo" Grid.Column="5" Height="36"
                                                           VerticalContentAlignment="Center"
                                                           SelectionChanged="BuffAlertSoundModeCombo_SelectionChanged">
                                                     <ComboBoxItem Tag="global" Content="Global" loc:Localize.ContentKey="monitor.alert.sound.mode.global"/>
@@ -834,19 +836,19 @@
                                         <StackPanel>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="72"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="190"/>
+                                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="72"/><ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="190"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                <CheckBox x:Name="TuairimSoundAlertsEnabledCheckBox" Grid.Column="0" Margin="0,0,18,0"
+                                                          VerticalAlignment="Center" Content="Sound alert" loc:Localize.ContentKey="monitor.alert.sound.enabled"
+                                                          Click="TuairimSoundAlertsEnabledCheckBox_Click"/>
+                                                <TextBlock Grid.Column="1" Margin="0,0,10,0" VerticalAlignment="Center"
                                                            Text="Alert at" loc:Localize.TextKey="monitor.tuairim.alert.percent"/>
-                                                <TextBox x:Name="TuairimAlertPercentBox" Grid.Column="1" Height="32" Padding="8,4"
+                                                <TextBox x:Name="TuairimAlertPercentBox" Grid.Column="2" Height="32" Padding="8,4"
                                                          Text="95" MaxLength="3" PreviewTextInput="AlertNumberTextBox_PreviewTextInput"
                                                          LostKeyboardFocus="TuairimAlertPercentBox_LostKeyboardFocus"/>
-                                                <TextBlock Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                <TextBlock Grid.Column="3" Margin="8,0,0,0" VerticalAlignment="Center"
                                                            Text="percent (90 ~ 100)" loc:Localize.TextKey="monitor.tuairim.alert.percent.range"
                                                            Style="{StaticResource MutedTextStyle}"/>
                                                 <TextBlock Grid.Column="4" Margin="16,0,10,0" VerticalAlignment="Center"
@@ -934,9 +936,9 @@
                                             <TextBlock Grid.Row="3" Margin="0,8,0,0" VerticalAlignment="Center" Text="Alert before (seconds)" loc:Localize.TextKey="custom.timer.alert.before"/>
                                             <TextBox x:Name="CustomTimerAlertBeforeBox" Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
                                             <TextBlock Grid.Row="4" Margin="0,8,0,0" VerticalAlignment="Center" Text="Start / reload hotkey" loc:Localize.TextKey="custom.timer.start.hotkey"/>
-                                            <TextBox x:Name="CustomTimerStartHotkeyBox" Grid.Row="4" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                            <controls:HotkeyInputBox x:Name="CustomTimerStartHotkeyBox" Grid.Row="4" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
                                             <TextBlock Grid.Row="5" Margin="0,8,0,0" VerticalAlignment="Center" Text="Cancel hotkey" loc:Localize.TextKey="custom.timer.cancel.hotkey"/>
-                                            <TextBox x:Name="CustomTimerCancelHotkeyBox" Grid.Row="5" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                            <controls:HotkeyInputBox x:Name="CustomTimerCancelHotkeyBox" Grid.Row="5" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
                                             <WrapPanel Grid.Row="6" Grid.ColumnSpan="2" Margin="0,12,0,0">
                                                 <CheckBox x:Name="CustomTimerVisualAlertCheckBox" Margin="0,0,18,0" Content="Visual alert" loc:Localize.ContentKey="custom.timer.visual.enabled" Click="CustomTimerOptionCheckBox_Click"/>
                                                 <CheckBox x:Name="CustomTimerSoundAlertCheckBox" Content="Sound alert" loc:Localize.ContentKey="custom.timer.sound.enabled" Click="CustomTimerOptionCheckBox_Click"/>

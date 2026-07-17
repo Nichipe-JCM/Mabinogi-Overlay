@@ -474,3 +474,6 @@ compact.full.mode = Full mode
 compact.buff.alerts = Buff alerts
 compact.tuairim.alerts = Tuairim alerts
 compact.alerts.description = This state is shared with the main window. Detection settings and layout are kept while disabled.
+monitor.alert.sound.enabled = Sound alert
+layout.alert.preview.rows = Alert preview rows
+hotkey.capture.hint = Click, then press the desired key combination. Press and release a modifier by itself to use it as a standalone hotkey.

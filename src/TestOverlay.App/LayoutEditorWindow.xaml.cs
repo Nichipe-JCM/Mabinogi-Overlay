@@ -47,6 +47,7 @@ public partial class LayoutEditorWindow : Window
         int refreshFps,
         double slotScale,
         double gridSnapSize,
+        int alertPreviewRows,
         IList<OverlaySlot> slots)
     {
         InitializeComponent();
@@ -60,6 +61,7 @@ public partial class LayoutEditorWindow : Window
         RefreshFps = CoerceFps(refreshFps);
         SlotScale = Math.Clamp(slotScale, 0.1, 10);
         GridSnapSize = Math.Clamp(gridSnapSize, 1, 64);
+        AlertPreviewRows = Math.Clamp(alertPreviewRows, 1, 4);
         foreach (var slot in _slots)
         {
             _sourceSizes[slot] = new Size(
@@ -95,6 +97,17 @@ public partial class LayoutEditorWindow : Window
         {
             UpdateGridSizeText();
             UpdateOverlayPreview();
+        };
+        AlertPreviewRowsCombo.SelectionChanged += (_, _) =>
+        {
+            if (_isPopulatingControls || AlertPreviewRowsCombo.SelectedItem is not int rows)
+            {
+                return;
+            }
+
+            var before = CaptureLayoutSnapshot();
+            ApplyAlertPreviewRows(rows);
+            PushUndoIfChanged(before);
         };
         AllowPreviewPositionEditingCheckBox.Checked += (_, _) => UpdateOverlayPreview();
         AllowPreviewPositionEditingCheckBox.Unchecked += (_, _) => UpdateOverlayPreview();
@@ -148,6 +161,8 @@ public partial class LayoutEditorWindow : Window
 
     public double GridSnapSize { get; private set; } = 10;
 
+    public int AlertPreviewRows { get; private set; } = 2;
+
     private void PopulateControls()
     {
         _isPopulatingControls = true;
@@ -164,6 +179,8 @@ public partial class LayoutEditorWindow : Window
         SlotScaleSlider.Value = SlotScale;
         SlotScaleText.Text = L.F("Slot scale {0}x", SlotScale.ToString("0.0"));
         GridSizeSlider.Value = GridSnapSize;
+        AlertPreviewRowsCombo.ItemsSource = new[] { 1, 2, 3, 4 };
+        AlertPreviewRowsCombo.SelectedItem = AlertPreviewRows;
         UpdateSelectedSlotControls();
         _isPopulatingControls = false;
     }
@@ -402,6 +419,7 @@ public partial class LayoutEditorWindow : Window
             : CoerceFps(RefreshFps);
         SlotScale = Math.Clamp(SlotScaleSlider.Value, 0.1, 10);
         GridSnapSize = ReadGridSize();
+        AlertPreviewRows = AlertPreviewRowsCombo.SelectedItem is int rows ? rows : AlertPreviewRows;
         ApplyCanvasSize();
         UpdateSlotSelectionVisuals();
         UpdateOverlayPreview();
@@ -850,6 +868,30 @@ public partial class LayoutEditorWindow : Window
             AllowPreviewPositionEditingCheckBox.IsChecked == true);
     }
 
+    private void ApplyAlertPreviewRows(int rows)
+    {
+        AlertPreviewRows = Math.Clamp(rows, 1, 4);
+        var baseHeight = AlertNotificationPreviewRenderer.GetBaseHeight(AlertPreviewRows);
+        foreach (var slot in _slots.Where(slot => slot.Kind == OverlayElementKind.AlertNotification))
+        {
+            var scale = slot.Source.SourceRect.Width > 0
+                ? slot.OverlayRect.Width / slot.Source.SourceRect.Width
+                : Math.Max(0.1, slot.Scale);
+            slot.Source.ResizeTo(AlertNotificationPreviewRenderer.BaseWidth, baseHeight);
+            slot.Preview = AlertNotificationPreviewRenderer.Render(AlertPreviewRows);
+            slot.OverlayRect = new Rect(
+                slot.OverlayRect.X,
+                slot.OverlayRect.Y,
+                AlertNotificationPreviewRenderer.BaseWidth * scale,
+                baseHeight * scale);
+            _sourceSizes[slot] = new Size(AlertNotificationPreviewRenderer.BaseWidth, baseHeight);
+        }
+
+        ClampSlotsToCanvas();
+        RenderSlots();
+        UpdateOverlayPreview();
+    }
+
     private void ClampSlotsToCanvas()
     {
         foreach (var slot in _slots)
@@ -864,9 +906,19 @@ public partial class LayoutEditorWindow : Window
     {
         return new LayoutSnapshot(
             _slots
-                .Select(slot => new SlotSnapshot(slot, slot.OverlayRect, slot.Source.IsSelected, slot.Source.IsInOverlay, slot.Opacity, slot.Scale, slot.HasOpacityOverride))
+                .Select(slot => new SlotSnapshot(
+                    slot,
+                    slot.OverlayRect,
+                    slot.Source.SourceRect,
+                    slot.Preview,
+                    slot.Source.IsSelected,
+                    slot.Source.IsInOverlay,
+                    slot.Opacity,
+                    slot.Scale,
+                    slot.HasOpacityOverride))
                 .ToList(),
-            _selectedSlots.Where(slot => _slots.Contains(slot)).ToList());
+            _selectedSlots.Where(slot => _slots.Contains(slot)).ToList(),
+            AlertPreviewRows);
     }
 
     private void PushUndoIfChanged(LayoutSnapshot before)
@@ -918,9 +970,15 @@ public partial class LayoutEditorWindow : Window
 
         _slots.Clear();
         _selectedSlots.Clear();
+        AlertPreviewRows = snapshot.AlertPreviewRows;
+        _isPopulatingControls = true;
+        AlertPreviewRowsCombo.SelectedItem = AlertPreviewRows;
+        _isPopulatingControls = false;
         foreach (var slotState in snapshot.Slots)
         {
             slotState.Slot.OverlayRect = slotState.OverlayRect;
+            slotState.Slot.Source.ResizeTo(slotState.SourceRect.Width, slotState.SourceRect.Height);
+            slotState.Slot.Preview = slotState.Preview;
             slotState.Slot.Source.IsSelected = slotState.SourceSelected;
             slotState.Slot.Source.IsInOverlay = slotState.SourceInOverlay;
             slotState.Slot.Opacity = slotState.Opacity;
@@ -973,6 +1031,7 @@ public partial class LayoutEditorWindow : Window
             var rightSlot = right.Slots[i];
             if (!ReferenceEquals(leftSlot.Slot, rightSlot.Slot)
                 || leftSlot.OverlayRect != rightSlot.OverlayRect
+                || leftSlot.SourceRect != rightSlot.SourceRect
                 || leftSlot.SourceSelected != rightSlot.SourceSelected
                 || leftSlot.SourceInOverlay != rightSlot.SourceInOverlay
                 || !DoubleEquals(leftSlot.Opacity, rightSlot.Opacity)
@@ -989,6 +1048,11 @@ public partial class LayoutEditorWindow : Window
             {
                 return false;
             }
+        }
+
+        if (left.AlertPreviewRows != right.AlertPreviewRows)
+        {
+            return false;
         }
 
         return true;
@@ -1046,7 +1110,19 @@ public partial class LayoutEditorWindow : Window
 
     private sealed record WindowStateSnapshot(Window Window, WindowState State);
 
-    private sealed record SlotSnapshot(OverlaySlot Slot, Rect OverlayRect, bool SourceSelected, bool SourceInOverlay, double Opacity, double Scale, bool HasOpacityOverride);
+    private sealed record SlotSnapshot(
+        OverlaySlot Slot,
+        Rect OverlayRect,
+        Rect SourceRect,
+        System.Windows.Media.Imaging.BitmapSource Preview,
+        bool SourceSelected,
+        bool SourceInOverlay,
+        double Opacity,
+        double Scale,
+        bool HasOpacityOverride);
 
-    private sealed record LayoutSnapshot(List<SlotSnapshot> Slots, List<OverlaySlot> SelectedSlots);
+    private sealed record LayoutSnapshot(
+        List<SlotSnapshot> Slots,
+        List<OverlaySlot> SelectedSlots,
+        int AlertPreviewRows);
 }
