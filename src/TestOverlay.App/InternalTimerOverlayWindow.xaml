@@ -47,7 +47,7 @@
             </Grid>
         </Border>
         <Border x:Name="AlertPanel"
-                Padding="10,8"
+                Padding="10,4"
                 Background="#F0111315"
                 BorderBrush="{StaticResource OverlayDangerBrush}"
                 BorderThickness="1"

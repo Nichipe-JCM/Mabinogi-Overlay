@@ -10,7 +10,7 @@ public static class AlertNotificationPreviewRenderer
     public const int BaseWidth = 132;
     public const int RowHeight = 20;
 
-    public static int GetBaseHeight(int rows) => 18 + Math.Clamp(rows, 1, 4) * RowHeight;
+    public static int GetBaseHeight(int rows) => 10 + Math.Clamp(rows, 1, 4) * RowHeight;
 
     public static BitmapSource Render(int rows = 2)
     {
