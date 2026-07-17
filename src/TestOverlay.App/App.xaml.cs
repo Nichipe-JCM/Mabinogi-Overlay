@@ -10,6 +10,7 @@ public partial class App : Application
 
     public App()
     {
+        _log.Info("Application bootstrap started.");
         Win32Methods.TryEnablePerMonitorDpiAwareness();
         if (AppDataPaths.LastMigrationException is not null)
         {
