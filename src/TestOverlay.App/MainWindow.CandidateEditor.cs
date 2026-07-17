@@ -958,7 +958,7 @@ public partial class MainWindow
         var restored = _candidateWorkspace.RestoreSnapshot(
             snapshot,
             kind => kind == OverlayElementKind.Quickslot || IsMonitorElementEnabled(kind));
-        foreach (var candidate in _candidates)
+        foreach (var candidate in _candidates.Where(candidate => !candidate.IsBuiltIn))
         {
             AddCandidateVisual(candidate);
         }

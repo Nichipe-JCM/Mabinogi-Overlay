@@ -169,6 +169,11 @@ public partial class MainWindow
 
     private void AddCandidateVisual(SlotCandidate candidate)
     {
+        if (candidate.IsBuiltIn)
+        {
+            return;
+        }
+
         var rect = new Rectangle
         {
             Width = GetCandidateVisualRect(candidate).Width,
