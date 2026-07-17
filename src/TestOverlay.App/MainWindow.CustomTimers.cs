@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -88,7 +89,8 @@ public partial class MainWindow
         RefreshCustomTimerEditor();
     }
 
-    private void CustomTimerEditor_LostKeyboardFocus(object sender, RoutedEventArgs e) => CommitCustomTimerEditor();
+    private void CustomTimerEditor_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) =>
+        CommitCustomTimerEditor();
 
     private void CustomTimerOptionCheckBox_Click(object sender, RoutedEventArgs e) => CommitCustomTimerEditor();
 
