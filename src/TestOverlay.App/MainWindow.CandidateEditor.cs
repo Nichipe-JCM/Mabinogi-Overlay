@@ -534,11 +534,15 @@ public partial class MainWindow
             }
             else
             {
+                var resizedHeight = Math.Max(MinimumOverlaySlotSize, height * scale);
+                var resizedY = candidate.Kind == OverlayElementKind.AlertNotification
+                    ? slot.OverlayRect.Bottom - resizedHeight
+                    : slot.OverlayRect.Y;
                 slot.OverlayRect = new Rect(
                     slot.OverlayRect.X,
-                    slot.OverlayRect.Y,
+                    resizedY,
                     Math.Max(MinimumOverlaySlotSize, width * scale),
-                    Math.Max(MinimumOverlaySlotSize, height * scale));
+                    resizedHeight);
             }
         }
 
@@ -586,6 +590,7 @@ public partial class MainWindow
 
     private void SetMonitorElementVisibility(OverlayElementKind kind, bool visible)
     {
+        visible = visible && IsMonitorElementEnabled(kind);
         if (visible)
         {
             _hiddenMonitorElementKinds.Remove(kind);
@@ -611,7 +616,8 @@ public partial class MainWindow
         {
             EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave);
         }
-        if (_buffMonitorEnabled || _tuairimMonitorEnabled || _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled))
+        if (_buffMonitorEnabled || _tuairimMonitorEnabled ||
+            _customTimerDefinitions.Any(timer => timer.Enabled && timer.VisualAlertEnabled))
         {
             EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave);
         }
@@ -626,7 +632,7 @@ public partial class MainWindow
             OverlayElementKind.AlertNotification,
             _buffMonitorEnabled ||
             _tuairimMonitorEnabled ||
-            _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled),
+            _customTimerDefinitions.Any(timer => timer.Enabled && timer.VisualAlertEnabled),
             scheduleAutoSave);
 
     private bool IsMonitorElementEnabled(OverlayElementKind kind) => kind switch
@@ -634,7 +640,8 @@ public partial class MainWindow
         OverlayElementKind.InternalBuffTimer => _buffMonitorEnabled,
         OverlayElementKind.TuairimGauge => _tuairimMonitorEnabled && (_tuairimAnchor is not null || _monitorTestMode),
         OverlayElementKind.AlertNotification =>
-            _buffMonitorEnabled || _tuairimMonitorEnabled || _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled),
+            _buffMonitorEnabled || _tuairimMonitorEnabled ||
+            _customTimerDefinitions.Any(timer => timer.Enabled && timer.VisualAlertEnabled),
         OverlayElementKind.CustomTimer => _customTimerDefinitions.Count > 0,
         _ => false
     };

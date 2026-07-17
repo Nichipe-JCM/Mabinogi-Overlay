@@ -315,7 +315,7 @@ public partial class MainWindow
         if (!_hiddenMonitorElementKinds.Contains(OverlayElementKind.AlertNotification) &&
             (_buffMonitorEnabled ||
              _tuairimMonitorEnabled ||
-             _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled)))
+             _customTimerDefinitions.Any(timer => timer.Enabled && timer.VisualAlertEnabled)))
         {
             var alertCandidate = EnsureAlertNotificationCandidate();
             loadedCandidates[alertCandidate.Id] = alertCandidate;

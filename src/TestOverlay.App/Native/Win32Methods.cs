@@ -30,6 +30,7 @@ internal static partial class Win32Methods
     public const uint ModControl = 0x0002;
     public const uint ModShift = 0x0004;
     public const uint ModWin = 0x0008;
+    public const uint ModNoRepeat = 0x4000;
     public const int Srccopy = 0x00CC0020;
     public const uint MonitorDefaultToNearest = 0x00000002;
 
@@ -137,6 +138,9 @@ internal static partial class Win32Methods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool UnregisterHotKey(nint hWnd, int id);
+
+    [LibraryImport("user32.dll")]
+    public static partial short GetAsyncKeyState(int vKey);
 
     public static void TryEnablePerMonitorDpiAwareness()
     {

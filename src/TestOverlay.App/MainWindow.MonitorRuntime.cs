@@ -117,7 +117,7 @@ public partial class MainWindow
             : null;
         var alertSlot = (_buffMonitorEnabled ||
                          _tuairimMonitorEnabled ||
-                         _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled))
+                         _customTimerDefinitions.Any(timer => timer.Enabled && timer.VisualAlertEnabled))
             ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.AlertNotification)
             : null;
         var customTimerSlot = _customTimerDefinitions.Count > 0

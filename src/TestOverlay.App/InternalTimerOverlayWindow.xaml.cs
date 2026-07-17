@@ -17,6 +17,8 @@ public partial class InternalTimerOverlayWindow : Window
     private readonly Dictionary<string, ActiveAlert> _activeAlerts = new(StringComparer.Ordinal);
     private readonly DispatcherTimer _alertBlinkTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     private double _alertPanelBaseOpacity = 1;
+    private double _alertPanelScale = 1;
+    private double _alertPanelAnchorBottom;
     private bool _alertPanelAvailable;
     private bool _customTimerPanelAvailable;
     private bool _alertBlinkVisible = true;
@@ -298,12 +300,14 @@ public partial class InternalTimerOverlayWindow : Window
                 slot.OverlayRect.Height / AlertNotificationPreviewRenderer.GetBaseHeight(alertPreviewRows)),
             0.1,
             10);
+        _alertPanelScale = scale;
+        _alertPanelAnchorBottom = slot.OverlayRect.Bottom;
         AlertPanel.Width = AlertNotificationPreviewRenderer.BaseWidth;
-        AlertPanel.Height = AlertNotificationPreviewRenderer.GetBaseHeight(alertPreviewRows);
+        AlertPanel.Height = AlertNotificationPreviewRenderer.GetBaseHeight(1);
         _alertPanelBaseOpacity = slot.EffectiveOpacity(defaultOpacity);
         AlertPanel.LayoutTransform = new ScaleTransform(scale, scale);
         Canvas.SetLeft(AlertPanel, slot.OverlayRect.X);
-        Canvas.SetTop(AlertPanel, slot.OverlayRect.Y);
+        Canvas.SetTop(AlertPanel, _alertPanelAnchorBottom - AlertPanel.Height * scale);
         AlertPanel.Visibility = Visibility.Collapsed;
         _alertPanelAvailable = true;
     }
@@ -396,6 +400,11 @@ public partial class InternalTimerOverlayWindow : Window
                 : L.F("custom.timer.visual.alert", alert.DisplayName ?? string.Empty, alert.Value);
             AlertRows.Children.Add(AlertText(message, new Thickness(0)));
         }
+
+        var visibleRows = Math.Max(1, Math.Min(_maxAlertRows, _activeAlerts.Count));
+        var panelHeight = AlertNotificationPreviewRenderer.GetBaseHeight(visibleRows);
+        AlertPanel.Height = panelHeight;
+        Canvas.SetTop(AlertPanel, _alertPanelAnchorBottom - panelHeight * _alertPanelScale);
     }
 
     private TextBlock AlertText(string text, Thickness margin) => new()

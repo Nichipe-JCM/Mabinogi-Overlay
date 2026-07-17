@@ -879,11 +879,12 @@ public partial class LayoutEditorWindow : Window
                 : Math.Max(0.1, slot.Scale);
             slot.Source.ResizeTo(AlertNotificationPreviewRenderer.BaseWidth, baseHeight);
             slot.Preview = AlertNotificationPreviewRenderer.Render(AlertPreviewRows);
+            var resizedHeight = baseHeight * scale;
             slot.OverlayRect = new Rect(
                 slot.OverlayRect.X,
-                slot.OverlayRect.Y,
+                slot.OverlayRect.Bottom - resizedHeight,
                 AlertNotificationPreviewRenderer.BaseWidth * scale,
-                baseHeight * scale);
+                resizedHeight);
             _sourceSizes[slot] = new Size(AlertNotificationPreviewRenderer.BaseWidth, baseHeight);
         }
 
