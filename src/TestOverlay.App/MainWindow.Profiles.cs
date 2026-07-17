@@ -49,6 +49,7 @@ public partial class MainWindow
     {
         SaveCurrentSectionSettings();
         CommitMonitorAlertThresholdInputs();
+        CommitCustomTimerEditor();
         var profile = OverlayProfileMapper.CreateWorkspaceProfile(
             profileName,
             _workspace,
@@ -63,6 +64,8 @@ public partial class MainWindow
         profile.ShowInternalBuffTimer = !_hiddenMonitorElementKinds.Contains(OverlayElementKind.InternalBuffTimer);
         profile.ShowAlertNotification = !_hiddenMonitorElementKinds.Contains(OverlayElementKind.AlertNotification);
         profile.ShowTuairimGauge = !_hiddenMonitorElementKinds.Contains(OverlayElementKind.TuairimGauge);
+        profile.ShowCustomTimer = !_hiddenMonitorElementKinds.Contains(OverlayElementKind.CustomTimer);
+        profile.CustomTimers = _customTimerDefinitions.Select(timer => timer.Clone()).ToList();
         _alertAudio.WriteProfile(profile);
         profile.RecognizedBuffNameKeys = InternalBuffTimerPreviewRenderer.BuffNameKeys
             .Where(_recognizedBuffNameKeys.Contains)
@@ -195,6 +198,17 @@ public partial class MainWindow
         {
             _hiddenMonitorElementKinds.Add(OverlayElementKind.TuairimGauge);
         }
+        if (!profile.ShowCustomTimer)
+        {
+            _hiddenMonitorElementKinds.Add(OverlayElementKind.CustomTimer);
+        }
+        _customTimerDefinitions.Clear();
+        foreach (var timer in profile.CustomTimers ?? [])
+        {
+            _customTimerDefinitions.Add(timer.Clone());
+        }
+        _editingCustomTimer = null;
+        CustomTimerList.SelectedItem = _customTimerDefinitions.FirstOrDefault();
         ApplyMonitorAlertSettings(profile);
         _recognizedBuffNameKeys.Clear();
         _selectedBuffNameKeys.Clear();
@@ -232,6 +246,8 @@ public partial class MainWindow
         }
         BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
         TuairimMonitorEnabledCheckBox.IsChecked = _tuairimMonitorEnabled;
+        RefreshMonitorDisplayControls();
+        RefreshCustomTimerEditor();
         RefreshMonitorAlertSettingsControls();
         var profileWidth = profile.SlotInnerWidth > 0 ? profile.SlotInnerWidth : profile.SlotInnerSize;
         var profileHeight = profile.SlotInnerHeight > 0 ? profile.SlotInnerHeight : profile.SlotInnerSize;
@@ -278,10 +294,17 @@ public partial class MainWindow
             var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
             loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
         }
-        if (_buffMonitorEnabled || _tuairimMonitorEnabled)
+        if (_buffMonitorEnabled ||
+            _tuairimMonitorEnabled ||
+            _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled))
         {
             var alertCandidate = EnsureAlertNotificationCandidate();
             loadedCandidates[alertCandidate.Id] = alertCandidate;
+        }
+        if (_customTimerDefinitions.Count > 0)
+        {
+            var customTimerCandidate = EnsureCustomTimerCandidate();
+            loadedCandidates[customTimerCandidate.Id] = customTimerCandidate;
         }
 
         foreach (var savedSection in profile.Sections)

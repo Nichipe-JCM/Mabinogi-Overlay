@@ -98,7 +98,7 @@ public partial class MainWindow
 
         _internalTimerOverlayWindow?.Close();
         _internalTimerOverlayWindow = null;
-        if (!_buffMonitorEnabled && !_tuairimMonitorEnabled)
+        if (!_buffMonitorEnabled && !_tuairimMonitorEnabled && _customTimerDefinitions.Count == 0)
         {
             _internalTimerDebugTimer.Stop();
             return;
@@ -115,31 +115,42 @@ public partial class MainWindow
         var tuairimSlot = _tuairimMonitorEnabled
             ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.TuairimGauge)
             : null;
-        var alertSlot = (_buffMonitorEnabled || _tuairimMonitorEnabled)
+        var alertSlot = (_buffMonitorEnabled ||
+                         _tuairimMonitorEnabled ||
+                         _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled))
             ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.AlertNotification)
             : null;
-        if (timerSlot is null && tuairimSlot is null && alertSlot is null)
+        var customTimerSlot = _customTimerDefinitions.Count > 0
+            ? _overlaySlots.FirstOrDefault(slot => slot.Kind == OverlayElementKind.CustomTimer)
+            : null;
+        if (timerSlot is not null || tuairimSlot is not null || alertSlot is not null || customTimerSlot is not null)
         {
-            return;
+            _internalTimerOverlayWindow?.Close();
+            _internalTimerOverlayWindow = new InternalTimerOverlayWindow(
+                _layoutCanvasWidth,
+                _layoutCanvasHeight,
+                _overlayOpacity,
+                timerSlot,
+                tuairimSlot,
+                alertSlot,
+                customTimerSlot,
+                _internalBuffTimers,
+                _selectedBuffNameKeys)
+            {
+                Left = _overlayLeft,
+                Top = _overlayTop
+            };
+            _internalTimerOverlayWindow.Show();
+            _internalTimerOverlayWindow.UpdateLayout();
+            _internalTimerOverlayWindow.SetTuairimPercent(_statusObservations.TuairimPercent);
+            RefreshCustomTimerOverlay();
         }
 
-        _internalTimerOverlayWindow?.Close();
-        _internalTimerOverlayWindow = new InternalTimerOverlayWindow(
-            _layoutCanvasWidth,
-            _layoutCanvasHeight,
-            _overlayOpacity,
-            timerSlot,
-            tuairimSlot,
-            alertSlot,
-            _internalBuffTimers,
-            _selectedBuffNameKeys)
+        if (!_buffMonitorEnabled && !_tuairimMonitorEnabled)
         {
-            Left = _overlayLeft,
-            Top = _overlayTop
-        };
-        _internalTimerOverlayWindow.Show();
-        _internalTimerOverlayWindow.UpdateLayout();
-        _internalTimerOverlayWindow.SetTuairimPercent(_statusObservations.TuairimPercent);
+            _internalTimerDebugTimer.Stop();
+            return;
+        }
         _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
         _lastInternalTimerCountdownAt = DateTimeOffset.UtcNow;
         _monitorFrameObscured = false;

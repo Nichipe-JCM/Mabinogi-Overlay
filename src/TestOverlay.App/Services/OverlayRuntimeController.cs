@@ -9,6 +9,8 @@ namespace TestOverlay.App.Services;
 
 public sealed class OverlayRuntimeController : IDisposable
 {
+    private const int StopHotkeyId = 0x3141;
+    private const int CustomTimerHotkeyBaseId = 0x3200;
     private readonly CaptureSessionCoordinator _captureSession;
     private readonly CpuCompositedOverlayRenderer _cpuRenderer = new();
     private readonly AppLog _log;
@@ -39,6 +41,10 @@ public sealed class OverlayRuntimeController : IDisposable
 
     public event Action<Exception>? RuntimeFailed;
 
+    public event Action<int>? CustomTimerStartRequested;
+
+    public event Action<int>? CustomTimerCancelRequested;
+
     public bool IsRunning => _overlayWindow is not null;
 
     public async Task<OverlayRuntimeStartResult> StartAsync(Window owner, OverlayRuntimeOptions options)
@@ -50,18 +56,16 @@ public sealed class OverlayRuntimeController : IDisposable
         }
 
         var hasSlotOverlay = options.Slots.Any(slot => slot.Kind == OverlayElementKind.Quickslot);
-        var hasBuffOverlay = options.BuffMonitorEnabled &&
-                             options.HasSelectedBuffs &&
-                             options.Slots.Any(slot => slot.Kind == OverlayElementKind.InternalBuffTimer);
-        var hasTuairimOverlay = options.TuairimMonitorEnabled &&
-                                options.Slots.Any(slot => slot.Kind == OverlayElementKind.TuairimGauge);
-        if (!hasSlotOverlay && !hasBuffOverlay && !hasTuairimOverlay)
+        var hasBuffMonitoring = options.BuffMonitorEnabled && options.HasSelectedBuffs;
+        var hasTuairimMonitoring = options.TuairimMonitorEnabled;
+        var hasCustomTimers = options.CustomTimers.Any(timer => timer.Enabled);
+        if (!hasSlotOverlay && !hasBuffMonitoring && !hasTuairimMonitoring && !hasCustomTimers)
         {
             return new(OverlayRuntimeStartStatus.NoRenderableElements, null, null, null);
         }
 
-        var hasMonitorOverlay = hasBuffOverlay || hasTuairimOverlay;
-        var requiresLiveCapture = hasSlotOverlay || (hasMonitorOverlay && !options.MonitorTestMode);
+        var requiresLiveCapture = hasSlotOverlay ||
+                                  ((hasBuffMonitoring || hasTuairimMonitoring) && !options.MonitorTestMode);
         if (requiresLiveCapture && !_captureSession.HasLiveCaptureSource(options.CaptureBackend))
         {
             return new(OverlayRuntimeStartStatus.MissingCaptureSource, null, null, null);
@@ -84,6 +88,7 @@ public sealed class OverlayRuntimeController : IDisposable
             _hotkey = new HotkeyService();
             if (!_hotkey.Register(
                     new WindowInteropHelper(owner).Handle,
+                    StopHotkeyId,
                     hotkeyDefinition.Modifiers,
                     hotkeyDefinition.VirtualKey,
                     HandleStopHotkey))
@@ -91,6 +96,13 @@ public sealed class OverlayRuntimeController : IDisposable
                 _log.Info($"Stop hotkey registration failed: {hotkeyDefinition.DisplayText}");
                 Stop();
                 return new(OverlayRuntimeStartStatus.HotkeyRegistrationFailed, null, null, null);
+            }
+
+            var hotkeyError = RegisterCustomTimerHotkeys(owner, options.CustomTimers, hotkeyDefinition);
+            if (hotkeyError is not null)
+            {
+                Stop();
+                return hotkeyError;
             }
 
             _log.Info($"Stop hotkey registered: {hotkeyDefinition.DisplayText}");
@@ -143,7 +155,7 @@ public sealed class OverlayRuntimeController : IDisposable
                 _captureSession.StartLiveWgcCapture(options.Layout.RefreshFps);
             }
 
-            if (hasMonitorOverlay &&
+            if ((hasBuffMonitoring || hasTuairimMonitoring) &&
                 !options.MonitorTestMode &&
                 options.CaptureBackend == CaptureBackend.Wgc &&
                 (_gpuRenderer is not null || !hasSlotOverlay))
@@ -344,6 +356,58 @@ public sealed class OverlayRuntimeController : IDisposable
         StopRequested?.Invoke();
     }
 
+    private OverlayRuntimeStartResult? RegisterCustomTimerHotkeys(
+        Window owner,
+        IReadOnlyList<CustomTimerDefinition> timers,
+        HotkeyDefinition stopHotkey)
+    {
+        var registeredKeys = new HashSet<(uint Modifiers, uint VirtualKey)>
+        {
+            (stopHotkey.Modifiers, stopHotkey.VirtualKey)
+        };
+        var index = 0;
+        foreach (var timer in timers.Where(timer => timer.Enabled))
+        {
+            if (!HotkeyParser.TryParse(timer.StartHotkey, out var start) ||
+                !HotkeyParser.TryParse(timer.CancelHotkey, out var cancel))
+            {
+                return new(
+                    OverlayRuntimeStartStatus.InvalidCustomTimerHotkey,
+                    null,
+                    null,
+                    timer.Name);
+            }
+
+            if (!registeredKeys.Add((start.Modifiers, start.VirtualKey)) ||
+                !registeredKeys.Add((cancel.Modifiers, cancel.VirtualKey)))
+            {
+                return new(
+                    OverlayRuntimeStartStatus.DuplicateCustomTimerHotkey,
+                    null,
+                    null,
+                    timer.Name);
+            }
+
+            var startId = CustomTimerHotkeyBaseId + index * 2;
+            var cancelId = startId + 1;
+            var handle = new WindowInteropHelper(owner).Handle;
+            if (!_hotkey!.Register(handle, startId, start.Modifiers, start.VirtualKey,
+                    () => CustomTimerStartRequested?.Invoke(timer.Id)) ||
+                !_hotkey.Register(handle, cancelId, cancel.Modifiers, cancel.VirtualKey,
+                    () => CustomTimerCancelRequested?.Invoke(timer.Id)))
+            {
+                return new(
+                    OverlayRuntimeStartStatus.CustomTimerHotkeyRegistrationFailed,
+                    null,
+                    null,
+                    timer.Name);
+            }
+            index++;
+        }
+
+        return null;
+    }
+
     private void ResetCpuRenderStats()
     {
         _cpuRenderClock.Reset();
@@ -433,7 +497,8 @@ public sealed record OverlayRuntimeOptions(
     bool BuffMonitorEnabled,
     bool TuairimMonitorEnabled,
     bool HasSelectedBuffs,
-    bool MonitorTestMode);
+    bool MonitorTestMode,
+    IReadOnlyList<CustomTimerDefinition> CustomTimers);
 
 public enum OverlayRuntimeStartStatus
 {
@@ -443,6 +508,9 @@ public enum OverlayRuntimeStartStatus
     MissingCaptureSource,
     InvalidHotkey,
     HotkeyRegistrationFailed,
+    InvalidCustomTimerHotkey,
+    DuplicateCustomTimerHotkey,
+    CustomTimerHotkeyRegistrationFailed,
     ClickThroughConfigurationFailed,
     Failed
 }

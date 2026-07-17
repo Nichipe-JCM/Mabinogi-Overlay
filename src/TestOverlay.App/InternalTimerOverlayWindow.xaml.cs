@@ -18,6 +18,7 @@ public partial class InternalTimerOverlayWindow : Window
     private readonly DispatcherTimer _alertBlinkTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     private double _alertPanelBaseOpacity = 1;
     private bool _alertPanelAvailable;
+    private bool _customTimerPanelAvailable;
     private bool _alertBlinkVisible = true;
 
     public InternalTimerOverlayWindow(
@@ -27,6 +28,7 @@ public partial class InternalTimerOverlayWindow : Window
         OverlaySlot? timerSlot,
         OverlaySlot? tuairimSlot,
         OverlaySlot? alertSlot,
+        OverlaySlot? customTimerSlot,
         IReadOnlyList<InternalBuffTimer> timers,
         IReadOnlyCollection<string> visibleBuffNameKeys)
     {
@@ -46,6 +48,14 @@ public partial class InternalTimerOverlayWindow : Window
             TuairimGaugePreviewRenderer.BaseHeight,
             defaultOpacity);
         ConfigureAlertPanel(alertSlot, defaultOpacity);
+        ConfigurePanel(
+            CustomTimerPanel,
+            customTimerSlot,
+            CustomTimerPreviewRenderer.BaseWidth,
+            customTimerSlot?.Source.SourceRect.Height ?? CustomTimerPreviewRenderer.GetBaseHeight(1),
+            defaultOpacity);
+        _customTimerPanelAvailable = customTimerSlot is not null;
+        SetCustomTimers([]);
         Focusable = false;
         ShowActivated = false;
         ShowInTaskbar = false;
@@ -67,17 +77,89 @@ public partial class InternalTimerOverlayWindow : Window
         ShowAlert(new ActiveAlert(
             $"buff:{nameKey}",
             nameKey,
+            null,
             Math.Max(0, remainingSeconds),
-            IsTuairim: false,
+            AlertKind.Buff,
             DateTimeOffset.UtcNow.AddSeconds(5)));
 
     public void ShowTuairimAlert(int percent) =>
         ShowAlert(new ActiveAlert(
             "tuairim",
             null,
+            null,
             Math.Clamp(percent, 0, 100),
-            IsTuairim: true,
+            AlertKind.Tuairim,
             DateTimeOffset.UtcNow.AddSeconds(5)));
+
+    public void ShowCustomTimerAlert(int timerId, string name, int remainingSeconds) =>
+        ShowAlert(new ActiveAlert(
+            $"custom:{timerId}",
+            null,
+            name,
+            Math.Max(0, remainingSeconds),
+            AlertKind.CustomTimer,
+            DateTimeOffset.UtcNow.AddSeconds(5)));
+
+    public void DismissCustomTimerAlert(int timerId)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => DismissCustomTimerAlert(timerId));
+            return;
+        }
+
+        if (!_activeAlerts.Remove($"custom:{timerId}"))
+        {
+            return;
+        }
+
+        if (_activeAlerts.Count == 0)
+        {
+            _alertBlinkTimer.Stop();
+            AlertPanel.Visibility = Visibility.Collapsed;
+            AlertRows.Children.Clear();
+            return;
+        }
+
+        RenderAlertRows();
+    }
+
+    public void SetCustomTimers(IReadOnlyList<ActiveCustomTimerDisplay> timers)
+    {
+        CustomTimerRows.Children.Clear();
+        foreach (var timer in timers)
+        {
+            var row = new Grid { Margin = new Thickness(0, 2, 0, 2), MinWidth = 148 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(new TextBlock
+            {
+                Text = timer.Name,
+                Foreground = (Brush)FindResource("OverlayTextBrush"),
+                FontSize = 11,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var time = new TextBlock
+            {
+                Text = FormatTime(timer.RemainingSeconds),
+                Margin = new Thickness(8, 0, 0, 0),
+                Foreground = timer.IsAlerting
+                    ? (Brush)FindResource("OverlayDangerBrush")
+                    : (Brush)FindResource("OverlayAccentBrush"),
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(time, 1);
+            row.Children.Add(time);
+            CustomTimerRows.Children.Add(row);
+        }
+
+        CustomTimerPanel.Visibility = !_customTimerPanelAvailable
+            ? Visibility.Collapsed
+            : timers.Count > 0 ? Visibility.Visible : Visibility.Hidden;
+    }
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -118,33 +200,33 @@ public partial class InternalTimerOverlayWindow : Window
         var timerByKey = _timers.ToDictionary(timer => timer.NameKey, StringComparer.Ordinal);
         foreach (var nameKey in InternalBuffTimerPreviewRenderer.BuffNameKeys.Where(_visibleBuffNameKeys.Contains))
         {
-            var row = new Grid { Margin = new Thickness(0, 2, 0, 2), MinWidth = 154 };
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var row = new Grid { Margin = new Thickness(0, 2, 0, 2), MinWidth = 76 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var nameText = new TextBlock
+            var icon = new Image
             {
-                Text = InternalBuffTimerPreviewRenderer.BuildDisplayName(
-                    nameKey,
-                    timerByKey.TryGetValue(nameKey, out var displayTimer) ? displayTimer : null),
-                FontFamily = new FontFamily("Noto Sans KR, Malgun Gothic"),
-                FontSize = 11,
-                Foreground = (Brush)FindResource("OverlayTextBrush"),
-                VerticalAlignment = VerticalAlignment.Center
+                Source = BuffVisualCatalog.ActiveIcon(nameKey),
+                Width = 18,
+                Height = 18,
+                Stretch = Stretch.None,
+                SnapsToDevicePixels = true
             };
-            var name = new Viewbox
+            timerByKey.TryGetValue(nameKey, out var displayTimer);
+            var badge = new TextBlock
             {
-                Child = nameText,
-                Stretch = Stretch.Uniform,
-                StretchDirection = StretchDirection.DownOnly,
-                HorizontalAlignment = HorizontalAlignment.Left,
+                Text = InternalBuffTimerPreviewRenderer.BuildBadge(displayTimer),
+                Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0xD1, 0x75)),
+                FontSize = 8,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                MaxHeight = 16
             };
             var time = new TextBlock
             {
                 Text = displayTimer is not null ? FormatTime(displayTimer.RemainingSeconds) : "--:--",
-                Margin = new Thickness(8, 0, 0, 0),
+                Margin = new Thickness(4, 0, 0, 0),
                 FontFamily = new FontFamily("Noto Sans KR, Malgun Gothic"),
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
@@ -153,8 +235,10 @@ public partial class InternalTimerOverlayWindow : Window
                     : (Brush)FindResource("OverlayAccentBrush"),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            Grid.SetColumn(time, 1);
-            row.Children.Add(name);
+            Grid.SetColumn(badge, 1);
+            Grid.SetColumn(time, 2);
+            row.Children.Add(icon);
+            row.Children.Add(badge);
             row.Children.Add(time);
             TimerRows.Children.Add(row);
         }
@@ -281,29 +365,56 @@ public partial class InternalTimerOverlayWindow : Window
         AlertRows.Children.Clear();
         foreach (var alert in _activeAlerts.Values)
         {
-            var message = alert.IsTuairim
-                ? L.F("monitor.alert.visual.tuairim", alert.Value)
-                : L.F("monitor.alert.visual.buff", L.T(alert.NameKey!), alert.Value);
-            AlertRows.Children.Add(new TextBlock
+            if (alert.Kind == AlertKind.Buff)
             {
-                Text = message,
-                Height = AlertNotificationPreviewRenderer.RowHeight,
-                Foreground = (Brush)FindResource("OverlayDangerBrush"),
-                FontFamily = new FontFamily("Noto Sans KR, Malgun Gothic"),
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                VerticalAlignment = VerticalAlignment.Center
-            });
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Height = AlertNotificationPreviewRenderer.RowHeight };
+                row.Children.Add(new Image
+                {
+                    Source = BuffVisualCatalog.ActiveIcon(alert.NameKey!),
+                    Width = 18,
+                    Height = 18,
+                    Stretch = Stretch.None,
+                    SnapsToDevicePixels = true
+                });
+                row.Children.Add(AlertText(FormatTime(alert.Value), new Thickness(8, 0, 0, 0)));
+                AlertRows.Children.Add(row);
+                continue;
+            }
+
+            var message = alert.Kind == AlertKind.Tuairim
+                ? L.F("monitor.alert.visual.tuairim", alert.Value)
+                : L.F("custom.timer.visual.alert", alert.DisplayName ?? string.Empty, alert.Value);
+            AlertRows.Children.Add(AlertText(message, new Thickness(0)));
         }
     }
+
+    private TextBlock AlertText(string text, Thickness margin) => new()
+    {
+        Text = text,
+        Margin = margin,
+        Height = AlertNotificationPreviewRenderer.RowHeight,
+        Foreground = (Brush)FindResource("OverlayDangerBrush"),
+        FontFamily = new FontFamily("Noto Sans KR, Malgun Gothic"),
+        FontSize = 11,
+        FontWeight = FontWeights.SemiBold,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+        VerticalAlignment = VerticalAlignment.Center
+    };
 
     private sealed record ActiveAlert(
         string Id,
         string? NameKey,
+        string? DisplayName,
         int Value,
-        bool IsTuairim,
+        AlertKind Kind,
         DateTimeOffset ExpiresAt);
+
+    private enum AlertKind
+    {
+        Buff,
+        Tuairim,
+        CustomTimer
+    }
 
     private static void ApplyClickThroughStyles(nint handle)
     {

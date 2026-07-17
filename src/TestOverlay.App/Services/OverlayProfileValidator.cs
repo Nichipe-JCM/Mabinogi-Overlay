@@ -24,6 +24,7 @@ internal static class OverlayProfileValidator
         RequireCollection(profile.BuffAnchors, nameof(profile.BuffAnchors));
         RequireCollection(profile.BuffAlertSoundPaths, nameof(profile.BuffAlertSoundPaths));
         RequireCollection(profile.BuffAlertVolumes, nameof(profile.BuffAlertVolumes));
+        RequireCollection(profile.CustomTimers, nameof(profile.CustomTimers));
 
         ValidateRect(profile.BuffMonitorRoi, nameof(profile.BuffMonitorRoi));
         ValidateRect(profile.TuairimMonitorRoi, nameof(profile.TuairimMonitorRoi));
@@ -110,6 +111,26 @@ internal static class OverlayProfileValidator
             ValidateRect(anchor.Bounds, $"Buff anchor {anchor.NameKey}");
             RequireFinite(anchor.StructureScore, $"Buff anchor {anchor.NameKey}.StructureScore");
             RequireFinite(anchor.StateConfidence, $"Buff anchor {anchor.NameKey}.StateConfidence");
+        }
+
+        var customTimerIds = new HashSet<int>();
+        foreach (var timer in profile.CustomTimers)
+        {
+            if (timer.Id <= 0 || !customTimerIds.Add(timer.Id))
+            {
+                throw Invalid($"Custom timer IDs must be positive and unique: {timer.Id}.");
+            }
+            if (string.IsNullOrWhiteSpace(timer.Name))
+            {
+                throw Invalid($"Custom timer {timer.Id} has no name.");
+            }
+            if (timer.DurationSeconds is < 1 or > 86400 ||
+                timer.AlertBeforeSeconds < 0 ||
+                timer.AlertBeforeSeconds > timer.DurationSeconds ||
+                timer.Volume is < 0 or > 100)
+            {
+                throw Invalid($"Custom timer {timer.Id} has values outside the supported range.");
+            }
         }
     }
 

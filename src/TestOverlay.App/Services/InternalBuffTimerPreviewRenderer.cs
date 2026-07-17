@@ -8,9 +8,9 @@ namespace TestOverlay.App.Services;
 
 public static class InternalBuffTimerPreviewRenderer
 {
-    public const int BaseWidth = 200;
-    public const int RowHeight = 22;
-    public const int VerticalPadding = 16;
+    public const int BaseWidth = 104;
+    public const int RowHeight = 24;
+    public const int VerticalPadding = 12;
 
     public static IReadOnlyList<string> BuffNameKeys { get; } = MonitoredBuffCatalog.AllBuffNameKeys;
 
@@ -33,12 +33,12 @@ public static class InternalBuffTimerPreviewRenderer
                 6,
                 6);
 
-            var nameTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             var timeTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            var badgeTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
             for (var index = 0; index < visibleKeys.Count; index++)
             {
                 var key = visibleKeys[index];
-                var y = 8 + index * RowHeight;
+                var y = 6 + index * RowHeight;
                 timerByKey.TryGetValue(key, out var timer);
                 var hasTimer = timer is not null;
                 var value = hasTimer ? $"{timer!.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}" : "--:--";
@@ -46,22 +46,22 @@ public static class InternalBuffTimerPreviewRenderer
                     ? new SolidColorBrush(Color.FromRgb(0xFF, 0xB4, 0xAB))
                     : new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4));
                 var time = CreateText(value, timeTypeface, 11, brush);
-                var availableNameWidth = BaseWidth - 28 - time.WidthIncludingTrailingWhitespace;
-                var nameText = BuildDisplayName(key, timer);
-                var name = CreateText(nameText, nameTypeface, 11, Brushes.White);
-                if (name.WidthIncludingTrailingWhitespace > availableNameWidth)
+                context.DrawImage(BuffVisualCatalog.ActiveIcon(key), new Rect(8, y, 18, 18));
+                var badge = BuildBadge(timer);
+                if (!string.IsNullOrEmpty(badge))
                 {
-                    var fittedSize = 11 * availableNameWidth / name.WidthIncludingTrailingWhitespace;
-                    name = CreateText(nameText, nameTypeface, fittedSize, Brushes.White);
+                    context.DrawText(
+                        CreateText(badge, badgeTypeface, 8, new SolidColorBrush(Color.FromRgb(0xFF, 0xD1, 0x75))),
+                        new Point(29, y + 3));
                 }
-                context.DrawText(name, new Point(10, y));
-                context.DrawText(time, new Point(BaseWidth - 10 - time.WidthIncludingTrailingWhitespace, y));
+                context.DrawText(time, new Point(BaseWidth - 8 - time.WidthIncludingTrailingWhitespace, y + 1));
             }
 
             if (visibleKeys.Count == 0)
             {
+                var nameTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
                 var empty = CreateText(L.T("monitor.buff.none.selected"), nameTypeface, 11, Brushes.Gray);
-                context.DrawText(empty, new Point(10, 8));
+                context.DrawText(empty, new Point(8, 6));
             }
         }
 
@@ -94,6 +94,22 @@ public static class InternalBuffTimerPreviewRenderer
         return tags.Count == 0
             ? L.T(nameKey)
             : $"{L.T(nameKey)} [{string.Join("] [", tags)}]";
+    }
+
+    public static string BuildBadge(InternalBuffTimer? timer)
+    {
+        if (timer is null)
+        {
+            return string.Empty;
+        }
+
+        return timer switch
+        {
+            { HasHarmony: true, HasTuanExtension: true } => "HT",
+            { HasHarmony: true } => "H",
+            { HasTuanExtension: true } => "T",
+            _ => string.Empty
+        };
     }
 
     private static FormattedText CreateText(string text, Typeface typeface, double size, Brush brush) =>

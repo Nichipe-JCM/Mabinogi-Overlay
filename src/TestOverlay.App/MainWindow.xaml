@@ -466,6 +466,7 @@
                                      Background="Transparent"
                                      BorderThickness="0"
                                      ItemContainerStyle="{StaticResource CandidateListBoxItemStyle}"
+                                     PreviewMouseLeftButtonDown="CandidateList_PreviewMouseLeftButtonDown"
                                      KeyDown="CandidateList_KeyDown">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
@@ -496,7 +497,7 @@
                             <Button x:Name="AddManualCandidateButton" MinWidth="72" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Add" loc:Localize.ContentKey="Add" Click="AddManualCandidateButton_Click"/>
                             <Button x:Name="DeleteSelectedCandidatesButton" MinWidth="82" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="DeleteSelectedCandidatesButton_Click"/>
                             <Button x:Name="AddToOverlayButton" MinWidth="118" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Add to overlay" loc:Localize.ContentKey="Add to overlay" Click="AddToOverlayButton_Click"/>
-                            <Button x:Name="ClearCandidatesButton" MinWidth="72" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Clear" loc:Localize.ContentKey="Clear" Click="ClearCandidatesButton_Click"/>
+                            <Button x:Name="ClearCandidatesButton" MinWidth="106" Height="32" Padding="12,0" Margin="4,0,0,0" Content="Reset slots" loc:Localize.ContentKey="slot.reset" Click="ClearCandidatesButton_Click"/>
                         </WrapPanel>
                     </Grid>
                 </Border>
@@ -662,6 +663,14 @@
                                                         <TextBlock x:Name="PurificationWaveDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
+                                            </WrapPanel>
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" Text="Overlay display" loc:Localize.TextKey="monitor.display.title" Style="{StaticResource MutedTextStyle}"/>
+                                                <CheckBox x:Name="ShowBuffTimerCheckBox" Margin="0,0,16,0" Content="Buff timer" loc:Localize.ContentKey="monitor.display.buff.timer" Click="MonitorDisplayCheckBox_Click"/>
+                                                <CheckBox x:Name="ShowTuairimGaugeCheckBox" Margin="0,0,16,0" Content="Tuairim gauge" loc:Localize.ContentKey="monitor.display.tuairim" Click="MonitorDisplayCheckBox_Click"/>
+                                                <CheckBox x:Name="ShowVisualAlertCheckBox" Margin="0,0,22,0" Content="Visual alert" loc:Localize.ContentKey="monitor.display.visual.alert" Click="MonitorDisplayCheckBox_Click"/>
+                                                <CheckBox x:Name="BuffSoundAlertsEnabledCheckBox" Margin="0,0,16,0" Content="Buff sound" loc:Localize.ContentKey="monitor.sound.buff.enabled" Click="BuffSoundAlertsEnabledCheckBox_Click"/>
+                                                <CheckBox x:Name="TuairimSoundAlertsEnabledCheckBox" Content="Tuairim sound" loc:Localize.ContentKey="monitor.sound.tuairim.enabled" Click="TuairimSoundAlertsEnabledCheckBox_Click"/>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
@@ -887,6 +896,69 @@
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="Hotkey Timers" loc:Localize.HeaderKey="custom.timer.tab">
+                    <Border Style="{StaticResource GlassCardStyle}">
+                        <Grid Margin="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Hotkey timers" loc:Localize.TextKey="custom.timer.title" Style="{StaticResource SectionTitleStyle}"/>
+                                    <CheckBox x:Name="CustomTimerOverlayVisibleCheckBox" Margin="0,10,0,10" Content="Show active timers on overlay" loc:Localize.ContentKey="custom.timer.overlay.visible" Click="CustomTimerOverlayVisibleCheckBox_Click"/>
+                                </StackPanel>
+                                <ListBox x:Name="CustomTimerList" Grid.Row="1" Background="Transparent" BorderBrush="{StaticResource OverlayBorderBrush}" BorderThickness="1" SelectionChanged="CustomTimerList_SelectionChanged"/>
+                                <WrapPanel Grid.Row="2" Margin="0,10,0,0" HorizontalAlignment="Right">
+                                    <Button x:Name="AddCustomTimerButton" MinWidth="72" Height="32" Padding="12,0" Content="Add" loc:Localize.ContentKey="Add" Click="AddCustomTimerButton_Click"/>
+                                    <Button x:Name="RemoveCustomTimerButton" MinWidth="72" Height="32" Padding="12,0" Margin="6,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="RemoveCustomTimerButton_Click"/>
+                                </WrapPanel>
+                            </Grid>
+                            <Border Grid.Column="2" Style="{StaticResource InsetPanelStyle}">
+                                <Grid Margin="12">
+                                    <TextBlock x:Name="CustomTimerEmptyText" Text="Add or select a timer." loc:Localize.TextKey="custom.timer.empty" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <Grid x:Name="CustomTimerEditorPanel">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <CheckBox x:Name="CustomTimerEnabledCheckBox" Grid.ColumnSpan="2" Margin="0,0,0,10" Content="Enable this timer" loc:Localize.ContentKey="custom.timer.enabled" Click="CustomTimerOptionCheckBox_Click"/>
+                                            <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Name" loc:Localize.TextKey="custom.timer.name"/>
+                                            <TextBox x:Name="CustomTimerNameBox" Grid.Row="1" Grid.Column="1" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                            <TextBlock Grid.Row="2" Margin="0,8,0,0" VerticalAlignment="Center" Text="Duration (seconds)" loc:Localize.TextKey="custom.timer.duration"/>
+                                            <TextBox x:Name="CustomTimerDurationBox" Grid.Row="2" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                            <TextBlock Grid.Row="3" Margin="0,8,0,0" VerticalAlignment="Center" Text="Alert before (seconds)" loc:Localize.TextKey="custom.timer.alert.before"/>
+                                            <TextBox x:Name="CustomTimerAlertBeforeBox" Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                            <TextBlock Grid.Row="4" Margin="0,8,0,0" VerticalAlignment="Center" Text="Start / reload hotkey" loc:Localize.TextKey="custom.timer.start.hotkey"/>
+                                            <TextBox x:Name="CustomTimerStartHotkeyBox" Grid.Row="4" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                            <TextBlock Grid.Row="5" Margin="0,8,0,0" VerticalAlignment="Center" Text="Cancel hotkey" loc:Localize.TextKey="custom.timer.cancel.hotkey"/>
+                                            <TextBox x:Name="CustomTimerCancelHotkeyBox" Grid.Row="5" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                            <WrapPanel Grid.Row="6" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                                                <CheckBox x:Name="CustomTimerVisualAlertCheckBox" Margin="0,0,18,0" Content="Visual alert" loc:Localize.ContentKey="custom.timer.visual.enabled" Click="CustomTimerOptionCheckBox_Click"/>
+                                                <CheckBox x:Name="CustomTimerSoundAlertCheckBox" Content="Sound alert" loc:Localize.ContentKey="custom.timer.sound.enabled" Click="CustomTimerOptionCheckBox_Click"/>
+                                            </WrapPanel>
+                                            <TextBlock Grid.Row="7" Margin="0,8,0,0" VerticalAlignment="Center" Text="Alert sound" loc:Localize.TextKey="monitor.alert.sound"/>
+                                            <Grid Grid.Row="7" Grid.Column="1" Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBox x:Name="CustomTimerSoundPathBox" Height="32" Padding="8,4" IsReadOnly="True"/>
+                                                <Button Grid.Column="1" Margin="6,0,0,0" MinWidth="54" Content="Open" loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseCustomTimerSoundButton_Click"/>
+                                                <Button Grid.Column="2" Margin="6,0,0,0" Width="34" Content="X" Click="ClearCustomTimerSoundButton_Click"/>
+                                                <Button Grid.Column="3" Margin="6,0,0,0" MinWidth="58" Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestCustomTimerSoundButton_Click"/>
+                                            </Grid>
+                                            <TextBlock Grid.Row="8" Margin="0,8,0,0" VerticalAlignment="Center" Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
+                                            <TextBox x:Name="CustomTimerVolumeBox" Grid.Row="8" Grid.Column="1" Margin="0,8,0,0" Height="32" Padding="8,4" LostKeyboardFocus="CustomTimerEditor_LostKeyboardFocus"/>
+                                        </Grid>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </TabItem>
+
                 <TabItem x:Name="ErinTimerTabItem" Header="Erin Timer" loc:Localize.HeaderKey="erin.timer">
                     <local:ErinTimerWindow x:Name="ErinTimerPanel"/>
                 </TabItem>
@@ -952,6 +1024,24 @@
                                 Click="CancelLayoutResetButton_Click"/>
                         <Button x:Name="ConfirmLayoutResetButton" MinWidth="112" Height="34" Padding="14,0" Margin="8,0,0,0"
                                 Content="Reset layout" loc:Localize.ContentKey="layout.reset" Click="ConfirmLayoutResetButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
+
+        <Border x:Name="SlotResetConfirmationOverlay" Grid.RowSpan="5" Panel.ZIndex="300"
+                Background="#B0000000" Visibility="Collapsed">
+            <Border Width="500" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource GlassCardStyle}">
+                <Grid Margin="22">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="Reset slots" loc:Localize.TextKey="slot.reset.confirm.title" Style="{StaticResource SectionTitleStyle}"/>
+                    <TextBlock Grid.Row="1" Margin="0,14,0,0" TextWrapping="Wrap" Text="Reset all slot candidates, sections, and overlay placements?" loc:Localize.TextKey="slot.reset.confirm.message" Style="{StaticResource MutedTextStyle}"/>
+                    <Border Grid.Row="2" Margin="0,12,0,0" Padding="12,10" CornerRadius="5" Background="#33FF5F57" BorderBrush="#99FF6B63" BorderThickness="1">
+                        <TextBlock Text="This action cannot be undone." loc:Localize.TextKey="layout.reset.confirm.warning" Foreground="#FFFFB4AB" FontWeight="SemiBold"/>
+                    </Border>
+                    <StackPanel Grid.Row="3" Margin="0,18,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button MinWidth="88" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelSlotResetButton_Click"/>
+                        <Button x:Name="ConfirmSlotResetButton" MinWidth="112" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Reset slots" loc:Localize.ContentKey="slot.reset" Click="ConfirmSlotResetButton_Click"/>
                     </StackPanel>
                 </Grid>
             </Border>

@@ -17,7 +17,6 @@ public partial class MainWindow
     {
         var changed = _buffMonitorEnabled != enabled;
         _buffMonitorEnabled = enabled;
-        _buffAlertsEnabled = enabled;
         BuffMonitorEnabledCheckBox.IsChecked = enabled;
         if (changed)
         {
@@ -56,7 +55,6 @@ public partial class MainWindow
     {
         var changed = _tuairimMonitorEnabled != enabled;
         _tuairimMonitorEnabled = enabled;
-        _tuairimAlertsEnabled = enabled;
         TuairimMonitorEnabledCheckBox.IsChecked = enabled;
         if (changed)
         {
@@ -472,6 +470,7 @@ public partial class MainWindow
             TuairimAlertVolumeBox.Text = settings.TuairimVolume.ToString();
             ClearTuairimAlertSoundButton.IsEnabled = !string.IsNullOrWhiteSpace(settings.TuairimPath);
             TestTuairimAlertSoundButton.IsEnabled = File.Exists(settings.TuairimPath);
+            RefreshMonitorDisplayControls();
         }
         finally
         {
@@ -506,6 +505,8 @@ public partial class MainWindow
 
     private void ApplyMonitorAlertSettings(OverlayProfile profile)
     {
+        _buffAlertsEnabled = profile.BuffAlertsEnabled;
+        _tuairimAlertsEnabled = profile.TuairimAlertsEnabled;
         _alertAudio.LoadProfile(profile);
         _tuairimAlertFired = false;
         foreach (var timer in _internalBuffTimers)
@@ -527,17 +528,15 @@ public partial class MainWindow
             return;
         }
 
-        if (!_buffAlertsEnabled)
-        {
-            return;
-        }
-
         timer.AlertFired = true;
         _log.Info(
             $"Buff alert threshold reached: key={timer.NameKey}, threshold={threshold}, " +
             $"previous={previousSeconds}, current={currentSeconds}");
         _internalTimerOverlayWindow?.ShowBuffAlert(timer.NameKey, currentSeconds);
-        _alertAudio.PlayBuff(timer.NameKey, $"buff:{timer.NameKey}");
+        if (_buffAlertsEnabled)
+        {
+            _alertAudio.PlayBuff(timer.NameKey, $"buff:{timer.NameKey}");
+        }
     }
 
     private void TryFireTuairimAlert(int previousPercent, int currentPercent, bool hadAcceptedObservation)
@@ -553,10 +552,7 @@ public partial class MainWindow
             _tuairimAlertFired = false;
             return;
         }
-        if (!_tuairimAlertsEnabled)
-        {
-            return;
-        }
+        var shouldPlaySound = _tuairimAlertsEnabled;
         if (settings.TuairimFrequency == MonitorAlertSettings.EveryPercentFrequency)
         {
             if (currentPercent > previousPercent && currentPercent <= 99)
@@ -565,7 +561,10 @@ public partial class MainWindow
                     $"Tuairim incremental alert: threshold={settings.TuairimAlertPercent}, " +
                     $"previous={previousPercent}, current={currentPercent}");
                 _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
-                _alertAudio.PlayTuairim($"tuairim:{currentPercent}");
+                if (shouldPlaySound)
+                {
+                    _alertAudio.PlayTuairim($"tuairim:{currentPercent}");
+                }
             }
             return;
         }
@@ -579,7 +578,64 @@ public partial class MainWindow
             $"Tuairim alert threshold reached: threshold={settings.TuairimAlertPercent}, " +
             $"previous={previousPercent}, current={currentPercent}");
         _internalTimerOverlayWindow?.ShowTuairimAlert(currentPercent);
-        _alertAudio.PlayTuairim("tuairim");
+        if (shouldPlaySound)
+        {
+            _alertAudio.PlayTuairim("tuairim");
+        }
+    }
+
+    private void BuffSoundAlertsEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _buffAlertsEnabled = BuffSoundAlertsEnabledCheckBox.IsChecked == true;
+        ScheduleProfileAutoSave();
+        RefreshCompactControlState();
+    }
+
+    private void TuairimSoundAlertsEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        _tuairimAlertsEnabled = TuairimSoundAlertsEnabledCheckBox.IsChecked == true;
+        ScheduleProfileAutoSave();
+        RefreshCompactControlState();
+    }
+
+    private void MonitorDisplayCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender == ShowBuffTimerCheckBox)
+        {
+            SetMonitorElementVisibility(
+                OverlayElementKind.InternalBuffTimer,
+                ShowBuffTimerCheckBox.IsChecked == true);
+        }
+        else if (sender == ShowTuairimGaugeCheckBox)
+        {
+            SetMonitorElementVisibility(
+                OverlayElementKind.TuairimGauge,
+                ShowTuairimGaugeCheckBox.IsChecked == true);
+        }
+        else if (sender == ShowVisualAlertCheckBox)
+        {
+            SetMonitorElementVisibility(
+                OverlayElementKind.AlertNotification,
+                ShowVisualAlertCheckBox.IsChecked == true);
+        }
+        RefreshInternalTimerOverlay();
+    }
+
+    private void RefreshMonitorDisplayControls()
+    {
+        if (ShowBuffTimerCheckBox is null)
+        {
+            return;
+        }
+
+        ShowBuffTimerCheckBox.IsChecked =
+            !_hiddenMonitorElementKinds.Contains(OverlayElementKind.InternalBuffTimer);
+        ShowTuairimGaugeCheckBox.IsChecked =
+            !_hiddenMonitorElementKinds.Contains(OverlayElementKind.TuairimGauge);
+        ShowVisualAlertCheckBox.IsChecked =
+            !_hiddenMonitorElementKinds.Contains(OverlayElementKind.AlertNotification);
+        BuffSoundAlertsEnabledCheckBox.IsChecked = _buffAlertsEnabled;
+        TuairimSoundAlertsEnabledCheckBox.IsChecked = _tuairimAlertsEnabled;
     }
 
     private void DetectBuffWindowButton_Click(object sender, RoutedEventArgs e)

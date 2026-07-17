@@ -216,6 +216,7 @@ public partial class MainWindow : Window
             _log.LogDirectory,
             $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         InitializeComponent();
+        InitializeCustomTimerFeature();
         BuffIconsOnlyCheckBox.IsChecked = _appSettings.BuffIconsOnly;
         ApplyBuffSelectionDisplayMode();
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
@@ -270,6 +271,7 @@ public partial class MainWindow : Window
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
             ErinTimerPanel.Dispose();
             _alertAudio.Dispose();
+            DisposeCustomTimerFeature();
             CloseCompactControlWindow();
             StopOverlay(setStatus: false);
             _overlayRuntime.Dispose();
@@ -864,11 +866,24 @@ public partial class MainWindow : Window
         RefreshSectionLabels();
         UpdateCandidateOverlayFlags();
         UpdateLayoutSummary();
+        RefreshMonitorDisplayControls();
+        RefreshCustomTimerEditor();
         PushUndoIfChanged(before);
         ScheduleProfileAutoSave();
         SetStatus(builtInCandidates.Count > 0
             ? L.F("profile.monitor.slots.hidden", hiddenSlots)
             : L.F("Deleted {0} selected candidates.", removableCandidates.Count));
+    }
+
+    private void CandidateList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (FindVisualAncestor<ListBoxItem>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        CandidateList.SelectedItem = null;
+        Keyboard.ClearFocus();
     }
 
     private List<SlotCandidate> GetCandidatesToDelete()
@@ -893,17 +908,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (MessageBox.Show(
-                this,
-                L.T("clear.candidates.confirm"),
-                L.T("confirm.clear"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) != MessageBoxResult.Yes)
-        {
-            SetStatus("clear.canceled");
-            return;
-        }
+        SlotResetConfirmationOverlay.Visibility = Visibility.Visible;
+        ConfirmSlotResetButton.Focus();
+    }
 
+    private void CancelSlotResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        SlotResetConfirmationOverlay.Visibility = Visibility.Collapsed;
+        SetStatus("clear.canceled");
+    }
+
+    private void ConfirmSlotResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        SlotResetConfirmationOverlay.Visibility = Visibility.Collapsed;
+
+        var removableCandidates = _candidates.Where(candidate => !candidate.IsBuiltIn).ToList();
         var before = CaptureCandidateSnapshot();
         foreach (var candidate in removableCandidates)
         {
@@ -914,8 +933,11 @@ public partial class MainWindow : Window
         ClearCandidateRects();
         ClearSections();
         UpdateCandidateOverlayFlags();
+        RefreshMonitorDisplayControls();
+        RefreshCustomTimerEditor();
         PushUndoIfChanged(before);
-        SetStatus("Candidate list cleared.");
+        ScheduleProfileAutoSave();
+        SetStatus("slot.reset.completed");
     }
 
     private void OpenLayoutEditorButton_Click(object sender, RoutedEventArgs e) => OpenLayoutEditor(this);
@@ -958,6 +980,8 @@ public partial class MainWindow : Window
             EnsureEnabledMonitorElementsPlaced();
             UpdateCandidateOverlayFlags();
             UpdateLayoutSummary();
+            RefreshMonitorDisplayControls();
+            RefreshCustomTimerEditor();
         }
 
         if (editor.ShowDialog() == true)
@@ -1079,6 +1103,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            CommitCustomTimerEditor();
             var result = await _overlayRuntime.StartAsync(
                 this,
                 new OverlayRuntimeOptions(
@@ -1089,7 +1114,8 @@ public partial class MainWindow : Window
                     _buffMonitorEnabled,
                     _tuairimMonitorEnabled,
                     _selectedBuffNameKeys.Count > 0,
-                    _monitorTestMode));
+                    _monitorTestMode,
+                    _customTimerDefinitions.Select(timer => timer.Clone()).ToArray()));
             switch (result.Status)
             {
                 case OverlayRuntimeStartStatus.AlreadyRunning:
@@ -1108,6 +1134,15 @@ public partial class MainWindow : Window
                 case OverlayRuntimeStartStatus.HotkeyRegistrationFailed:
                     SetStatus(L.F("Stop hotkey registration failed: {0}", _stopHotkey));
                     return;
+                case OverlayRuntimeStartStatus.InvalidCustomTimerHotkey:
+                    SetStatus(L.F("custom.timer.hotkey.invalid", result.Detail ?? string.Empty));
+                    return;
+                case OverlayRuntimeStartStatus.DuplicateCustomTimerHotkey:
+                    SetStatus(L.F("custom.timer.hotkey.duplicate", result.Detail ?? string.Empty));
+                    return;
+                case OverlayRuntimeStartStatus.CustomTimerHotkeyRegistrationFailed:
+                    SetStatus(L.F("custom.timer.hotkey.registration.failed", result.Detail ?? string.Empty));
+                    return;
                 case OverlayRuntimeStartStatus.ClickThroughConfigurationFailed:
                     SetStatus(L.F("Overlay click-through configuration failed: {0}", result.Detail ?? string.Empty));
                     return;
@@ -1117,6 +1152,7 @@ public partial class MainWindow : Window
                 case OverlayRuntimeStartStatus.Success:
                     StartInternalTimerOverlay();
                     UpdateMonitorControlAvailability();
+                    UpdateCustomTimerControlAvailability();
                     SetStatus(L.F(
                         "Overlay started ({0}, {1}, {2}). Stop hotkey: {3}",
                         L.T(result.ClickThroughStatus!),
@@ -1207,6 +1243,7 @@ public partial class MainWindow : Window
     private void StopOverlay(bool setStatus = true)
     {
         _overlayRuntime.Stop();
+        StopCustomTimers();
         _internalTimerDebugTimer.Stop();
         _monitorRecognitionRetryPolicy.Reset();
         _pendingInitialBuffMinuteValidation.Clear();
@@ -1215,6 +1252,7 @@ public partial class MainWindow : Window
         _internalTimerOverlayWindow?.Close();
         _internalTimerOverlayWindow = null;
         UpdateMonitorControlAvailability();
+        UpdateCustomTimerControlAvailability();
         if (setStatus)
         {
             _log.Info("Overlay stopped.");

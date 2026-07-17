@@ -83,6 +83,22 @@ public sealed class ProfileStoreTests : IDisposable
             OverlayElementKind.InternalBuffTimer,
             width: 250,
             height: 76));
+        profile.Candidates.Add(CreateBuiltInCandidate(
+            -4,
+            OverlayElementKind.CustomTimer,
+            width: 180,
+            height: 60));
+        profile.CustomTimers.Add(new CustomTimerDefinition
+        {
+            Id = 1,
+            Name = "Mechanic",
+            DurationSeconds = 90,
+            AlertBeforeSeconds = 10,
+            StartHotkey = "Ctrl+Shift+F6",
+            CancelHotkey = "Ctrl+Shift+F7",
+            SoundPath = "alert.wav",
+            Volume = 75
+        });
         profile.Sections.Add(new OverlayProfileSection
         {
             Id = 3,
@@ -123,6 +139,8 @@ public sealed class ProfileStoreTests : IDisposable
         Assert.Contains(loaded.Candidates, candidate => candidate.Id == 7);
         Assert.Contains(loaded.Candidates, candidate =>
             candidate.Id == -1 && candidate.Kind == OverlayElementKind.InternalBuffTimer && candidate.IsBuiltIn);
+        Assert.Contains(loaded.Candidates, candidate =>
+            candidate.Id == -4 && candidate.Kind == OverlayElementKind.CustomTimer && candidate.IsBuiltIn);
         Assert.Equal(3, Assert.Single(loaded.Sections).Id);
         Assert.Contains(loaded.Slots, slot => slot.SourceCandidateId == 7 && slot.Opacity == 0.8);
         Assert.Contains(loaded.Slots, slot => slot.SourceCandidateId == -1);
@@ -130,6 +148,10 @@ public sealed class ProfileStoreTests : IDisposable
         var anchor = Assert.Single(loaded.BuffAnchors);
         Assert.Equal("battlefield", anchor.NameKey);
         Assert.Equal(18, anchor.Bounds.X);
+        var customTimer = Assert.Single(loaded.CustomTimers);
+        Assert.Equal("Mechanic", customTimer.Name);
+        Assert.Equal(90, customTimer.DurationSeconds);
+        Assert.Equal(75, customTimer.Volume);
     }
 
     [Fact]

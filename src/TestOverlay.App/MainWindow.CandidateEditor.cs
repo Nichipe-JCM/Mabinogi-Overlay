@@ -443,6 +443,33 @@ public partial class MainWindow
         return candidate;
     }
 
+    private SlotCandidate EnsureCustomTimerCandidate()
+    {
+        var existing = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.CustomTimer);
+        if (existing is not null)
+        {
+            ResizeMonitorElement(
+                existing,
+                CustomTimerPreviewRenderer.BaseWidth,
+                CustomTimerPreviewRenderer.GetBaseHeight(_customTimerDefinitions.Count));
+            return existing;
+        }
+
+        var candidate = new SlotCandidate(
+            BuiltInOverlayElementIds.CustomTimer,
+            new Rect(
+                0,
+                0,
+                CustomTimerPreviewRenderer.BaseWidth,
+                CustomTimerPreviewRenderer.GetBaseHeight(_customTimerDefinitions.Count)),
+            100,
+            OverlayElementKind.CustomTimer,
+            "custom.timer.overlay.element",
+            isBuiltIn: true);
+        AddCandidate(candidate);
+        return candidate;
+    }
+
     private void SynchronizeMonitorElementDimensions()
     {
         var timerCandidate = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.InternalBuffTimer);
@@ -470,6 +497,15 @@ public partial class MainWindow
                 alertCandidate,
                 AlertNotificationPreviewRenderer.BaseWidth,
                 AlertNotificationPreviewRenderer.BaseHeight);
+        }
+
+        var customTimerCandidate = _candidates.FirstOrDefault(candidate => candidate.Kind == OverlayElementKind.CustomTimer);
+        if (customTimerCandidate is not null)
+        {
+            ResizeMonitorElement(
+                customTimerCandidate,
+                CustomTimerPreviewRenderer.BaseWidth,
+                CustomTimerPreviewRenderer.GetBaseHeight(_customTimerDefinitions.Count));
         }
     }
 
@@ -538,6 +574,25 @@ public partial class MainWindow
         }
     }
 
+    private void SetMonitorElementVisibility(OverlayElementKind kind, bool visible)
+    {
+        if (visible)
+        {
+            _hiddenMonitorElementKinds.Remove(kind);
+            EnsureMonitorElementPlaced(kind, scheduleAutoSave: false);
+        }
+        else
+        {
+            _hiddenMonitorElementKinds.Add(kind);
+            _overlaySlots.RemoveAll(slot => slot.Kind == kind);
+            UpdateCandidateOverlayFlags();
+            UpdateLayoutSummary();
+        }
+
+        RefreshMonitorDisplayControls();
+        ScheduleProfileAutoSave();
+    }
+
     private void EnsureEnabledMonitorElementsPlaced(bool scheduleAutoSave = false)
     {
         if (_buffMonitorEnabled)
@@ -548,23 +603,31 @@ public partial class MainWindow
         {
             EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave);
         }
-        if (_buffMonitorEnabled || _tuairimMonitorEnabled)
+        if (_buffMonitorEnabled || _tuairimMonitorEnabled || _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled))
         {
             EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave);
+        }
+        if (_customTimerDefinitions.Count > 0)
+        {
+            EnsureMonitorElementPlaced(OverlayElementKind.CustomTimer, scheduleAutoSave);
         }
     }
 
     private void SynchronizeAlertNotificationElement(bool scheduleAutoSave = true) =>
         SetMonitorElementEnabled(
             OverlayElementKind.AlertNotification,
-            _buffMonitorEnabled || _tuairimMonitorEnabled,
+            _buffMonitorEnabled ||
+            _tuairimMonitorEnabled ||
+            _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled),
             scheduleAutoSave);
 
     private bool IsMonitorElementEnabled(OverlayElementKind kind) => kind switch
     {
         OverlayElementKind.InternalBuffTimer => _buffMonitorEnabled,
         OverlayElementKind.TuairimGauge => _tuairimMonitorEnabled,
-        OverlayElementKind.AlertNotification => _buffMonitorEnabled || _tuairimMonitorEnabled,
+        OverlayElementKind.AlertNotification =>
+            _buffMonitorEnabled || _tuairimMonitorEnabled || _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled),
+        OverlayElementKind.CustomTimer => _customTimerDefinitions.Count > 0,
         _ => false
     };
 
@@ -575,6 +638,7 @@ public partial class MainWindow
             OverlayElementKind.InternalBuffTimer => EnsureInternalTimerCandidate(),
             OverlayElementKind.TuairimGauge => EnsureTuairimGaugeCandidate(),
             OverlayElementKind.AlertNotification => EnsureAlertNotificationCandidate(),
+            OverlayElementKind.CustomTimer => EnsureCustomTimerCandidate(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only monitor elements can be auto-placed.")
         };
         if (_hiddenMonitorElementKinds.Contains(kind))
@@ -617,6 +681,7 @@ public partial class MainWindow
             _selectedBuffNameKeys),
         OverlayElementKind.TuairimGauge => TuairimGaugePreviewRenderer.Render(_statusObservations.TuairimPercent),
         OverlayElementKind.AlertNotification => AlertNotificationPreviewRenderer.Render(),
+        OverlayElementKind.CustomTimer => CustomTimerPreviewRenderer.Render(_customTimerDefinitions.Count),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A quickslot requires a captured image crop.")
     };
 
@@ -646,6 +711,8 @@ public partial class MainWindow
         HideAllMonitorElements();
         UpdateLayoutSummary();
         UpdateCandidateOverlayFlags();
+        RefreshMonitorDisplayControls();
+        RefreshCustomTimerEditor();
     }
 
     private void HideAllMonitorElements()
@@ -653,6 +720,7 @@ public partial class MainWindow
         _hiddenMonitorElementKinds.Add(OverlayElementKind.InternalBuffTimer);
         _hiddenMonitorElementKinds.Add(OverlayElementKind.AlertNotification);
         _hiddenMonitorElementKinds.Add(OverlayElementKind.TuairimGauge);
+        _hiddenMonitorElementKinds.Add(OverlayElementKind.CustomTimer);
     }
 
     private void SynchronizeHiddenMonitorElementsFromLayout()
@@ -661,7 +729,8 @@ public partial class MainWindow
                  {
                      OverlayElementKind.InternalBuffTimer,
                      OverlayElementKind.AlertNotification,
-                     OverlayElementKind.TuairimGauge
+                     OverlayElementKind.TuairimGauge,
+                     OverlayElementKind.CustomTimer
                  })
         {
             if (_overlaySlots.Any(slot => slot.Kind == kind))

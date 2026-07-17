@@ -7,9 +7,9 @@ namespace TestOverlay.App.Services;
 
 public static class AlertNotificationPreviewRenderer
 {
-    public const int BaseWidth = 220;
-    public const int BaseHeight = 82;
-    public const int RowHeight = 22;
+    public const int BaseWidth = 132;
+    public const int BaseHeight = 70;
+    public const int RowHeight = 20;
 
     public static BitmapSource Render()
     {
@@ -28,17 +28,11 @@ public static class AlertNotificationPreviewRenderer
                 FontStyles.Normal,
                 FontWeights.SemiBold,
                 FontStretches.Normal);
-            var messages = new[]
-            {
-                L.T("monitor.alert.preview.buff"),
-                L.T("monitor.alert.preview.tuairim"),
-                L.T("monitor.alert.preview.multiple")
-            };
-            for (var index = 0; index < messages.Length; index++)
-            {
-                var text = CreateText(messages[index], typeface);
-                context.DrawText(text, new Point(10, 8 + index * RowHeight));
-            }
+            context.DrawImage(
+                BuffVisualCatalog.ActiveIcon(MonitoredBuffCatalog.BattleOverture),
+                new Rect(10, 7, 18, 18));
+            context.DrawText(CreateText("00:30", typeface), new Point(36, 8));
+            context.DrawText(CreateText(L.F("monitor.alert.visual.tuairim", 95), typeface), new Point(10, 30));
         }
 
         var bitmap = new RenderTargetBitmap(BaseWidth, BaseHeight, 96, 96, PixelFormats.Pbgra32);

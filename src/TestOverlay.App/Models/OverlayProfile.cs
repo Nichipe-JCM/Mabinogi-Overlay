@@ -40,6 +40,8 @@ public sealed class OverlayProfile
 
     public bool ShowTuairimGauge { get; set; } = true;
 
+    public bool ShowCustomTimer { get; set; } = true;
+
     [JsonPropertyName("TuarimMonitorEnabled")]
     public bool LegacyTuarimMonitorEnabled
     {
@@ -77,6 +79,8 @@ public sealed class OverlayProfile
     public OverlayProfileRect? TuairimMonitorRoi { get; set; }
 
     public OverlayProfileRect? TuairimAnchor { get; set; }
+
+    public List<CustomTimerDefinition> CustomTimers { get; set; } = [];
 
     public int SlotInnerSize { get; set; } = 29;
 

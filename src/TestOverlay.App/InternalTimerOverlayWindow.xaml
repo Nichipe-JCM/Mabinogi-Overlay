@@ -56,5 +56,14 @@
                 IsHitTestVisible="False">
             <StackPanel x:Name="AlertRows"/>
         </Border>
+        <Border x:Name="CustomTimerPanel"
+                Padding="10,8"
+                Background="#E6111315"
+                BorderBrush="{StaticResource OverlayAccentBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                IsHitTestVisible="False">
+            <StackPanel x:Name="CustomTimerRows"/>
+        </Border>
     </Canvas>
 </Window>
