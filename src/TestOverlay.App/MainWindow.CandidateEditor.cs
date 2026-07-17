@@ -594,9 +594,7 @@ public partial class MainWindow
         else
         {
             _hiddenMonitorElementKinds.Add(kind);
-            _overlaySlots.RemoveAll(slot => slot.Kind == kind);
-            UpdateCandidateOverlayFlags();
-            UpdateLayoutSummary();
+            SetMonitorElementEnabled(kind, enabled: false, scheduleAutoSave: false);
         }
 
         RefreshMonitorDisplayControls();
@@ -648,6 +646,12 @@ public partial class MainWindow
             return;
         }
 
+        if (_hiddenMonitorElementKinds.Contains(kind))
+        {
+            UpdateCandidateOverlayFlags();
+            return;
+        }
+
         var candidate = kind switch
         {
             OverlayElementKind.InternalBuffTimer => EnsureInternalTimerCandidate(),
@@ -656,11 +660,6 @@ public partial class MainWindow
             OverlayElementKind.CustomTimer => EnsureCustomTimerCandidate(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only monitor elements can be auto-placed.")
         };
-        if (_hiddenMonitorElementKinds.Contains(kind))
-        {
-            UpdateCandidateOverlayFlags();
-            return;
-        }
         var existingSlot = _overlaySlots.FirstOrDefault(slot => slot.Kind == kind);
         if (existingSlot is not null)
         {

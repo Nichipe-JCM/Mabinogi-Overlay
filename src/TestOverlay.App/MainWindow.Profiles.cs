@@ -142,7 +142,7 @@ public partial class MainWindow
 
     private void LoadProfileButton_Click(object sender, RoutedEventArgs e) => LoadSelectedProfile();
 
-    private void LoadSelectedProfile()
+    private void LoadSelectedProfile(bool allowDeferredQuickslots = false)
     {
         FlushProfileAutoSave();
         var profileName = ReadProfileComboName();
@@ -166,12 +166,15 @@ public partial class MainWindow
         }
 
         var savedKinds = profile.Candidates.ToDictionary(candidate => candidate.Id, candidate => candidate.Kind);
-        if (_capturedImage is null && profile.Slots.Any(slot =>
-                !savedKinds.TryGetValue(slot.SourceCandidateId, out var kind) || kind == OverlayElementKind.Quickslot))
+        var deferQuickslots = _capturedImage is null && profile.Slots.Any(slot =>
+            !savedKinds.TryGetValue(slot.SourceCandidateId, out var kind) || kind == OverlayElementKind.Quickslot);
+        if (deferQuickslots && !allowDeferredQuickslots)
         {
             SetStatus("Capture the game window before loading a profile with quickslots.");
             return;
         }
+
+        _profileLayoutLoadPendingCapture = deferQuickslots;
 
         _isLoadingProfile = true;
         try
@@ -265,6 +268,14 @@ public partial class MainWindow
         {
             foreach (var savedCandidate in profile.Candidates.OrderBy(candidate => candidate.Id))
             {
+                if (deferQuickslots && savedCandidate.Kind == OverlayElementKind.Quickslot)
+                {
+                    continue;
+                }
+                if (savedCandidate.IsBuiltIn && _hiddenMonitorElementKinds.Contains(savedCandidate.Kind))
+                {
+                    continue;
+                }
                 if (savedCandidate.Kind == OverlayElementKind.TuairimGauge && _tuairimAnchor is null)
                 {
                     continue;
@@ -289,24 +300,28 @@ public partial class MainWindow
             }
         }
 
-        if (_buffMonitorEnabled)
+        if (_buffMonitorEnabled &&
+            !_hiddenMonitorElementKinds.Contains(OverlayElementKind.InternalBuffTimer))
         {
             var internalTimerCandidate = EnsureInternalTimerCandidate();
             loadedCandidates[internalTimerCandidate.Id] = internalTimerCandidate;
         }
-        if (_tuairimMonitorEnabled && _tuairimAnchor is not null)
+        if (_tuairimMonitorEnabled && _tuairimAnchor is not null &&
+            !_hiddenMonitorElementKinds.Contains(OverlayElementKind.TuairimGauge))
         {
             var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
             loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
         }
-        if (_buffMonitorEnabled ||
-            _tuairimMonitorEnabled ||
-            _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled))
+        if (!_hiddenMonitorElementKinds.Contains(OverlayElementKind.AlertNotification) &&
+            (_buffMonitorEnabled ||
+             _tuairimMonitorEnabled ||
+             _customTimerDefinitions.Any(timer => timer.VisualAlertEnabled)))
         {
             var alertCandidate = EnsureAlertNotificationCandidate();
             loadedCandidates[alertCandidate.Id] = alertCandidate;
         }
-        if (_customTimerDefinitions.Count > 0)
+        if (_customTimerDefinitions.Count > 0 &&
+            !_hiddenMonitorElementKinds.Contains(OverlayElementKind.CustomTimer))
         {
             var customTimerCandidate = EnsureCustomTimerCandidate();
             loadedCandidates[customTimerCandidate.Id] = customTimerCandidate;
@@ -340,6 +355,18 @@ public partial class MainWindow
         var nextCandidateId = loadedCandidates.Keys.Where(id => id > 0).DefaultIfEmpty(0).Max() + 1;
         foreach (var savedSlot in profile.Slots)
         {
+            if (deferQuickslots &&
+                (!savedKinds.TryGetValue(savedSlot.SourceCandidateId, out var savedKind) ||
+                 savedKind == OverlayElementKind.Quickslot))
+            {
+                continue;
+            }
+            if (savedKinds.TryGetValue(savedSlot.SourceCandidateId, out var builtInKind) &&
+                builtInKind != OverlayElementKind.Quickslot &&
+                _hiddenMonitorElementKinds.Contains(builtInKind))
+            {
+                continue;
+            }
             if (savedSlot.SourceCandidateId == BuiltInOverlayElementIds.TuairimGauge && _tuairimAnchor is null)
             {
                 continue;

@@ -300,6 +300,7 @@ public partial class MainWindow
                 state.AlertFired))
             .ToArray();
         _internalTimerOverlayWindow?.SetCustomTimers(displays);
+        RefreshCompactControlState();
     }
 
     private void StopCustomTimers()

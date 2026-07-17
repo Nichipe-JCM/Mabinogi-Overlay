@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:TestOverlay.App"
+             xmlns:controls="clr-namespace:TestOverlay.App.Controls"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
         <ResourceDictionary>
@@ -10,6 +11,9 @@
                 <ui:ThemesDictionary Theme="Dark"/>
                 <ui:ControlsDictionary/>
             </ResourceDictionary.MergedDictionaries>
+
+            <Style TargetType="{x:Type controls:HotkeyInputBox}"
+                   BasedOn="{StaticResource {x:Type TextBox}}"/>
 
             <Color x:Key="OverlayBgColor">#111315</Color>
             <Color x:Key="OverlayPanelColor">#1B1D20</Color>

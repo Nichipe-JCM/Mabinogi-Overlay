@@ -45,6 +45,28 @@ public sealed class ProfileStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_NewerBackup_RecoversMostRecentSnapshotAndRepairsPrimary()
+    {
+        var store = new ProfileStore(_directory);
+        var profile = CreateValidProfile();
+        profile.Name = "older-primary";
+        var path = store.Save(profile, "recover-newer");
+        var backupPath = $"{path}.bak";
+        File.Copy(path, backupPath);
+        profile.Name = "newer-backup";
+        File.WriteAllText(backupPath, System.Text.Json.JsonSerializer.Serialize(profile));
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(-2));
+        File.SetLastWriteTimeUtc(backupPath, DateTime.UtcNow.AddMinutes(-1));
+
+        var recovered = store.Load("recover-newer");
+
+        Assert.NotNull(recovered);
+        Assert.Equal("newer-backup", recovered.Name);
+        Assert.True(store.LastLoadRecoveredFromBackup);
+        Assert.Contains("newer-backup", File.ReadAllText(path));
+    }
+
+    [Fact]
     public void ListProfileNames_IncludesBackupOnlyProfile()
     {
         var store = new ProfileStore(_directory);

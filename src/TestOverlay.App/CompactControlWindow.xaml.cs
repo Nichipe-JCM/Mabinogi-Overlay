@@ -66,6 +66,7 @@ public partial class CompactControlWindow : Window
             TuairimConfigurationText.Text = L.T(state.IsTuairimMonitorConfigured
                 ? "compact.tuairim.configured"
                 : "compact.tuairim.not.configured");
+            RefreshCustomTimers(state.CustomTimers);
             RefreshErinState();
         }
         finally
@@ -87,6 +88,61 @@ public partial class CompactControlWindow : Window
         checkBox.IsEnabled = state.IsBuffMonitorConfigured && detected;
         statusText.Text = detected ? "O" : "X";
         statusText.Foreground = detected ? Brushes.LimeGreen : Brushes.IndianRed;
+    }
+
+    private void RefreshCustomTimers(IReadOnlyList<CompactCustomTimerState> timers)
+    {
+        CustomTimerList.Children.Clear();
+        if (timers.Count == 0)
+        {
+            CustomTimerList.Children.Add(new TextBlock
+            {
+                Text = L.T("compact.custom.timer.none"),
+                Foreground = (Brush)FindResource("OverlayMutedBrush")
+            });
+            return;
+        }
+
+        foreach (var timer in timers)
+        {
+            var row = new Grid { Margin = new Thickness(0, 4, 0, 4), Opacity = timer.Enabled ? 1 : 0.55 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var details = new StackPanel();
+            details.Children.Add(new TextBlock
+            {
+                Text = timer.Name,
+                FontWeight = FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            details.Children.Add(new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(timer.StartHotkey)
+                    ? L.T("compact.custom.timer.no.hotkey")
+                    : timer.StartHotkey,
+                Margin = new Thickness(0, 2, 8, 0),
+                FontSize = 11,
+                Foreground = (Brush)FindResource("OverlayMutedBrush")
+            });
+
+            var remaining = new TextBlock
+            {
+                Text = timer.RemainingSeconds is int seconds
+                    ? $"{seconds / 60:00}:{seconds % 60:00}"
+                    : L.T(timer.Enabled ? "compact.custom.timer.ready" : "compact.custom.timer.disabled"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+                FontWeight = FontWeights.SemiBold,
+                Foreground = timer.RemainingSeconds is not null
+                    ? (Brush)FindResource("OverlayAccentBrush")
+                    : (Brush)FindResource("OverlayMutedBrush")
+            };
+            Grid.SetColumn(remaining, 1);
+            row.Children.Add(details);
+            row.Children.Add(remaining);
+            CustomTimerList.Children.Add(row);
+        }
     }
 
     private async void OverlayToggleButton_Click(object sender, RoutedEventArgs e)
@@ -285,4 +341,12 @@ public sealed record CompactControlState(
     bool BuffEnabled,
     bool TuairimEnabled,
     IReadOnlySet<string> RecognizedBuffNameKeys,
-    IReadOnlySet<string> SelectedBuffNameKeys);
+    IReadOnlySet<string> SelectedBuffNameKeys,
+    IReadOnlyList<CompactCustomTimerState> CustomTimers);
+
+public sealed record CompactCustomTimerState(
+    int Id,
+    string Name,
+    bool Enabled,
+    string StartHotkey,
+    int? RemainingSeconds);

@@ -12,15 +12,30 @@ public partial class MainWindow
         remove => ErinTimerPanel.CompactStateChanged -= value;
     }
 
-    internal CompactControlState GetCompactControlState() => new(
-        ReadSelectedProfileName(),
-        _overlayRuntime.IsRunning,
-        _buffMonitorRoi is not null && _buffIconMatches.Count > 0,
-        _tuairimAnchor is not null,
-        _buffMonitorEnabled,
-        _tuairimMonitorEnabled,
-        _recognizedBuffNameKeys.ToHashSet(StringComparer.Ordinal),
-        _selectedBuffNameKeys.ToHashSet(StringComparer.Ordinal));
+    internal CompactControlState GetCompactControlState()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var timers = _customTimerDefinitions
+            .Select(timer => new CompactCustomTimerState(
+                timer.Id,
+                timer.Name,
+                timer.Enabled,
+                timer.StartHotkey,
+                _activeCustomTimers.TryGetValue(timer.Id, out var active)
+                    ? Math.Max(0, (int)Math.Ceiling((active.EndsAt - now).TotalSeconds))
+                    : null))
+            .ToArray();
+        return new CompactControlState(
+            ReadSelectedProfileName(),
+            _overlayRuntime.IsRunning,
+            _buffMonitorRoi is not null && _buffIconMatches.Count > 0,
+            _tuairimAnchor is not null,
+            _buffMonitorEnabled,
+            _tuairimMonitorEnabled,
+            _recognizedBuffNameKeys.ToHashSet(StringComparer.Ordinal),
+            _selectedBuffNameKeys.ToHashSet(StringComparer.Ordinal),
+            timers);
+    }
 
     internal ErinCompactState GetCompactErinState() => ErinTimerPanel.GetCompactState();
 

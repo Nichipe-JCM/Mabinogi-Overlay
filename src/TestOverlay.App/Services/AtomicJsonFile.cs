@@ -65,6 +65,23 @@ internal static class AtomicJsonFile
         }
 
         Exception? primaryException = null;
+        if (File.Exists(path) &&
+            File.Exists(backupPath) &&
+            File.GetLastWriteTimeUtc(backupPath) > File.GetLastWriteTimeUtc(path))
+        {
+            try
+            {
+                var newerBackup = Read(backupPath, options, validate);
+                RestorePrimaryFromBackup(path, backupPath);
+                return new AtomicJsonLoadResult<T>(newerBackup, true, null);
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+            {
+                // A newer timestamp alone is not enough to trust an invalid backup.
+            }
+        }
+
         if (File.Exists(path))
         {
             try

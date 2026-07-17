@@ -180,6 +180,7 @@ public partial class MainWindow : Window
     private bool _monitorFrameObscured;
     private int _monitorVisibleRecoveryFrames;
     private bool _isUpdatingMonitorAlertSettings;
+    private bool _profileLayoutLoadPendingCapture;
     private bool _monitorTestMode;
     private int _monitorTestScenario;
     private bool _monitorTestPreviousBuffEnabled;
@@ -296,7 +297,7 @@ public partial class MainWindow : Window
     {
         RefreshWindows();
         RefreshProfileList();
-        LoadStartupAlertSettings();
+        LoadSelectedProfile(allowDeferredQuickslots: true);
         _log.Info("Application loaded.");
         if (_appSettings.CompactModeEnabled)
         {
@@ -470,6 +471,13 @@ public partial class MainWindow : Window
         CaptureCanvas.Width = image.PixelWidth;
         CaptureCanvas.Height = image.PixelHeight;
         CaptureInfoText.Text = $"{image.PixelWidth}x{image.PixelHeight}";
+        if (_profileLayoutLoadPendingCapture)
+        {
+            _profileLayoutLoadPendingCapture = false;
+            LoadSelectedProfile();
+            SetStatus(L.F("{0}. Saved profile layout loaded.", status));
+            return;
+        }
         _candidates.Clear();
         ClearCandidateRects();
         ClearSections();
