@@ -490,6 +490,7 @@ public partial class MainWindow : Window
         _tuairimMonitorRoi = null;
         _tuairimAnchor = null;
         ResetTuairimPercentRecognitionState();
+        SetMonitorElementEnabled(OverlayElementKind.TuairimGauge, enabled: false, scheduleAutoSave: false);
         EnsureEnabledMonitorElementsPlaced();
         UpdateMonitorControlAvailability();
         SetStatus(L.F("{0}. Run slot detection next.", status));

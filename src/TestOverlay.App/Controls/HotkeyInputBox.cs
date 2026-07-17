@@ -1,6 +1,9 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using TestOverlay.App.Services;
 
 namespace TestOverlay.App.Controls;
 
@@ -9,19 +12,18 @@ public sealed class HotkeyInputBox : TextBox
     private readonly HashSet<Key> _pressedModifierKeys = [];
     private bool _capturing;
     private bool _chordCompleted;
+    private string _textBeforeCapture = string.Empty;
 
     protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         BeginCapture();
         Focus();
-        SelectAll();
         base.OnPreviewMouseLeftButtonDown(e);
     }
 
     protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
     {
         BeginCapture();
-        SelectAll();
         base.OnGotKeyboardFocus(e);
     }
 
@@ -29,7 +31,8 @@ public sealed class HotkeyInputBox : TextBox
     {
         if (!_capturing)
         {
-            BeginCapture();
+            e.Handled = true;
+            return;
         }
 
         var key = NormalizeKey(e);
@@ -45,7 +48,7 @@ public sealed class HotkeyInputBox : TextBox
         _chordCompleted = true;
         _capturing = false;
         _pressedModifierKeys.Clear();
-        MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+        InvalidateVisual();
     }
 
     protected override void OnPreviewKeyUp(KeyEventArgs e)
@@ -63,13 +66,17 @@ public sealed class HotkeyInputBox : TextBox
             Text = ModifierName(key);
             CaretIndex = Text.Length;
             _capturing = false;
-            MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            InvalidateVisual();
         }
         _pressedModifierKeys.Remove(key);
     }
 
     protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
     {
+        if (_capturing && string.IsNullOrEmpty(Text))
+        {
+            Text = _textBeforeCapture;
+        }
         _capturing = false;
         _chordCompleted = false;
         _pressedModifierKeys.Clear();
@@ -78,9 +85,40 @@ public sealed class HotkeyInputBox : TextBox
 
     private void BeginCapture()
     {
+        if (_capturing)
+        {
+            return;
+        }
+
+        _textBeforeCapture = Text;
+        Text = string.Empty;
         _capturing = true;
         _chordCompleted = false;
         _pressedModifierKeys.Clear();
+        InvalidateVisual();
+    }
+
+    protected override void OnRender(DrawingContext drawingContext)
+    {
+        base.OnRender(drawingContext);
+        if (!_capturing || !string.IsNullOrEmpty(Text))
+        {
+            return;
+        }
+
+        var brush = Foreground?.Clone() ?? Brushes.Gray.Clone();
+        brush.Opacity = 0.55;
+        var prompt = new FormattedText(
+            L.T("hotkey.capture.prompt"),
+            CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            new Typeface(FontFamily, FontStyle, FontWeight, FontStretch),
+            FontSize,
+            brush,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        drawingContext.DrawText(
+            prompt,
+            new Point(Padding.Left + 2, Math.Max(0, (ActualHeight - prompt.Height) / 2)));
     }
 
     private static Key NormalizeKey(KeyEventArgs e) => e.Key == Key.System ? e.SystemKey : e.Key;
