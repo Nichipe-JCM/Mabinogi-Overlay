@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using TestOverlay.App.Models;
@@ -52,11 +53,25 @@ public partial class GuideWindow : Window
         TopicSummaryText.Text = topic.Summary;
         StepList.ItemsSource = topic.Steps;
         TopicTipText.Text = topic.Tip;
+        TopicTipBorder.Visibility = string.IsNullOrWhiteSpace(topic.Tip)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         OpenRelatedSectionButton.Content = topic.NavigationLabel;
         OpenRelatedSectionButton.Visibility = topic.Definition.NavigationTarget == GuideNavigationTarget.None
             ? Visibility.Collapsed
             : Visibility.Visible;
+        OpenExternalLinkButton.Visibility = topic.Definition.Id == GuideCatalog.TroubleshootingTopicId
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         TopicScrollViewer.ScrollToTop();
+    }
+
+    private void OpenExternalLinkButton_Click(object sender, RoutedEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo(GuideCatalog.GitHubIssuesUrl)
+        {
+            UseShellExecute = true
+        });
     }
 
     private void OpenRelatedSectionButton_Click(object sender, RoutedEventArgs e)

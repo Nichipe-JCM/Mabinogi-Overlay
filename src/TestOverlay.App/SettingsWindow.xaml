@@ -37,7 +37,7 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="2"
-                      VerticalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Visible"
                       HorizontalScrollBarVisibility="Disabled">
         <Grid Margin="0,0,4,0">
             <Grid.ColumnDefinitions>

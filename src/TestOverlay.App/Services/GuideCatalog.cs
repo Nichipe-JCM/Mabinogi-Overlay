@@ -5,17 +5,19 @@ namespace TestOverlay.App.Services;
 public static class GuideCatalog
 {
     public const string DefaultTopicId = "quick-start";
+    public const string TroubleshootingTopicId = "troubleshooting";
+    public const string GitHubIssuesUrl = "https://github.com/Nichipe-JCM/testoverlayproj/issues";
 
     public static IReadOnlyList<GuideTopicDefinition> Topics { get; } =
     [
         Topic("quick-start", "guide.topic.quick.title", "guide.topic.quick.summary", "guide.topic.quick.tip",
-            GuideNavigationTarget.Overlay, "guide.open.overlay", 5),
+            GuideNavigationTarget.None, "guide.open.overlay", 5),
         Topic("profile-capture", "guide.topic.capture.title", "guide.topic.capture.summary", "guide.topic.capture.tip",
-            GuideNavigationTarget.Overlay, "guide.open.overlay", 4),
+            GuideNavigationTarget.None, "guide.open.overlay", 4),
         Topic("quickslots", "guide.topic.quickslots.title", "guide.topic.quickslots.summary", "guide.topic.quickslots.tip",
-            GuideNavigationTarget.Overlay, "guide.open.overlay", 4),
+            GuideNavigationTarget.None, "guide.open.overlay", 4),
         Topic("layout", "guide.topic.layout.title", "guide.topic.layout.summary", "guide.topic.layout.tip",
-            GuideNavigationTarget.Overlay, "guide.open.overlay", 4),
+            GuideNavigationTarget.None, "guide.open.overlay", 4),
         Topic("monitors", "guide.topic.monitors.title", "guide.topic.monitors.summary", "guide.topic.monitors.tip",
             GuideNavigationTarget.MonitorAlerts, "guide.open.monitors", 4),
         Topic("custom-timers", "guide.topic.timers.title", "guide.topic.timers.summary", "guide.topic.timers.tip",
@@ -23,7 +25,7 @@ public static class GuideCatalog
         Topic("erin-timer", "guide.topic.erin.title", "guide.topic.erin.summary", "guide.topic.erin.tip",
             GuideNavigationTarget.ErinTimer, "guide.open.erin", 3),
         Topic("compact-mode", "guide.topic.compact.title", "guide.topic.compact.summary", "guide.topic.compact.tip",
-            GuideNavigationTarget.Overlay, "guide.open.overlay", 3),
+            GuideNavigationTarget.None, "guide.open.overlay", 3),
         Topic("settings", "guide.topic.settings.title", "guide.topic.settings.summary", "guide.topic.settings.tip",
             GuideNavigationTarget.Settings, "guide.open.settings", 4),
         Topic("troubleshooting", "guide.topic.troubleshooting.title", "guide.topic.troubleshooting.summary", "guide.topic.troubleshooting.tip",
