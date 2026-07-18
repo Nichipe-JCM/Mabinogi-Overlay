@@ -6,9 +6,12 @@ namespace TestOverlay.App;
 
 public partial class ProfileNameDialog : Window
 {
-    public ProfileNameDialog(string initialName)
+    public ProfileNameDialog(string initialName, bool isRename = false)
     {
         InitializeComponent();
+        Title = L.T(isRename ? "profile.rename" : "Create Profile");
+        HeadingText.Text = L.T(isRename ? "profile.rename.heading" : "Profile name");
+        SaveButton.Content = L.T(isRename ? "profile.rename" : "profile.create");
         ProfileName = initialName?.Trim() ?? string.Empty;
         ProfileNameBox.Text = ProfileName;
         ProfileNameBox.SelectAll();

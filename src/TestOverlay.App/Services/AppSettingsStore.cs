@@ -57,6 +57,7 @@ public sealed class AppSettingsStore
     private void Normalize(AppSettings settings)
     {
         settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
+        settings.ActiveProfileName = ProfileStore.NormalizeProfileName(settings.ActiveProfileName);
         settings.Language = LocalizationService.NormalizeLanguage(settings.Language);
         var requestedRenderMode = settings.AutomaticRendererSelection
             ? RuntimeConfigurationPolicy.ResolveAutomaticRenderer(settings.CaptureBackend)

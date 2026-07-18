@@ -28,12 +28,6 @@ public sealed class ProfileSession
         var preferred = string.IsNullOrWhiteSpace(preferredName)
             ? SelectedProfileName
             : preferredName.Trim();
-        if (!names.Contains(preferred, StringComparer.OrdinalIgnoreCase))
-        {
-            names.Add(preferred);
-            names = names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
-        }
-
         ProfileNames = names;
         SelectedProfileName = names.FirstOrDefault(name =>
                                   string.Equals(name, preferred, StringComparison.OrdinalIgnoreCase))

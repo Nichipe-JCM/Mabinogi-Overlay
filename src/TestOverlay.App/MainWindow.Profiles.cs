@@ -43,6 +43,7 @@ public partial class MainWindow
         _selectedProfileName = profileName;
         SaveActiveProfile(showStatus: true);
         RefreshProfileList(profileName);
+        PersistActiveProfileName(profileName);
     }
 
     private OverlayProfile BuildCurrentProfile(string profileName)
@@ -144,7 +145,20 @@ public partial class MainWindow
         }
     }
 
-    private void LoadProfileButton_Click(object sender, RoutedEventArgs e) => LoadSelectedProfile();
+    private void LoadProfileButton_Click(object sender, RoutedEventArgs e)
+    {
+        var profileName = ReadProfileComboName();
+        if (MessageBox.Show(
+                this,
+                L.F("profile.apply.confirm.message", profileName),
+                L.T("profile.apply.confirm.title"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No) == MessageBoxResult.Yes)
+        {
+            LoadSelectedProfile();
+        }
+    }
 
     private bool LoadSelectedProfile(bool allowDeferredQuickslots = false)
     {
@@ -420,6 +434,7 @@ public partial class MainWindow
             SetStatus(_profileStore.LastLoadRecoveredFromBackup
                 ? L.F("profile.loaded.from.backup.arg", path, _candidates.Count, profile.Slots.Count)
                 : L.F("Profile loaded: {0} ({1} candidates, {2} slots).", path, _candidates.Count, profile.Slots.Count));
+            PersistActiveProfileName(profileName);
         }
         catch (Exception exception)
         {
@@ -436,5 +451,17 @@ public partial class MainWindow
         }
 
         return true;
+    }
+
+    private void PersistActiveProfileName(string profileName)
+    {
+        var normalized = ProfileStore.NormalizeProfileName(profileName);
+        if (string.Equals(_appSettings.ActiveProfileName, normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _appSettings.ActiveProfileName = normalized;
+        _settingsStore.Save(_appSettings);
     }
 }

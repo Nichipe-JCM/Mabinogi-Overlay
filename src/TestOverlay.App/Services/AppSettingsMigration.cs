@@ -4,7 +4,7 @@ namespace TestOverlay.App.Services;
 
 public static class AppSettingsMigration
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public static void Apply(AppSettings settings)
     {
@@ -27,6 +27,11 @@ public static class AppSettingsMigration
             settings.OverlayRenderMode = renderMode;
             settings.AutomaticRendererSelection =
                 renderMode == RuntimeConfigurationPolicy.ResolveAutomaticRenderer(captureBackend);
+        }
+
+        if (settings.SchemaVersion < 3 && string.IsNullOrWhiteSpace(settings.ActiveProfileName))
+        {
+            settings.ActiveProfileName = "default";
         }
 
         settings.SchemaVersion = CurrentSchemaVersion;

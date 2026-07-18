@@ -54,6 +54,55 @@ public sealed class ProfileStore
 
     public OverlayProfile? LoadDefault() => Load("default");
 
+    public string Rename(string? currentName, string? newName)
+    {
+        var sourceName = NormalizeProfileName(currentName);
+        var targetName = NormalizeProfileName(newName);
+        var profile = Load(sourceName)
+            ?? throw new FileNotFoundException("The profile to rename does not exist.", GetProfilePath(sourceName));
+        if (!string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase) && Exists(targetName))
+        {
+            throw new IOException($"A profile named '{targetName}' already exists.");
+        }
+
+        profile.Name = targetName;
+        Save(profile, targetName);
+        if (!string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
+        {
+            DeleteProfileFiles(sourceName);
+        }
+
+        return targetName;
+    }
+
+    public string Import(string sourcePath, string? profileName = null)
+    {
+        var json = File.ReadAllText(sourcePath);
+        var profile = JsonSerializer.Deserialize<OverlayProfile>(json, Options)
+            ?? throw new InvalidDataException("The selected file does not contain a profile.");
+        OverlayProfileValidator.Validate(profile);
+        var importedName = NormalizeProfileName(string.IsNullOrWhiteSpace(profileName)
+            ? Path.GetFileNameWithoutExtension(sourcePath)
+            : profileName);
+        profile.Name = importedName;
+        Save(profile, importedName);
+        return importedName;
+    }
+
+    public void Export(string? profileName, string destinationPath)
+    {
+        var normalizedName = NormalizeProfileName(profileName);
+        var profile = Load(normalizedName)
+            ?? throw new FileNotFoundException("The profile to export does not exist.", GetProfilePath(normalizedName));
+        profile.Name = normalizedName;
+        var directory = Path.GetDirectoryName(destinationPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+        File.WriteAllText(destinationPath, JsonSerializer.Serialize(profile, Options));
+    }
+
     public IReadOnlyList<string> ListProfileNames()
     {
         if (!Directory.Exists(ProfileDirectory))
@@ -86,7 +135,7 @@ public sealed class ProfileStore
         return null;
     }
 
-    private static string NormalizeProfileName(string? profileName)
+    public static string NormalizeProfileName(string? profileName)
     {
         var name = string.IsNullOrWhiteSpace(profileName) ? "default" : profileName.Trim();
         foreach (var invalid in Path.GetInvalidFileNameChars())
@@ -95,5 +144,12 @@ public sealed class ProfileStore
         }
 
         return string.IsNullOrWhiteSpace(name) ? "default" : name;
+    }
+
+    private void DeleteProfileFiles(string profileName)
+    {
+        var path = GetProfilePath(profileName);
+        File.Delete(path);
+        File.Delete($"{path}.bak");
     }
 }

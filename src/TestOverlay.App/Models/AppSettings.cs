@@ -6,6 +6,8 @@ public sealed class AppSettings
 
     public string ProfileDirectory { get; set; } = string.Empty;
 
+    public string ActiveProfileName { get; set; } = "default";
+
     public OverlayRenderMode OverlayRenderMode { get; set; } = OverlayRenderMode.GpuDxgi;
 
     public bool AutomaticRendererSelection { get; set; } = true;

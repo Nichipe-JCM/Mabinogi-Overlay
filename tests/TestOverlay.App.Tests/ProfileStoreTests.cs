@@ -81,6 +81,38 @@ public sealed class ProfileStoreTests : IDisposable
     }
 
     [Fact]
+    public void Rename_MovesProfileAndUpdatesEmbeddedName()
+    {
+        var store = new ProfileStore(_directory);
+        var profile = CreateValidProfile();
+        store.Save(profile, "before");
+
+        var renamed = store.Rename("before", "after");
+
+        Assert.Equal("after", renamed);
+        Assert.False(store.Exists("before"));
+        Assert.True(store.Exists("after"));
+        Assert.Equal("after", store.Load("after")!.Name);
+    }
+
+    [Fact]
+    public void ExportAndImport_RoundTripsValidatedProfile()
+    {
+        var sourceStore = new ProfileStore(Path.Combine(_directory, "source"));
+        var targetStore = new ProfileStore(Path.Combine(_directory, "target"));
+        var profile = CreateValidProfile();
+        profile.CanvasWidth = 777;
+        sourceStore.Save(profile, "portable");
+        var exportPath = Path.Combine(_directory, "exported.json");
+
+        sourceStore.Export("portable", exportPath);
+        var importedName = targetStore.Import(exportPath, "imported");
+
+        Assert.Equal("imported", importedName);
+        Assert.Equal(777, targetStore.Load("imported")!.CanvasWidth);
+    }
+
+    [Fact]
     public void SaveAndLoad_RoundTripsRepresentativeWorkspaceState()
     {
         var store = new ProfileStore(_directory);

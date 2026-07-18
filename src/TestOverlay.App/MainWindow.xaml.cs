@@ -218,6 +218,7 @@ public partial class MainWindow : Window
         LocalizationService.Instance.SetLanguage(_appSettings.Language);
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
         _profileSession = new ProfileSession(_profileStore);
+        _profileSession.SelectedProfileName = _appSettings.ActiveProfileName;
         _detectSessionLogPath = System.IO.Path.Combine(
             _log.LogDirectory,
             $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
@@ -1046,6 +1047,7 @@ public partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        FlushProfileAutoSave();
         var dialog = new SettingsWindow(
             _profileStore.ProfileDirectory,
             _settingsStore.DefaultProfileDirectory,
@@ -1053,6 +1055,7 @@ public partial class MainWindow : Window
             _appSettings.AutomaticRendererSelection,
             _appSettings.CaptureBackend,
             _appSettings.Language,
+            ReadSelectedProfileName(),
             _log.LogPath,
             _log.SessionStartedAt)
         {
@@ -1077,7 +1080,21 @@ public partial class MainWindow : Window
             LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
-            RefreshProfileList(ReadSelectedProfileName());
+            var targetProfileName = dialog.ProfileApplyRequested
+                ? dialog.RequestedProfileName
+                : dialog.ActiveProfileName;
+            if (!dialog.ProfileApplyRequested && !_profileStore.Exists(targetProfileName))
+            {
+                _selectedProfileName = ProfileStore.NormalizeProfileName(targetProfileName);
+                SaveActiveProfile(showStatus: false);
+            }
+            RefreshProfileList(targetProfileName);
+            if (dialog.ProfileApplyRequested && !LoadSelectedProfile(allowDeferredQuickslots: true))
+            {
+                return;
+            }
+            _appSettings.ActiveProfileName = ReadSelectedProfileName();
+            _settingsStore.Save(_appSettings);
             SetWindowStatusText(BuildWindowStatusText());
             _log.Info(
                 $"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}, " +
