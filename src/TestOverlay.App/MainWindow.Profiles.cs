@@ -105,6 +105,10 @@ public partial class MainWindow
     private void FlushProfileAutoSave()
     {
         _profileAutoSaveTimer.Stop();
+        if (_profileLayoutLoadPendingCapture)
+        {
+            return;
+        }
         if (!_isLoadingProfile && IsLoaded && _isProfileDirty)
         {
             _isProfileDirty = false;
@@ -166,15 +170,16 @@ public partial class MainWindow
         }
 
         var savedKinds = profile.Candidates.ToDictionary(candidate => candidate.Id, candidate => candidate.Kind);
-        var deferQuickslots = _capturedImage is null && profile.Slots.Any(slot =>
+        var hasQuickslotLayout = profile.Slots.Any(slot =>
             !savedKinds.TryGetValue(slot.SourceCandidateId, out var kind) || kind == OverlayElementKind.Quickslot);
-        if (deferQuickslots && !allowDeferredQuickslots)
+        if (_capturedImage is null && hasQuickslotLayout && !allowDeferredQuickslots)
         {
             SetStatus("Capture the game window before loading a profile with quickslots.");
             return false;
         }
 
-        _profileLayoutLoadPendingCapture = deferQuickslots;
+        var deferLayout = _capturedImage is null && allowDeferredQuickslots;
+        _profileLayoutLoadPendingCapture = deferLayout;
 
         _isLoadingProfile = true;
         try
@@ -268,7 +273,7 @@ public partial class MainWindow
         {
             foreach (var savedCandidate in profile.Candidates.OrderBy(candidate => candidate.Id))
             {
-                if (deferQuickslots && savedCandidate.Kind == OverlayElementKind.Quickslot)
+                if (deferLayout)
                 {
                     continue;
                 }
@@ -300,19 +305,20 @@ public partial class MainWindow
             }
         }
 
-        if (_buffMonitorEnabled &&
+        if (!deferLayout && _buffMonitorEnabled &&
             !_hiddenMonitorElementKinds.Contains(OverlayElementKind.InternalBuffTimer))
         {
             var internalTimerCandidate = EnsureInternalTimerCandidate();
             loadedCandidates[internalTimerCandidate.Id] = internalTimerCandidate;
         }
-        if (_tuairimMonitorEnabled && _tuairimAnchor is not null &&
+        if (!deferLayout && _tuairimMonitorEnabled && _tuairimAnchor is not null &&
             !_hiddenMonitorElementKinds.Contains(OverlayElementKind.TuairimGauge))
         {
             var tuairimGaugeCandidate = EnsureTuairimGaugeCandidate();
             loadedCandidates[tuairimGaugeCandidate.Id] = tuairimGaugeCandidate;
         }
-        if (!_hiddenMonitorElementKinds.Contains(OverlayElementKind.AlertNotification) &&
+        if (!deferLayout &&
+            !_hiddenMonitorElementKinds.Contains(OverlayElementKind.AlertNotification) &&
             (_buffMonitorEnabled ||
              _tuairimMonitorEnabled ||
              _customTimerDefinitions.Any(timer => timer.Enabled && timer.VisualAlertEnabled)))
@@ -320,7 +326,7 @@ public partial class MainWindow
             var alertCandidate = EnsureAlertNotificationCandidate();
             loadedCandidates[alertCandidate.Id] = alertCandidate;
         }
-        if (_customTimerDefinitions.Count > 0 &&
+        if (!deferLayout && _customTimerDefinitions.Count > 0 &&
             !_hiddenMonitorElementKinds.Contains(OverlayElementKind.CustomTimer))
         {
             var customTimerCandidate = EnsureCustomTimerCandidate();
@@ -355,9 +361,7 @@ public partial class MainWindow
         var nextCandidateId = loadedCandidates.Keys.Where(id => id > 0).DefaultIfEmpty(0).Max() + 1;
         foreach (var savedSlot in profile.Slots)
         {
-            if (deferQuickslots &&
-                (!savedKinds.TryGetValue(savedSlot.SourceCandidateId, out var savedKind) ||
-                 savedKind == OverlayElementKind.Quickslot))
+            if (deferLayout)
             {
                 continue;
             }
@@ -397,7 +401,10 @@ public partial class MainWindow
             _overlaySlots.Add(slot);
         }
 
-            EnsureEnabledMonitorElementsPlaced();
+            if (!deferLayout)
+            {
+                EnsureEnabledMonitorElementsPlaced();
+            }
 
             _nextSectionId = _sections.Count == 0 ? 1 : _sections.Max(section => section.Id) + 1;
             RefreshSectionLabels();

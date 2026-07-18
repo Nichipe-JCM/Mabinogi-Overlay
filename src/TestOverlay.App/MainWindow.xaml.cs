@@ -474,6 +474,7 @@ public partial class MainWindow : Window
         if (_profileLayoutLoadPendingCapture)
         {
             _profileLayoutLoadPendingCapture = false;
+            _isProfileDirty = false;
             LoadSelectedProfile();
             SetStatus(L.F("{0}. Saved profile layout loaded.", status));
             return;
