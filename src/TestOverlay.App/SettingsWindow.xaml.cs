@@ -55,8 +55,8 @@ public partial class SettingsWindow : Window
 
         var languages = new List<LanguageOption>
         {
-            new(LocalizationService.English, L.T("language.english")),
-            new(LocalizationService.Korean, L.T("language.korean"))
+            new(LocalizationService.Korean, L.T("language.korean")),
+            new(LocalizationService.English, L.T("language.english"))
         };
         LanguageCombo.ItemsSource = languages;
         SelectLanguage(selectedLanguage);
@@ -70,7 +70,7 @@ public partial class SettingsWindow : Window
 
     public CaptureBackend SelectedCaptureBackend { get; private set; }
 
-    public string SelectedLanguage { get; private set; } = LocalizationService.English;
+    public string SelectedLanguage { get; private set; } = LocalizationService.Korean;
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
@@ -96,15 +96,6 @@ public partial class SettingsWindow : Window
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
         Commit();
-    }
-
-    private void BenchmarkButton_Click(object sender, RoutedEventArgs e)
-    {
-        var window = new BenchmarkWindow
-        {
-            Owner = this
-        };
-        window.ShowDialog();
     }
 
     private void LogButton_Click(object sender, RoutedEventArgs e)
@@ -146,7 +137,7 @@ public partial class SettingsWindow : Window
         AutomaticRendererCheckBox.IsChecked = true;
         SelectRenderMode(OverlayRenderMode.GpuDxgi);
         SelectCaptureBackend(CaptureBackend.Wgc);
-        SelectLanguage(LocalizationService.English);
+        SelectLanguage(LocalizationService.Korean);
         NormalizeRuntimeSelection();
     }
 
@@ -170,7 +161,7 @@ public partial class SettingsWindow : Window
                 : CaptureBackend.Wgc;
             SelectedLanguage = LanguageCombo.SelectedItem is LanguageOption languageOption
                 ? languageOption.Language
-                : LocalizationService.English;
+                : LocalizationService.Korean;
             DialogResult = true;
         }
         catch (Exception exception)

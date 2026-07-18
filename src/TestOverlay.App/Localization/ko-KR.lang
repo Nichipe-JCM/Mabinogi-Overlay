@@ -3,7 +3,6 @@
 # Edit values after =. Keep keys unchanged.
 
 renderer.automatic.recommended = 렌더러 자동 선택(권장)
-renderer.advanced.override = 고급 렌더러 지정
 renderer.manual.description = 수동 렌더러 선택은 문제 해결용입니다. GPU 가속은 WGC 캡처에서만 사용할 수 있습니다.
 renderer.gpu.accelerated = GPU 가속
 renderer.cpu.composited = CPU 합성
@@ -92,6 +91,8 @@ overlay.start = 오버레이 시작
 overlay.stop = 오버레이 중지
 the.base.ui.is.not.topmost.the.overlay.is.click.through.configure.the.st = 기본 UI는 항상 위에 표시되지 않습니다. 오버레이는 클릭을 통과합니다. 시작 전에 중지 단축키를 설정하세요.
 profiles.storage.path.capture.method.renderer.mode.and.benchmark.tools = 프로필, 저장 경로, 캡쳐 방식, 렌더러 모드, 벤치마크 도구를 설정합니다.
+settings.description = 프로필, 저장 경로, 언어, 캡처 방식, 렌더러 모드와 로그를 설정합니다.
+settings.log.description = 문제 해결을 위해 현재 세션 로그를 엽니다.
 profile = 프로필
 active.profile = 활성 프로필
 save = 저장

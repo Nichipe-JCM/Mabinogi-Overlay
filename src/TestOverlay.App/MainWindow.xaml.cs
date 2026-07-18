@@ -1106,6 +1106,15 @@ public partial class MainWindow : Window
     private void DebugTabToggle_Click(object sender, RoutedEventArgs e) =>
         RightPanelTabs.SelectedItem = DebugTabItem;
 
+    private void BenchmarkButton_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new BenchmarkWindow
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void ShowInAppNotice(string message)
     {
         InAppNoticeText.Text = message;

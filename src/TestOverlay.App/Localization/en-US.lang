@@ -3,7 +3,6 @@
 # Edit values after =. Keep keys unchanged.
 
 renderer.automatic.recommended = Automatic renderer selection (recommended)
-renderer.advanced.override = Advanced renderer override
 renderer.manual.description = Manual renderer selection is intended for troubleshooting. GPU acceleration is available only with WGC capture.
 renderer.gpu.accelerated = GPU acceleration
 renderer.cpu.composited = CPU compositing
@@ -92,6 +91,8 @@ overlay.start = Overlay start
 overlay.stop = Overlay stop
 the.base.ui.is.not.topmost.the.overlay.is.click.through.configure.the.st = The base UI is not topmost. The overlay is click-through. Configure the stop hotkey before Start.
 profiles.storage.path.capture.method.renderer.mode.and.benchmark.tools = Profiles, storage path, capture method, renderer mode, and benchmark tools.
+settings.description = Configure profiles, storage path, language, capture method, renderer mode, and logs.
+settings.log.description = Open the current session log for troubleshooting.
 profile = Profile
 active.profile = Active profile
 save = Save

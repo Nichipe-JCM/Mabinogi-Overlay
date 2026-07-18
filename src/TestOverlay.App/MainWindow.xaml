@@ -996,6 +996,19 @@
                                 <Button x:Name="MonitorTestMode2Button" MinWidth="120" Height="36" Padding="14,0" Margin="6,0,0,0"
                                         Content="Test mode 2" Click="MonitorTestMode2Button_Click"/>
                             </WrapPanel>
+                            <Border Margin="0,16,0,0" Style="{StaticResource InsetPanelStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="Benchmark" loc:Localize.TextKey="Benchmark" Style="{StaticResource PanelTitleStyle}"/>
+                                    <TextBlock Margin="0,6,0,10"
+                                               Text="Open a controlled stress test window to compare renderer cost."
+                                               loc:Localize.TextKey="Open a controlled stress test window to compare renderer cost."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MutedTextStyle}"/>
+                                    <Button MinWidth="120" Height="34" Padding="12,0" HorizontalAlignment="Left"
+                                            Content="Open benchmark" loc:Localize.ContentKey="Open benchmark"
+                                            Click="BenchmarkButton_Click"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </TabItem>

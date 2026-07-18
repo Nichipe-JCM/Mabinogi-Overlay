@@ -24,7 +24,7 @@ public sealed partial class LocalizationService
 
     public event EventHandler? LanguageChanged;
 
-    public string CurrentLanguage { get; private set; } = English;
+    public string CurrentLanguage { get; private set; } = Korean;
 
     public void SetLanguage(string? language)
     {
@@ -68,11 +68,17 @@ public sealed partial class LocalizationService
     public string Format(string key, params object?[] args) =>
         string.Format(CultureInfo.CurrentCulture, Translate(key), args);
 
-    public static string NormalizeLanguage(string? language) =>
-        !string.IsNullOrWhiteSpace(language) &&
-        language.Trim().StartsWith("ko", StringComparison.OrdinalIgnoreCase)
+    public static string NormalizeLanguage(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            return Korean;
+        }
+
+        return language.Trim().StartsWith("ko", StringComparison.OrdinalIgnoreCase)
             ? Korean
             : English;
+    }
 
     private static string NormalizeKey(string key) =>
         KeyAliases.TryGetValue(key, out var alias)
