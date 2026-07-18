@@ -69,7 +69,9 @@ public partial class MainWindow
             return;
         }
 
+        var removedIndex = _customTimerDefinitions.IndexOf(timer);
         CancelCustomTimer(timer.Id);
+        _editingCustomTimer = null;
         _customTimerDefinitions.Remove(timer);
         if (_customTimerDefinitions.Count == 0)
         {
@@ -78,7 +80,16 @@ public partial class MainWindow
             UpdateCandidateOverlayFlags();
             UpdateLayoutSummary();
         }
-        CustomTimerList.SelectedItem = _customTimerDefinitions.FirstOrDefault();
+        if (_customTimerDefinitions.Count > 0)
+        {
+            var nextIndex = Math.Min(removedIndex, _customTimerDefinitions.Count - 1);
+            CustomTimerList.SelectedItem = _customTimerDefinitions[nextIndex];
+        }
+        else
+        {
+            CustomTimerList.SelectedItem = null;
+            RefreshCustomTimerEditor();
+        }
         ScheduleProfileAutoSave();
     }
 

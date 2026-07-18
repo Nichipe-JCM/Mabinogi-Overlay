@@ -833,6 +833,7 @@ public partial class MainWindow
                                          !_monitorTestMode &&
                                          _tuairimMonitorEnabled &&
                                          _monitorDetectionMode is MonitorDetectionMode.None or MonitorDetectionMode.Tuairim;
+        ApplyDetectionStatus(TuairimDetectionStatusText, _tuairimAnchor is not null);
         foreach (var checkBox in BuffSelectionCheckBoxes())
         {
             var nameKey = checkBox.Tag as string;

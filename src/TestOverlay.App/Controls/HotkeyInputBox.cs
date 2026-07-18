@@ -81,6 +81,7 @@ public sealed class HotkeyInputBox : TextBox
         _chordCompleted = false;
         _pressedModifierKeys.Clear();
         base.OnLostKeyboardFocus(e);
+        InvalidateVisual();
     }
 
     private void BeginCapture()
