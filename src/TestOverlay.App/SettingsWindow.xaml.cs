@@ -9,6 +9,7 @@ namespace TestOverlay.App;
 public partial class SettingsWindow : Window
 {
     private readonly string _defaultProfileDirectory;
+    private readonly string _initialProfileDirectory;
     private readonly string _logPath;
     private readonly DateTimeOffset _logSessionStartedAt;
     private string _activeProfileName;
@@ -28,6 +29,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         _defaultProfileDirectory = defaultProfileDirectory;
+        _initialProfileDirectory = Path.GetFullPath(profileDirectory);
         _logPath = logPath;
         _logSessionStartedAt = logSessionStartedAt;
         ProfileDirectory = profileDirectory;
@@ -82,6 +84,8 @@ public partial class SettingsWindow : Window
     public string? RequestedProfileName { get; private set; }
 
     public bool ProfileApplyRequested { get; private set; }
+
+    public bool ActiveProfileRenamed { get; private set; }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
@@ -159,10 +163,13 @@ public partial class SettingsWindow : Window
 
         try
         {
-            var renamed = CreateProfileStore().Rename(currentName, dialog.ProfileName);
-            if (string.Equals(_activeProfileName, currentName, StringComparison.OrdinalIgnoreCase))
+            var store = CreateProfileStore();
+            var renamed = store.Rename(currentName, dialog.ProfileName);
+            if (string.Equals(_activeProfileName, currentName, StringComparison.OrdinalIgnoreCase) &&
+                PathsEqual(store.ProfileDirectory, _initialProfileDirectory))
             {
                 _activeProfileName = renamed;
+                ActiveProfileRenamed = true;
             }
             RefreshManagedProfiles(renamed);
         }
@@ -355,6 +362,12 @@ public partial class SettingsWindow : Window
     {
         MessageBox.Show(this, message, L.T("Profile"), MessageBoxButton.OK, MessageBoxImage.Warning);
     }
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
+            StringComparison.OrdinalIgnoreCase);
 
     private void SelectRenderMode(OverlayRenderMode mode)
     {

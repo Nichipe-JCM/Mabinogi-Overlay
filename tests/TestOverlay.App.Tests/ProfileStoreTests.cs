@@ -86,6 +86,7 @@ public sealed class ProfileStoreTests : IDisposable
         var store = new ProfileStore(_directory);
         var profile = CreateValidProfile();
         store.Save(profile, "before");
+        store.Save(profile, "before");
 
         var renamed = store.Rename("before", "after");
 
@@ -93,6 +94,8 @@ public sealed class ProfileStoreTests : IDisposable
         Assert.False(store.Exists("before"));
         Assert.True(store.Exists("after"));
         Assert.Equal("after", store.Load("after")!.Name);
+        Assert.DoesNotContain("before", store.ListProfileNames());
+        Assert.Equal("after", Assert.Single(store.ListProfileNames()));
     }
 
     [Fact]

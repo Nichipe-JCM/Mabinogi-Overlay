@@ -60,16 +60,48 @@ public sealed class ProfileStore
         var targetName = NormalizeProfileName(newName);
         var profile = Load(sourceName)
             ?? throw new FileNotFoundException("The profile to rename does not exist.", GetProfilePath(sourceName));
-        if (!string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase) && Exists(targetName))
+        if (string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
+        {
+            profile.Name = targetName;
+            Save(profile, targetName);
+            return targetName;
+        }
+
+        if (Exists(targetName))
         {
             throw new IOException($"A profile named '{targetName}' already exists.");
         }
 
-        profile.Name = targetName;
-        Save(profile, targetName);
-        if (!string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
+        var sourcePath = GetProfilePath(sourceName);
+        var sourceBackupPath = AtomicJsonFile.GetBackupPath(sourcePath);
+        var targetPath = GetProfilePath(targetName);
+        var targetBackupPath = AtomicJsonFile.GetBackupPath(targetPath);
+        File.Move(sourcePath, targetPath);
+        try
         {
-            DeleteProfileFiles(sourceName);
+            profile.Name = targetName;
+            Save(profile, targetName);
+            File.Delete(sourceBackupPath);
+            if (Exists(sourceName))
+            {
+                throw new IOException($"The original profile '{sourceName}' still exists after renaming.");
+            }
+        }
+        catch
+        {
+            if (!File.Exists(sourcePath))
+            {
+                if (File.Exists(targetPath))
+                {
+                    File.Move(targetPath, sourcePath);
+                }
+                else if (File.Exists(targetBackupPath))
+                {
+                    File.Move(targetBackupPath, sourcePath);
+                }
+            }
+            File.Delete(targetBackupPath);
+            throw;
         }
 
         return targetName;
@@ -146,10 +178,4 @@ public sealed class ProfileStore
         return string.IsNullOrWhiteSpace(name) ? "default" : name;
     }
 
-    private void DeleteProfileFiles(string profileName)
-    {
-        var path = GetProfilePath(profileName);
-        File.Delete(path);
-        File.Delete($"{path}.bak");
-    }
 }

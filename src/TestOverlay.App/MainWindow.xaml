@@ -15,8 +15,7 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource OverlayBgBrush}"
         PreviewKeyDown="Window_PreviewKeyDown"
-        KeyDown="Window_KeyDown"
-        StateChanged="Window_StateChanged">
+        KeyDown="Window_KeyDown">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             CornerRadius="0"
@@ -33,67 +32,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0"
-                Margin="0,0,0,8"
-                Style="{StaticResource GlassCardStyle}"
-                PreviewMouseLeftButtonDown="TitleBarArea_PreviewMouseLeftButtonDown">
-            <Grid Height="42" Margin="12,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="2*"/>
-                    <ColumnDefinition Width="3*"/>
-                </Grid.ColumnDefinitions>
-                <Image Grid.Column="0"
-                       Source="/Image/Logo.png"
-                       Width="24"
-                       Height="24"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       Stretch="Uniform"
-                       RenderOptions.BitmapScalingMode="HighQuality"/>
-                <TextBlock Grid.Column="1"
-                           Text="Mabinogi Overlay"
-                           loc:Localize.TextKey="Mabinogi Overlay"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           FontSize="15"
-                           FontWeight="SemiBold"
-                           Foreground="{StaticResource OverlayAccentBrush}"/>
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Width="34" Height="28" Margin="4,0,0,0" Click="MinimizeWindowButton_Click">
-                        <TextBlock Text="&#x1F5D5;"
-                                   FontFamily="Segoe UI Symbol, Segoe UI Emoji, Segoe UI"
-                                   FontSize="13"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource OverlayAccentBrush}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-                    </Button>
-                    <Button x:Name="MaximizeWindowButton" Width="34" Height="28" Margin="4,0,0,0" Click="MaximizeWindowButton_Click">
-                        <TextBlock x:Name="MaximizeWindowIcon"
-                                   Text="&#x1F5D6;"
-                                   FontFamily="Segoe UI Symbol, Segoe UI Emoji, Segoe UI"
-                                   FontSize="13"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource OverlayAccentBrush}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-                    </Button>
-                    <Button Width="34" Height="28" Margin="4,0,0,0" Click="CloseWindowButton_Click">
-                        <TextBlock Text="&#x2715;"
-                                   FontSize="13"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource OverlayAccentBrush}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-                    </Button>
-                </StackPanel>
-            </Grid>
-        </Border>
+        <controls:AppTitleBar Grid.Row="0"/>
 
         <Border Grid.Row="1" Style="{StaticResource GlassCardStyle}">
             <Grid Margin="16,12">

@@ -1063,6 +1063,12 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog() != true)
         {
+            if (dialog.ActiveProfileRenamed)
+            {
+                RefreshProfileList(dialog.ActiveProfileName);
+                PersistActiveProfileName(dialog.ActiveProfileName);
+                _log.Info($"Active profile renamed while settings were open: {dialog.ActiveProfileName}");
+            }
             SetStatus("Settings canceled.");
             return;
         }
@@ -1216,35 +1222,6 @@ public partial class MainWindow : Window
 
     private void StopOverlayButton_Click(object sender, RoutedEventArgs e) => StopOverlay();
 
-    private void TitleBarArea_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton != MouseButton.Left)
-        {
-            return;
-        }
-
-        if (FindVisualAncestor<Button>(e.OriginalSource as DependencyObject) is not null)
-        {
-            return;
-        }
-
-        if (e.ClickCount == 2)
-        {
-            ToggleMainWindowMaximize();
-            e.Handled = true;
-            return;
-        }
-
-        try
-        {
-            DragMove();
-        }
-        catch (InvalidOperationException)
-        {
-            // DragMove can throw if the mouse state changes while the drag starts.
-        }
-    }
-
     private void CandidateLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: SlotCandidate candidate })
@@ -1261,30 +1238,6 @@ public partial class MainWindow : Window
         candidate.IsSelected = !candidate.IsSelected;
         e.Handled = true;
     }
-
-    private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) =>
-        WindowState = WindowState.Minimized;
-
-    private void MaximizeWindowButton_Click(object sender, RoutedEventArgs e) =>
-        ToggleMainWindowMaximize();
-
-    private void CloseWindowButton_Click(object sender, RoutedEventArgs e) => Close();
-
-    private void Window_StateChanged(object? sender, EventArgs e) => UpdateMainWindowStateButton();
-
-    private void ToggleMainWindowMaximize() =>
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-
-    private void UpdateMainWindowStateButton()
-    {
-        if (MaximizeWindowIcon is not null)
-        {
-            MaximizeWindowIcon.Text = WindowState == WindowState.Maximized ? char.ConvertFromUtf32(0x1F5D7) : char.ConvertFromUtf32(0x1F5D6);
-        }
-    }
-
-
-
 
     private void StopOverlay(bool setStatus = true)
     {
