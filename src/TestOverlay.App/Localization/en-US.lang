@@ -466,7 +466,6 @@ guide.window.title = Mabinogi Overlay Guide
 guide.topics = Guide topics
 guide.topics.description = Choose what you want to configure or check.
 guide.steps = What to do
-guide.offline.note = This guide works offline and is updated together with the app.
 guide.open.overlay = Open Overlay
 guide.open.monitors = Open Buff / Tuairim
 guide.open.timers = Open Hotkey Timers

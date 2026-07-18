@@ -100,6 +100,7 @@
                                                            Foreground="{StaticResource OverlayAccentBrush}"/>
                                                 <TextBlock Grid.Column="1"
                                                            Text="{Binding}"
+                                                           Foreground="{StaticResource OverlayTextBrush}"
                                                            TextWrapping="Wrap"
                                                            LineHeight="20"/>
                                             </Grid>
@@ -125,6 +126,7 @@
                                                Foreground="{StaticResource OverlayAccentBrush}"/>
                                     <TextBlock x:Name="TopicTipText"
                                                Grid.Column="1"
+                                               Foreground="{StaticResource OverlayTextBrush}"
                                                TextWrapping="Wrap"
                                                LineHeight="20"/>
                                 </Grid>
@@ -144,22 +146,14 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="2,9,2,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock VerticalAlignment="Center"
-                       Text="This offline guide is updated together with the app."
-                       loc:Localize.TextKey="guide.offline.note"
-                       Style="{StaticResource MutedTextStyle}"/>
-            <Button Grid.Column="1"
-                    MinWidth="92"
-                    Height="34"
-                    Padding="14,0"
-                    Content="Close"
-                    loc:Localize.ContentKey="Close"
-                    Click="CloseButton_Click"/>
-        </Grid>
+        <Button Grid.Row="2"
+                MinWidth="92"
+                Height="34"
+                Padding="14,0"
+                Margin="0,9,2,0"
+                HorizontalAlignment="Right"
+                Content="Close"
+                loc:Localize.ContentKey="Close"
+                Click="CloseButton_Click"/>
     </Grid>
 </Window>
