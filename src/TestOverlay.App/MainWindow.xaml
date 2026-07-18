@@ -148,12 +148,20 @@
                         <Button x:Name="ManualCaptureButton" MinWidth="124" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Manual capture" loc:Localize.ContentKey="Manual capture" Click="ManualCaptureButton_Click"/>
                         <Button x:Name="ValidateSavedSlotsButton" MinWidth="132" Height="36" Padding="14,0" Margin="6,0,0,0" Content="Validate saved slots" loc:Localize.ContentKey="profile.validation.button" Click="ValidateSavedSlotsButton_Click"/>
                     </WrapPanel>
-                    <Button x:Name="SettingsButton" Grid.Column="2" MinWidth="112" Height="36" Padding="14,0" Margin="24,0,0,0" Click="SettingsButton_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x2699;" Margin="0,0,7,0" FontFamily="Segoe UI Symbol, Segoe UI Emoji"/>
-                            <TextBlock Text="Settings" loc:Localize.TextKey="Settings"/>
-                        </StackPanel>
-                    </Button>
+                    <StackPanel Grid.Column="2" Margin="24,0,0,0" Orientation="Horizontal">
+                        <Button x:Name="GuideButton" MinWidth="104" Height="36" Padding="14,0" Click="GuideButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="?" Margin="0,0,7,0" FontWeight="Bold"/>
+                                <TextBlock Text="Guide" loc:Localize.TextKey="guide.button"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="SettingsButton" MinWidth="112" Height="36" Padding="14,0" Margin="6,0,0,0" Click="SettingsButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x2699;" Margin="0,0,7,0" FontFamily="Segoe UI Symbol, Segoe UI Emoji"/>
+                                <TextBlock Text="Settings" loc:Localize.TextKey="Settings"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </Grid>
             </Grid>
         </Border>
@@ -351,7 +359,7 @@
                         BorderThickness="0"
                         Style="{StaticResource RightPanelTabControlStyle}"
                         ItemContainerStyle="{StaticResource MonitorTabItemStyle}">
-                <TabItem Header="Overlay" loc:Localize.HeaderKey="monitor.tab.overlay">
+                <TabItem x:Name="OverlayTabItem" Header="Overlay" loc:Localize.HeaderKey="monitor.tab.overlay">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="1.35*"/>
@@ -534,7 +542,7 @@
             </Grid>
                 </TabItem>
 
-                <TabItem Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
+                <TabItem x:Name="MonitorAlertsTabItem" Header="Buff / Tuairim Alerts" loc:Localize.HeaderKey="monitor.tab.alerts">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
@@ -904,7 +912,7 @@
                     </Grid>
                 </TabItem>
 
-                <TabItem Header="Hotkey Timers" loc:Localize.HeaderKey="custom.timer.tab">
+                <TabItem x:Name="CustomTimerTabItem" Header="Hotkey Timers" loc:Localize.HeaderKey="custom.timer.tab">
                     <Border Style="{StaticResource GlassCardStyle}">
                         <Grid Margin="14">
                             <Grid.ColumnDefinitions>

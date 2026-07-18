@@ -1,0 +1,165 @@
+<Window x:Class="TestOverlay.App.GuideWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:TestOverlay.App.Controls"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Mabinogi Overlay Guide"
+        loc:Localize.TitleKey="guide.window.title"
+        Icon="/Image/AppIcon.ico"
+        Width="980"
+        Height="700"
+        MinWidth="760"
+        MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource OverlayBgBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="7"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <controls:AppTitleBar Grid.Row="0"/>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="228"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource GlassCardStyle}">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Margin="4,2,4,10">
+                        <TextBlock Text="Guide topics"
+                                   loc:Localize.TextKey="guide.topics"
+                                   Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Margin="0,5,0,0"
+                                   Text="Choose what you want to configure."
+                                   loc:Localize.TextKey="guide.topics.description"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}"/>
+                    </StackPanel>
+                    <ListBox x:Name="TopicList"
+                             Grid.Row="1"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             DisplayMemberPath="Title"
+                             SelectionChanged="TopicList_SelectionChanged"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
+                <Grid Margin="18,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <ScrollViewer x:Name="TopicScrollViewer" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="2,0,10,8">
+                            <TextBlock x:Name="TopicTitleText"
+                                       FontSize="24"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource OverlayAccentBrush}"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock x:Name="TopicSummaryText"
+                                       Margin="0,9,0,0"
+                                       FontSize="14"
+                                       Foreground="{StaticResource OverlayTextBrush}"
+                                       TextWrapping="Wrap"
+                                       LineHeight="22"/>
+
+                            <TextBlock Margin="0,22,0,8"
+                                       Text="What to do"
+                                       loc:Localize.TextKey="guide.steps"
+                                       Style="{StaticResource PanelTitleStyle}"/>
+                            <ItemsControl x:Name="StepList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,7" Padding="12,10" Style="{StaticResource InsetPanelStyle}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="24"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="•"
+                                                           FontSize="18"
+                                                           Foreground="{StaticResource OverlayAccentBrush}"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding}"
+                                                           TextWrapping="Wrap"
+                                                           LineHeight="20"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Margin="0,12,0,0"
+                                    Padding="13,11"
+                                    Background="#1819C9BD"
+                                    BorderBrush="#663ED7CE"
+                                    BorderThickness="1"
+                                    CornerRadius="7">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="!"
+                                               FontSize="18"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource OverlayAccentBrush}"/>
+                                    <TextBlock x:Name="TopicTipText"
+                                               Grid.Column="1"
+                                               TextWrapping="Wrap"
+                                               LineHeight="20"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Button x:Name="OpenRelatedSectionButton"
+                            Grid.Row="1"
+                            MinWidth="150"
+                            Height="36"
+                            Padding="14,0"
+                            Margin="0,12,0,0"
+                            HorizontalAlignment="Right"
+                            Click="OpenRelatedSectionButton_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="2,9,2,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center"
+                       Text="This offline guide is updated together with the app."
+                       loc:Localize.TextKey="guide.offline.note"
+                       Style="{StaticResource MutedTextStyle}"/>
+            <Button Grid.Column="1"
+                    MinWidth="92"
+                    Height="34"
+                    Padding="14,0"
+                    Content="Close"
+                    loc:Localize.ContentKey="Close"
+                    Click="CloseButton_Click"/>
+        </Grid>
+    </Grid>
+</Window>

@@ -278,6 +278,7 @@ public partial class MainWindow : Window
             ErinTimerPanel.Dispose();
             _alertAudio.Dispose();
             DisposeCustomTimerFeature();
+            CloseGuideWindow();
             CloseCompactControlWindow();
             StopOverlay(setStatus: false);
             _overlayRuntime.Dispose();

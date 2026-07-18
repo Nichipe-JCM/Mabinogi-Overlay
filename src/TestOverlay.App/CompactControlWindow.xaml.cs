@@ -188,6 +188,8 @@ public partial class CompactControlWindow : Window
         }
     }
 
+    private void GuideButton_Click(object sender, RoutedEventArgs e) => _host.OpenGuide();
+
     private void AlertEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         if (_refreshing)
