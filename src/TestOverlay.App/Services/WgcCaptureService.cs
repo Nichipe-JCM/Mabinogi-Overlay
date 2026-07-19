@@ -53,25 +53,63 @@ public sealed class WgcCaptureService
             1,
             item.Size);
         using var session = framePool.CreateCaptureSession(item);
-        var frameTask = new TaskCompletionSource<Direct3D11CaptureFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bitmapTask = new TaskCompletionSource<BitmapSource>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var frameClaimed = 0;
 
-        using var registration = cancellation.Token.Register(() => frameTask.TrySetCanceled(cancellation.Token));
-        framePool.FrameArrived += (_, _) =>
+        using var registration = cancellation.Token.Register(() => bitmapTask.TrySetCanceled(cancellation.Token));
+        TypedEventHandler<Direct3D11CaptureFramePool, object> frameArrivedHandler = (sender, _) =>
         {
-            var frame = framePool.TryGetNextFrame();
-            if (frame is not null)
+            var frame = sender.TryGetNextFrame();
+            if (frame is null)
             {
-                frameTask.TrySetResult(frame);
+                return;
             }
+
+            if (Interlocked.Exchange(ref frameClaimed, 1) != 0)
+            {
+                frame.Dispose();
+                return;
+            }
+
+            _ = CompleteSingleFrameAsync(frame, bitmapTask, cancellation.Token);
         };
+        framePool.FrameArrived += frameArrivedHandler;
 
-        session.IsCursorCaptureEnabled = false;
-        TryDisableCaptureBorder(session);
-        session.StartCapture();
+        try
+        {
+            session.IsCursorCaptureEnabled = false;
+            TryDisableCaptureBorder(session);
+            session.StartCapture();
+            return await bitmapTask.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            framePool.FrameArrived -= frameArrivedHandler;
+        }
+    }
 
-        using var capturedFrame = await frameTask.Task.ConfigureAwait(false);
-        using var softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(capturedFrame.Surface).AsTask(cancellation.Token).ConfigureAwait(false);
-        return ToBitmapSource(softwareBitmap);
+    private static async Task CompleteSingleFrameAsync(
+        Direct3D11CaptureFrame frame,
+        TaskCompletionSource<BitmapSource> completion,
+        CancellationToken cancellationToken)
+    {
+        using (frame)
+        {
+            try
+            {
+                var copyOperation = SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface);
+                using var softwareBitmap = await copyOperation.AsTask(cancellationToken).ConfigureAwait(false);
+                completion.TrySetResult(ToBitmapSource(softwareBitmap));
+            }
+            catch (OperationCanceledException)
+            {
+                completion.TrySetCanceled(cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                completion.TrySetException(exception);
+            }
+        }
     }
 
     public void StartLiveCapture(GraphicsCaptureItem item, int maxFps = 0)
