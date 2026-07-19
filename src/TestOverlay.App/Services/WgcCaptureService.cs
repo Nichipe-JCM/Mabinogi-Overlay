@@ -41,10 +41,8 @@ public sealed class WgcCaptureService
     public bool IsBorderlessCaptureAllowed =>
         _borderlessAccessState == WgcBorderlessAccessState.Allowed;
 
-    public async Task<BitmapSource> CaptureOnceAsync(GraphicsCaptureItem item, TimeSpan timeout)
+    public async Task<BitmapSource> CapturePreparedItemOnceAsync(GraphicsCaptureItem item, TimeSpan timeout)
     {
-        await EnsureBorderlessAccessAsync();
-
         using var cancellation = new CancellationTokenSource(timeout);
         var device = Direct3D11Interop.CreateDevice();
         using var framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(

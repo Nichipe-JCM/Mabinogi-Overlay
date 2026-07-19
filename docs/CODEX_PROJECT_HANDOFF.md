@@ -13,8 +13,8 @@ The project must remain within this safety boundary:
 
 - Repository: `G:\gpt\git\testoverlayproj`
 - Stable integration branch: `develop`
-- Active release branch at the time of this document: `version/0.0.4.1`
-- Current app version in the project file: `0.0.4.1`
+- Active release branch at the time of this document: `version/0.0.4.2`
+- Current app version in the project file: `0.0.4.2`
 - Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
 - Do not push unless the user explicitly requests it.
 

@@ -13,9 +13,11 @@ public sealed class CaptureSessionCoordinator
     private readonly WgcSupportService _wgcSupport = new();
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly WgcCaptureService _wgcCapture;
+    private readonly AppLog _log;
 
     public CaptureSessionCoordinator(AppLog log)
     {
+        _log = log;
         _wgcCapture = new WgcCaptureService(log);
     }
 
@@ -42,13 +44,17 @@ public sealed class CaptureSessionCoordinator
             return new CaptureOperationResult(CaptureOperationStatus.WindowNotFound, windows, null, null);
         }
 
+        _log.Info($"Auto WGC target verified: title={window.Title}, executable={window.ProcessExecutableName}, hwnd=0x{window.Handle:X}.");
+        // Requesting borderless access can yield to Windows UI. Do it before creating the
+        // GraphicsCaptureItem so the item and capture session are created in one apartment.
+        await _wgcCapture.EnsureBorderlessAccessAsync();
         var selection = _wgcWindowSelection.CreateForWindow(window);
         if (selection is null)
         {
             return new CaptureOperationResult(CaptureOperationStatus.WgcUnavailable, windows, window, null);
         }
 
-        var image = await _wgcCapture.CaptureOnceAsync(selection.Item, SingleCaptureTimeout);
+        var image = await _wgcCapture.CapturePreparedItemOnceAsync(selection.Item, SingleCaptureTimeout);
         SelectedWindow = window;
         WgcSelection = selection;
         CapturedImage = image;
@@ -57,20 +63,33 @@ public sealed class CaptureSessionCoordinator
 
     public async Task<CaptureOperationResult> CaptureManualAsync(Window owner)
     {
-        var selection = await _wgcWindowSelection.PickWindowAsync(owner);
-        if (selection is null)
+        var pickedSelection = await _wgcWindowSelection.PickWindowAsync(owner);
+        if (pickedSelection is null)
         {
             return new CaptureOperationResult(CaptureOperationStatus.Canceled, [], null, null);
         }
 
-        if (!selection.LooksLikeMabinogi)
+        _log.Info($"Manual WGC picker result: name={pickedSelection.DisplayName}, size={pickedSelection.Width}x{pickedSelection.Height}.");
+        var windows = GetVisibleWindows();
+        var window = MatchPickedWindow(windows, pickedSelection.DisplayName);
+        if (window is null)
         {
-            return new CaptureOperationResult(CaptureOperationStatus.NotMabinogi, [], null, selection);
+            _log.Info($"Manual WGC target verification failed: pickerName={pickedSelection.DisplayName}, visibleWindows={windows.Count}.");
+            return new CaptureOperationResult(CaptureOperationStatus.NotMabinogi, windows, null, pickedSelection);
         }
 
-        var windows = GetVisibleWindows();
-        var window = MatchPickedWindow(windows, selection.DisplayName);
-        var image = await _wgcCapture.CaptureOnceAsync(selection.Item, SingleCaptureTimeout);
+        _log.Info($"Manual WGC target verified: pickerName={pickedSelection.DisplayName}, title={window.Title}, executable={window.ProcessExecutableName}, hwnd=0x{window.Handle:X}.");
+        // Never capture the picker item directly. The picker can return a monitor item such
+        // as "Display 1" even when its preview looks like the game. Recreate the item from
+        // the verified Client.exe HWND so manual capture cannot silently become screen capture.
+        await _wgcCapture.EnsureBorderlessAccessAsync();
+        var selection = _wgcWindowSelection.CreateForWindow(window);
+        if (selection is null)
+        {
+            return new CaptureOperationResult(CaptureOperationStatus.WgcUnavailable, windows, window, null);
+        }
+
+        var image = await _wgcCapture.CapturePreparedItemOnceAsync(selection.Item, SingleCaptureTimeout);
         SelectedWindow = window;
         WgcSelection = selection;
         CapturedImage = image;
@@ -124,11 +143,40 @@ public sealed class CaptureSessionCoordinator
 
     public static GameWindowInfo? MatchPickedWindow(
         IReadOnlyList<GameWindowInfo> windows,
-        string displayName) =>
-        windows.FirstOrDefault(item => item.IsPreferredMabinogiClient && MatchesDisplayName(item, displayName))
-        ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi && MatchesDisplayName(item, displayName))
-        ?? windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
-        ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
+        string displayName)
+    {
+        var titleMatch = windows.FirstOrDefault(item =>
+            item.IsPreferredMabinogiClient && MatchesDisplayName(item, displayName))
+            ?? windows.FirstOrDefault(item =>
+                item.IsExactClientExecutable && item.LooksLikeMabinogi && MatchesDisplayName(item, displayName))
+            ?? windows.FirstOrDefault(item =>
+                item.LooksLikeMabinogi && MatchesDisplayName(item, displayName));
+        if (titleMatch is not null)
+        {
+            return titleMatch;
+        }
+
+        if (!IsGenericDisplayName(displayName))
+        {
+            return null;
+        }
+
+        // A generic monitor label carries no window identity. It is safe to recover only
+        // when exactly one real Client.exe window is available; otherwise reject it.
+        var exactClients = windows
+            .Where(item => item.IsExactClientExecutable && item.LooksLikeMabinogi)
+            .ToList();
+        return exactClients.Count == 1 ? exactClients[0] : null;
+    }
+
+    public static bool IsGenericDisplayName(string displayName)
+    {
+        var normalized = displayName.Trim();
+        return normalized.StartsWith("Display ", StringComparison.OrdinalIgnoreCase)
+               || normalized.StartsWith("Monitor ", StringComparison.OrdinalIgnoreCase)
+               || normalized.StartsWith("\uB514\uC2A4\uD50C\uB808\uC774 ", StringComparison.OrdinalIgnoreCase)
+               || normalized.StartsWith("\uBAA8\uB2C8\uD130 ", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool MatchesDisplayName(GameWindowInfo window, string displayName) =>
         string.Equals(window.Title, displayName, StringComparison.OrdinalIgnoreCase)
