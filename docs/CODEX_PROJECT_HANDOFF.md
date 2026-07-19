@@ -13,9 +13,9 @@ The project must remain within this safety boundary:
 
 - Repository: `G:\gpt\git\testoverlayproj`
 - Stable integration branch: `develop`
-- Active feature branch at the time of this document: `feature/status-monitor-scaffold`
-- Current app version in the project file: `0.0.3-beta`
-- The active feature branch is ahead of `develop` and contains the status-monitor and Erin timer work. Do not assume that it has already been merged.
+- Active release branch at the time of this document: `version/0.0.4.1`
+- Current app version in the project file: `0.0.4.1`
+- Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
 - Do not push unless the user explicitly requests it.
 
 Before editing, always run:
