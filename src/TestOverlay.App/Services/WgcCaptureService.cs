@@ -78,7 +78,10 @@ public sealed class WgcCaptureService
             session.IsCursorCaptureEnabled = false;
             TryDisableCaptureBorder(session);
             session.StartCapture();
-            return await bitmapTask.Task.ConfigureAwait(false);
+            // The frame pool, event registration, and capture session were created on the
+            // WPF UI apartment. Resume there so the finally block and using disposals do not
+            // release their WinRT interfaces from the frame callback/thread-pool apartment.
+            return await bitmapTask.Task;
         }
         finally
         {
