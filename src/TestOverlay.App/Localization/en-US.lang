@@ -31,6 +31,17 @@ profile.import.replace.confirm = A profile named '{0}' already exists. Replace i
 profile.import.failed = Could not import the profile: {0}
 profile.export.failed = Could not export the profile: {0}
 profile.folder.invalid = Could not read the profile folder: {0}
+profile.delete = Delete
+profile.delete.continue = Continue
+profile.delete.permanently = Delete permanently
+profile.delete.confirm.first.title = Delete profile
+profile.delete.confirm.first.message = Delete the '{0}' profile?
+profile.delete.confirm.second.title = Are you absolutely sure?
+profile.delete.confirm.second.message = The '{0}' profile and its backup file will be permanently deleted.
+profile.delete.irreversible = This action cannot be undone. Verify the selected profile name before continuing.
+profile.delete.irreversible.strong = WARNING: The deleted profile and backup cannot be recovered. This action is permanently irreversible.
+profile.delete.last.disallowed = The last remaining profile cannot be deleted. Import another profile file first.
+profile.changes.applied = Profile file changes were applied.
 
 language.english = English
 language.korean = Korean

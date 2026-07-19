@@ -23,6 +23,10 @@ public sealed record GuideTopicDisplay(
     GuideTopicDefinition Definition,
     string Title,
     string Summary,
-    IReadOnlyList<string> Steps,
+    IReadOnlyList<GuideStepDisplay> Steps,
     string Tip,
     string NavigationLabel);
+
+public sealed record GuideStepDisplay(
+    string Text,
+    string ImageFileName);

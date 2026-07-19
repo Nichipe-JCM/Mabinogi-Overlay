@@ -14,6 +14,8 @@ public partial class SettingsWindow : Window
     private readonly DateTimeOffset _logSessionStartedAt;
     private string _activeProfileName;
     private string? _pendingProfileName;
+    private string? _pendingDeleteProfileName;
+    private int _deleteConfirmationStage;
     private bool _isNormalizingRuntimeSelection;
 
     public SettingsWindow(
@@ -86,6 +88,10 @@ public partial class SettingsWindow : Window
     public bool ProfileApplyRequested { get; private set; }
 
     public bool ActiveProfileRenamed { get; private set; }
+
+    public bool ActiveProfileDeleted { get; private set; }
+
+    public bool ProfileListChanged { get; private set; }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
@@ -165,6 +171,7 @@ public partial class SettingsWindow : Window
         {
             var store = CreateProfileStore();
             var renamed = store.Rename(currentName, dialog.ProfileName);
+            ProfileListChanged = true;
             if (string.Equals(_activeProfileName, currentName, StringComparison.OrdinalIgnoreCase) &&
                 PathsEqual(store.ProfileDirectory, _initialProfileDirectory))
             {
@@ -209,6 +216,7 @@ public partial class SettingsWindow : Window
             }
 
             var imported = store.Import(dialog.FileName, proposedName);
+            ProfileListChanged = true;
             RefreshManagedProfiles(imported);
         }
         catch (Exception exception)
@@ -245,6 +253,97 @@ public partial class SettingsWindow : Window
         catch (Exception exception)
         {
             ShowProfileError(L.F("profile.export.failed", exception.Message));
+        }
+    }
+
+    private void DeleteProfileButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ManagedProfileCombo.SelectedItem is not string profileName)
+        {
+            ShowProfileError(L.T("profile.select.existing"));
+            return;
+        }
+
+        try
+        {
+            if (CreateProfileStore().ListProfileNames().Count <= 1)
+            {
+                ShowProfileError(L.T("profile.delete.last.disallowed"));
+                return;
+            }
+        }
+        catch (Exception exception)
+        {
+            ShowProfileError(exception.Message);
+            return;
+        }
+
+        _pendingDeleteProfileName = profileName;
+        _deleteConfirmationStage = 1;
+        ProfileDeleteConfirmationTitle.Text = L.T("profile.delete.confirm.first.title");
+        ProfileDeleteConfirmationText.Text = L.F("profile.delete.confirm.first.message", profileName);
+        ProfileDeleteWarningText.Text = L.T("profile.delete.irreversible");
+        ConfirmProfileDeleteButton.Content = L.T("profile.delete.continue");
+        ProfileDeleteConfirmationOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CancelProfileDeleteButton_Click(object sender, RoutedEventArgs e)
+    {
+        _pendingDeleteProfileName = null;
+        _deleteConfirmationStage = 0;
+        ProfileDeleteConfirmationOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void ConfirmProfileDeleteButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_pendingDeleteProfileName))
+        {
+            CancelProfileDeleteButton_Click(sender, e);
+            return;
+        }
+
+        if (_deleteConfirmationStage == 1)
+        {
+            _deleteConfirmationStage = 2;
+            ProfileDeleteConfirmationTitle.Text = L.T("profile.delete.confirm.second.title");
+            ProfileDeleteConfirmationText.Text = L.F(
+                "profile.delete.confirm.second.message",
+                _pendingDeleteProfileName);
+            ProfileDeleteWarningText.Text = L.T("profile.delete.irreversible.strong");
+            ConfirmProfileDeleteButton.Content = L.T("profile.delete.permanently");
+            return;
+        }
+
+        try
+        {
+            var store = CreateProfileStore();
+            var deletedName = _pendingDeleteProfileName;
+            var deletedActiveProfile =
+                string.Equals(_activeProfileName, deletedName, StringComparison.OrdinalIgnoreCase) &&
+                PathsEqual(store.ProfileDirectory, _initialProfileDirectory);
+            store.Delete(deletedName);
+            ProfileListChanged = true;
+            var remainingNames = store.ListProfileNames();
+            if (remainingNames.Count == 0)
+            {
+                throw new InvalidOperationException(L.T("profile.delete.last.disallowed"));
+            }
+
+            var preferredName = deletedActiveProfile
+                ? remainingNames[0]
+                : _activeProfileName;
+            if (deletedActiveProfile)
+            {
+                _activeProfileName = preferredName;
+                ActiveProfileDeleted = true;
+                ActiveProfileRenamed = false;
+            }
+            RefreshManagedProfiles(preferredName);
+            CancelProfileDeleteButton_Click(sender, e);
+        }
+        catch (Exception exception)
+        {
+            ShowProfileError(exception.Message);
         }
     }
 

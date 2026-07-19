@@ -21,7 +21,7 @@
                             UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
 
-    <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
+    <Grid x:Name="GuideRoot" Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -89,7 +89,12 @@
                             <ItemsControl x:Name="StepList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Margin="0,0,0,7" Padding="12,10" Style="{StaticResource InsetPanelStyle}">
+                                        <Border Margin="0,0,0,7"
+                                                Padding="12,10"
+                                                Style="{StaticResource InsetPanelStyle}"
+                                                MouseEnter="GuideStep_MouseEnter"
+                                                MouseMove="GuideStep_MouseMove"
+                                                MouseLeave="GuideStep_MouseLeave">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="24"/>
@@ -99,7 +104,7 @@
                                                            FontSize="18"
                                                            Foreground="{StaticResource OverlayAccentBrush}"/>
                                                 <TextBlock Grid.Column="1"
-                                                           Text="{Binding}"
+                                                           Text="{Binding Text}"
                                                            Foreground="{StaticResource OverlayTextBrush}"
                                                            TextWrapping="Wrap"
                                                            LineHeight="20"/>
@@ -164,5 +169,25 @@
                 Content="Close"
                 loc:Localize.ContentKey="Close"
                 Click="CloseButton_Click"/>
+
+        <Popup x:Name="GuideImagePopup"
+               Grid.Row="0"
+               PlacementTarget="{Binding ElementName=GuideRoot}"
+               Placement="Relative"
+               AllowsTransparency="True"
+               StaysOpen="True"
+               IsHitTestVisible="False">
+            <Border Padding="6"
+                    Background="#F21B1D20"
+                    BorderBrush="{StaticResource OverlayAccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Image x:Name="GuidePopupImage"
+                       MaxWidth="440"
+                       MaxHeight="300"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+            </Border>
+        </Popup>
     </Grid>
 </Window>

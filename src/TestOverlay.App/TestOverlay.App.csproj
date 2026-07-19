@@ -43,6 +43,7 @@
     <Resource Include="..\..\Image\PurificationWaveOff.png" Link="Image\PurificationWaveOff.png" />
     <Resource Include="..\..\Image\PurificationWaveOn.png" Link="Image\PurificationWaveOn.png" />
     <Resource Include="..\..\Image\Tuairim.png" Link="Image\Tuairim.png" />
+    <Resource Include="..\..\Image\Guide\*.png" Link="Image\Guide\%(Filename)%(Extension)" />
     <Resource Include="..\..\Image\VivaceOff.png" Link="Image\VivaceOff.png" />
     <Resource Include="..\..\Image\VivaceOn.png" Link="Image\VivaceOn.png" />
   </ItemGroup>

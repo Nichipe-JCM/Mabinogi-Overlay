@@ -135,6 +135,24 @@ public sealed class ProfileStore
         File.WriteAllText(destinationPath, JsonSerializer.Serialize(profile, Options));
     }
 
+    public void Delete(string? profileName)
+    {
+        var normalizedName = NormalizeProfileName(profileName);
+        var path = GetProfilePath(normalizedName);
+        var backupPath = AtomicJsonFile.GetBackupPath(path);
+        if (!File.Exists(path) && !File.Exists(backupPath))
+        {
+            throw new FileNotFoundException("The profile to delete does not exist.", path);
+        }
+
+        File.Delete(backupPath);
+        File.Delete(path);
+        if (File.Exists(path) || File.Exists(backupPath))
+        {
+            throw new IOException($"The profile '{normalizedName}' could not be deleted completely.");
+        }
+    }
+
     public IReadOnlyList<string> ListProfileNames()
     {
         if (!Directory.Exists(ProfileDirectory))

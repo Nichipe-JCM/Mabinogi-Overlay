@@ -80,6 +80,10 @@
                                         <Button MinWidth="92" Height="34" Padding="12,0" Content="Rename" loc:Localize.ContentKey="profile.rename" Click="RenameProfileButton_Click"/>
                                         <Button MinWidth="92" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Import" loc:Localize.ContentKey="profile.import" Click="ImportProfileButton_Click"/>
                                         <Button MinWidth="92" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Export" loc:Localize.ContentKey="profile.export" Click="ExportProfileButton_Click"/>
+                                        <Button MinWidth="92" Height="34" Padding="12,0" Margin="8,0,0,0"
+                                                Content="Delete" loc:Localize.ContentKey="profile.delete"
+                                                Foreground="{StaticResource OverlayDangerBrush}"
+                                                Click="DeleteProfileButton_Click"/>
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>
@@ -212,6 +216,52 @@
                     <WrapPanel Margin="0,18,0,0" HorizontalAlignment="Right">
                         <Button MinWidth="88" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelProfileApplyButton_Click"/>
                         <Button MinWidth="88" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ConfirmProfileApplyButton_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="ProfileDeleteConfirmationOverlay"
+              Grid.Row="0" Grid.RowSpan="4"
+              Panel.ZIndex="21"
+              Background="#D8000000"
+              Visibility="Collapsed">
+            <Border Width="500"
+                    Padding="22"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#F21B1D20"
+                    BorderBrush="{StaticResource OverlayDangerBrush}"
+                    BorderThickness="2"
+                    CornerRadius="9">
+                <StackPanel>
+                    <TextBlock x:Name="ProfileDeleteConfirmationTitle"
+                               Text="profile.delete.confirm.first.title"
+                               loc:Localize.TextKey="profile.delete.confirm.first.title"
+                               FontSize="19"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource OverlayDangerBrush}"/>
+                    <TextBlock x:Name="ProfileDeleteConfirmationText"
+                               Margin="0,12,0,0"
+                               FontSize="14"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ProfileDeleteWarningText"
+                               Margin="0,12,0,0"
+                               Text="profile.delete.irreversible"
+                               loc:Localize.TextKey="profile.delete.irreversible"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource OverlayDangerBrush}"
+                               TextWrapping="Wrap"/>
+                    <WrapPanel Margin="0,22,0,0" HorizontalAlignment="Right">
+                        <Button MinWidth="96" Height="36" Padding="14,0"
+                                Content="Cancel" loc:Localize.ContentKey="Cancel"
+                                Click="CancelProfileDeleteButton_Click"/>
+                        <Button x:Name="ConfirmProfileDeleteButton"
+                                MinWidth="132" Height="36" Padding="14,0" Margin="8,0,0,0"
+                                Content="Continue" loc:Localize.ContentKey="profile.delete.continue"
+                                Foreground="{StaticResource OverlayDangerBrush}"
+                                Click="ConfirmProfileDeleteButton_Click"/>
                     </WrapPanel>
                 </StackPanel>
             </Border>

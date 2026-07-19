@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
 
@@ -64,6 +66,65 @@ public partial class GuideWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
         TopicScrollViewer.ScrollToTop();
+        HideGuideImagePopup();
+    }
+
+    private void GuideStep_MouseEnter(object sender, MouseEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: GuideStepDisplay step } ||
+            !TryLoadGuideImage(step.ImageFileName))
+        {
+            HideGuideImagePopup();
+            return;
+        }
+
+        UpdateGuideImagePopupPosition(e);
+        GuideImagePopup.IsOpen = true;
+    }
+
+    private void GuideStep_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (GuideImagePopup.IsOpen)
+        {
+            UpdateGuideImagePopupPosition(e);
+        }
+    }
+
+    private void GuideStep_MouseLeave(object sender, MouseEventArgs e) => HideGuideImagePopup();
+
+    private bool TryLoadGuideImage(string fileName)
+    {
+        var uri = new Uri($"/Image/Guide/{fileName}", UriKind.Relative);
+        var resource = Application.GetResourceStream(uri);
+        if (resource is null)
+        {
+            return false;
+        }
+
+        using (resource.Stream)
+        {
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.StreamSource = resource.Stream;
+            image.EndInit();
+            image.Freeze();
+            GuidePopupImage.Source = image;
+        }
+        return true;
+    }
+
+    private void UpdateGuideImagePopupPosition(MouseEventArgs e)
+    {
+        var position = e.GetPosition(GuideRoot);
+        GuideImagePopup.HorizontalOffset = position.X + 18;
+        GuideImagePopup.VerticalOffset = position.Y + 18;
+    }
+
+    private void HideGuideImagePopup()
+    {
+        GuideImagePopup.IsOpen = false;
+        GuidePopupImage.Source = null;
     }
 
     private void OpenExternalLinkButton_Click(object sender, RoutedEventArgs e)

@@ -18,34 +18,6 @@ public partial class MainWindow
         FlushProfileAutoSave();
     }
 
-    private void CreateProfileButton_Click(object sender, RoutedEventArgs e)
-    {
-        FlushProfileAutoSave();
-        var dialog = new ProfileNameDialog(string.Empty) { Owner = this };
-        if (dialog.ShowDialog() != true)
-        {
-            SetStatus("Profile creation canceled.");
-            return;
-        }
-
-        var profileName = dialog.ProfileName;
-        if (_profileStore.Exists(profileName) && MessageBox.Show(
-                this,
-                L.F("profile.exists.confirm", profileName),
-                L.T("confirm.replace"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) != MessageBoxResult.Yes)
-        {
-            SetStatus("Profile creation canceled.");
-            return;
-        }
-
-        _selectedProfileName = profileName;
-        SaveActiveProfile(showStatus: true);
-        RefreshProfileList(profileName);
-        PersistActiveProfileName(profileName);
-    }
-
     private OverlayProfile BuildCurrentProfile(string profileName)
     {
         SaveCurrentSectionSettings();

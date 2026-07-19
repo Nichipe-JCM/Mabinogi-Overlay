@@ -118,7 +118,6 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0"
                                Margin="0,0,18,0"
@@ -131,8 +130,7 @@
                               MinWidth="180"
                               Height="36"
                               SelectionChanged="ProfileCombo_SelectionChanged"/>
-                    <Button x:Name="CreateProfileButton" Grid.Column="2" MinWidth="92" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Create" loc:Localize.ContentKey="profile.create" Click="CreateProfileButton_Click"/>
-                    <Button x:Name="LoadProfileButton" Grid.Column="3" MinWidth="92" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="LoadProfileButton_Click"/>
+                    <Button x:Name="LoadProfileButton" Grid.Column="2" MinWidth="92" Height="36" Padding="14,0" Margin="8,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="LoadProfileButton_Click"/>
                 </Grid>
             </Border>
 

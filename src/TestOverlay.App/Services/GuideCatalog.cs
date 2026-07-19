@@ -37,7 +37,9 @@ public static class GuideCatalog
             definition,
             L.T(definition.TitleKey),
             L.T(definition.SummaryKey),
-            definition.StepKeys.Select(L.T).ToArray(),
+            definition.StepKeys.Select((key, index) => new GuideStepDisplay(
+                L.T(key),
+                $"{definition.Id}-{index + 1:00}.png")).ToArray(),
             L.T(definition.TipKey),
             L.T(definition.NavigationLabelKey))).ToArray();
 

@@ -1063,13 +1063,25 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog() != true)
         {
-            if (dialog.ActiveProfileRenamed)
+            if (dialog.ActiveProfileDeleted)
+            {
+                RefreshProfileList(dialog.ActiveProfileName);
+                LoadSelectedProfile(allowDeferredQuickslots: true);
+                _log.Info($"Active profile deleted while settings were open. Replacement={dialog.ActiveProfileName}");
+            }
+            else if (dialog.ActiveProfileRenamed)
             {
                 RefreshProfileList(dialog.ActiveProfileName);
                 PersistActiveProfileName(dialog.ActiveProfileName);
                 _log.Info($"Active profile renamed while settings were open: {dialog.ActiveProfileName}");
             }
-            SetStatus("Settings canceled.");
+            else if (dialog.ProfileListChanged)
+            {
+                RefreshProfileList(ReadSelectedProfileName());
+            }
+            SetStatus(dialog.ProfileListChanged
+                ? L.T("profile.changes.applied")
+                : L.T("Settings canceled."));
             return;
         }
 
@@ -1095,7 +1107,8 @@ public partial class MainWindow : Window
                 SaveActiveProfile(showStatus: false);
             }
             RefreshProfileList(targetProfileName);
-            if (dialog.ProfileApplyRequested && !LoadSelectedProfile(allowDeferredQuickslots: true))
+            if ((dialog.ProfileApplyRequested || dialog.ActiveProfileDeleted) &&
+                !LoadSelectedProfile(allowDeferredQuickslots: true))
             {
                 return;
             }

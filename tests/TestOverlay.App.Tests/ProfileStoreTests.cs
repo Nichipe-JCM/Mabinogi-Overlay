@@ -116,6 +116,20 @@ public sealed class ProfileStoreTests : IDisposable
     }
 
     [Fact]
+    public void Delete_RemovesPrimaryAndBackupFromProfileList()
+    {
+        var store = new ProfileStore(_directory);
+        var profile = CreateValidProfile();
+        store.Save(profile, "remove-me");
+        store.Save(profile, "remove-me");
+
+        store.Delete("remove-me");
+
+        Assert.False(store.Exists("remove-me"));
+        Assert.DoesNotContain("remove-me", store.ListProfileNames());
+    }
+
+    [Fact]
     public void SaveAndLoad_RoundTripsRepresentativeWorkspaceState()
     {
         var store = new ProfileStore(_directory);
