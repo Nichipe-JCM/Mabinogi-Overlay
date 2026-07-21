@@ -221,7 +221,8 @@ public partial class LayoutEditorWindow : Window
             return;
         }
 
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ||
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
             if (!_selectedSlots.Add(slot))
             {
@@ -258,7 +259,8 @@ public partial class LayoutEditorWindow : Window
             return;
         }
 
-        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) &&
+            !Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
             _selectedSlots.Clear();
             UpdateSlotSelectionVisuals();

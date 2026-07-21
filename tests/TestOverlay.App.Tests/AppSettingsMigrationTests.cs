@@ -92,4 +92,38 @@ public sealed class AppSettingsMigrationTests
 
         Assert.True(settings.CompactModeEnabled);
     }
+
+    [Theory]
+    [InlineData(CaptureBackend.Wgc, true)]
+    [InlineData(CaptureBackend.DxgiDesktopDuplication, false)]
+    [InlineData(CaptureBackend.GdiBitBlt, false)]
+    public void SchemaThree_InfersAutomaticCaptureWithoutOverridingManualBackends(
+        CaptureBackend backend,
+        bool expectedAutomatic)
+    {
+        var settings = new AppSettings
+        {
+            SchemaVersion = 3,
+            CaptureBackend = backend
+        };
+
+        AppSettingsMigration.Apply(settings);
+
+        Assert.Equal(expectedAutomatic, settings.AutomaticCaptureSelection);
+        Assert.Equal(backend, settings.CaptureBackend);
+    }
+
+    [Fact]
+    public void SchemaThree_InvalidCloseBehavior_RecoversToAsk()
+    {
+        var settings = new AppSettings
+        {
+            SchemaVersion = 3,
+            CloseBehavior = (AppCloseBehavior)999
+        };
+
+        AppSettingsMigration.Apply(settings);
+
+        Assert.Equal(AppCloseBehavior.Ask, settings.CloseBehavior);
+    }
 }

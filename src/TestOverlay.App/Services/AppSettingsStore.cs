@@ -59,6 +59,14 @@ public sealed class AppSettingsStore
         settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
         settings.ActiveProfileName = ProfileStore.NormalizeProfileName(settings.ActiveProfileName);
         settings.Language = LocalizationService.NormalizeLanguage(settings.Language);
+        if (!Enum.IsDefined(settings.CloseBehavior))
+        {
+            settings.CloseBehavior = AppCloseBehavior.Ask;
+        }
+        if (settings.AutomaticCaptureSelection)
+        {
+            settings.CaptureBackend = CaptureBackend.Wgc;
+        }
         var requestedRenderMode = settings.AutomaticRendererSelection
             ? RuntimeConfigurationPolicy.ResolveAutomaticRenderer(settings.CaptureBackend)
             : settings.OverlayRenderMode;

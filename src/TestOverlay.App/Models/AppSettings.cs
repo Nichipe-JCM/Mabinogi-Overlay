@@ -12,6 +12,8 @@ public sealed class AppSettings
 
     public bool AutomaticRendererSelection { get; set; } = true;
 
+    public bool AutomaticCaptureSelection { get; set; } = true;
+
     public CaptureBackend CaptureBackend { get; set; } = CaptureBackend.Wgc;
 
     public string Language { get; set; } = TestOverlay.App.Services.LocalizationService.Korean;
@@ -19,5 +21,7 @@ public sealed class AppSettings
     public bool CompactModeEnabled { get; set; }
 
     public bool BuffIconsOnly { get; set; }
+
+    public AppCloseBehavior CloseBehavior { get; set; } = AppCloseBehavior.Ask;
 }
 

@@ -23,8 +23,10 @@ public partial class SettingsWindow : Window
         string defaultProfileDirectory,
         OverlayRenderMode selectedRenderMode,
         bool automaticRendererSelection,
+        bool automaticCaptureSelection,
         CaptureBackend selectedCaptureBackend,
         string selectedLanguage,
+        AppCloseBehavior closeBehavior,
         string activeProfileName,
         string logPath,
         DateTimeOffset logSessionStartedAt)
@@ -57,8 +59,10 @@ public partial class SettingsWindow : Window
         };
         CaptureBackendCombo.ItemsSource = captureBackends;
         SelectCaptureBackend(selectedCaptureBackend);
+        AutomaticCaptureCheckBox.IsChecked = automaticCaptureSelection;
         NormalizeRuntimeSelection();
         AutomaticRendererCheckBox.Click += (_, _) => NormalizeRuntimeSelection();
+        AutomaticCaptureCheckBox.Click += (_, _) => NormalizeRuntimeSelection();
         RenderModeCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection();
         CaptureBackendCombo.SelectionChanged += (_, _) => NormalizeRuntimeSelection();
 
@@ -69,6 +73,16 @@ public partial class SettingsWindow : Window
         };
         LanguageCombo.ItemsSource = languages;
         SelectLanguage(selectedLanguage);
+
+        CloseBehaviorCombo.ItemsSource = new List<CloseBehaviorOption>
+        {
+            new(AppCloseBehavior.Ask, L.T("settings.close.behavior.ask")),
+            new(AppCloseBehavior.Exit, L.T("settings.close.behavior.exit")),
+            new(AppCloseBehavior.MinimizeToTray, L.T("settings.close.behavior.tray"))
+        };
+        SelectCloseBehavior(closeBehavior);
+        AboutVersionText.Text = L.F("settings.about.version.arg", typeof(SettingsWindow).Assembly.GetName().Version?.ToString(4) ?? "unknown");
+        SettingsSectionList.SelectedIndex = 0;
     }
 
     public string ProfileDirectory { get; private set; }
@@ -77,9 +91,13 @@ public partial class SettingsWindow : Window
 
     public bool AutomaticRendererSelection { get; private set; } = true;
 
+    public bool AutomaticCaptureSelection { get; private set; } = true;
+
     public CaptureBackend SelectedCaptureBackend { get; private set; }
 
     public string SelectedLanguage { get; private set; } = LocalizationService.Korean;
+
+    public AppCloseBehavior SelectedCloseBehavior { get; private set; } = AppCloseBehavior.Ask;
 
     public string ActiveProfileName => _activeProfileName;
 
@@ -92,6 +110,15 @@ public partial class SettingsWindow : Window
     public bool ActiveProfileDeleted { get; private set; }
 
     public bool ProfileListChanged { get; private set; }
+
+    private void SettingsSectionList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        var selectedTag = (SettingsSectionList.SelectedItem as System.Windows.Controls.ListBoxItem)?.Tag as string ?? "General";
+        GeneralSectionPanel.Visibility = selectedTag == "General" ? Visibility.Visible : Visibility.Collapsed;
+        ProfileSectionPanel.Visibility = selectedTag == "Profile" ? Visibility.Visible : Visibility.Collapsed;
+        RuntimeSectionPanel.Visibility = selectedTag == "Runtime" ? Visibility.Visible : Visibility.Collapsed;
+        AboutSectionPanel.Visibility = selectedTag == "About" ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
@@ -390,9 +417,11 @@ public partial class SettingsWindow : Window
         ProfileDirectoryBox.Text = _defaultProfileDirectory;
         RefreshManagedProfiles(_activeProfileName);
         AutomaticRendererCheckBox.IsChecked = true;
+        AutomaticCaptureCheckBox.IsChecked = true;
         SelectRenderMode(OverlayRenderMode.GpuDxgi);
         SelectCaptureBackend(CaptureBackend.Wgc);
         SelectLanguage(LocalizationService.Korean);
+        SelectCloseBehavior(AppCloseBehavior.Ask);
         NormalizeRuntimeSelection();
     }
 
@@ -411,12 +440,16 @@ public partial class SettingsWindow : Window
                 ? option.Mode
                 : OverlayRenderMode.CpuWpf;
             AutomaticRendererSelection = AutomaticRendererCheckBox.IsChecked == true;
+            AutomaticCaptureSelection = AutomaticCaptureCheckBox.IsChecked == true;
             SelectedCaptureBackend = CaptureBackendCombo.SelectedItem is CaptureBackendOption captureOption
                 ? captureOption.Backend
                 : CaptureBackend.Wgc;
             SelectedLanguage = LanguageCombo.SelectedItem is LanguageOption languageOption
                 ? languageOption.Language
                 : LocalizationService.Korean;
+            SelectedCloseBehavior = CloseBehaviorCombo.SelectedItem is CloseBehaviorOption closeBehaviorOption
+                ? closeBehaviorOption.Behavior
+                : AppCloseBehavior.Ask;
             DialogResult = true;
         }
         catch (Exception exception)
@@ -498,6 +531,21 @@ public partial class SettingsWindow : Window
         }
 
         var automatic = AutomaticRendererCheckBox.IsChecked == true;
+        var automaticCapture = AutomaticCaptureCheckBox.IsChecked == true;
+        CaptureBackendCombo.IsEnabled = !automaticCapture;
+        if (automaticCapture && captureBackend != CaptureBackend.Wgc)
+        {
+            _isNormalizingRuntimeSelection = true;
+            try
+            {
+                SelectCaptureBackend(CaptureBackend.Wgc);
+                captureBackend = CaptureBackend.Wgc;
+            }
+            finally
+            {
+                _isNormalizingRuntimeSelection = false;
+            }
+        }
         RenderModeCombo.IsEnabled = !automatic;
         if (!automatic &&
             renderMode == OverlayRenderMode.GpuDxgi &&
@@ -567,10 +615,19 @@ public partial class SettingsWindow : Window
             ?? LanguageCombo.Items.OfType<LanguageOption>().FirstOrDefault();
     }
 
+    private void SelectCloseBehavior(AppCloseBehavior behavior)
+    {
+        CloseBehaviorCombo.SelectedItem = CloseBehaviorCombo.Items.OfType<CloseBehaviorOption>()
+            .FirstOrDefault(option => option.Behavior == behavior)
+            ?? CloseBehaviorCombo.Items.OfType<CloseBehaviorOption>().FirstOrDefault();
+    }
+
     private sealed record RenderModeOption(OverlayRenderMode Mode, string Label);
 
     private sealed record CaptureBackendOption(CaptureBackend Backend, string Label);
 
     private sealed record LanguageOption(string Language, string Label);
+
+    private sealed record CloseBehaviorOption(AppCloseBehavior Behavior, string Label);
 }
 

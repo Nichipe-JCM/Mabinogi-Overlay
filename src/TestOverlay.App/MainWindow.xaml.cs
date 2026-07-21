@@ -223,6 +223,7 @@ public partial class MainWindow : Window
             _log.LogDirectory,
             $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         InitializeComponent();
+        InitializeTrayBehavior();
         InitializeCustomTimerFeature();
         BuffIconsOnlyCheckBox.IsChecked = _appSettings.BuffIconsOnly;
         ApplyBuffSelectionDisplayMode();
@@ -272,7 +273,7 @@ public partial class MainWindow : Window
         ErinTimerPanel.AttachLog(_log);
         ErinTimerPanel.NoticeRequested += ShowInAppNotice;
         Loaded += MainWindow_Loaded;
-        Closing += (_, _) => FlushProfileAutoSave();
+        Closing += MainWindow_Closing;
         Closed += (_, _) =>
         {
             LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
@@ -283,6 +284,7 @@ public partial class MainWindow : Window
             CloseCompactControlWindow();
             StopOverlay(setStatus: false);
             _overlayRuntime.Dispose();
+            DisposeTrayBehavior();
         };
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
         CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
@@ -293,6 +295,7 @@ public partial class MainWindow : Window
         UpdateLayoutSummary();
         UpdateMonitorControlAvailability();
         RefreshMonitorAlertSettingsControls();
+        RefreshTrayMenuText();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -340,6 +343,7 @@ public partial class MainWindow : Window
         }
         UpdateMonitorDetectionButtonPresentation();
         RefreshMonitorAlertSettingsControls();
+        RefreshTrayMenuText();
         UpdateMonitorTestButtonPresentation();
 
         if (!string.IsNullOrEmpty(_lastStatusMessage) && StatusText is not null)
@@ -348,7 +352,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private CaptureBackend CurrentCaptureBackend => _appSettings.CaptureBackend;
+    private CaptureBackend CurrentCaptureBackend => _appSettings.AutomaticCaptureSelection
+        ? CaptureBackend.Wgc
+        : _appSettings.CaptureBackend;
 
     private void WindowCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -1053,8 +1059,10 @@ public partial class MainWindow : Window
             _settingsStore.DefaultProfileDirectory,
             _appSettings.OverlayRenderMode,
             _appSettings.AutomaticRendererSelection,
+            _appSettings.AutomaticCaptureSelection,
             _appSettings.CaptureBackend,
             _appSettings.Language,
+            _appSettings.CloseBehavior,
             ReadSelectedProfileName(),
             _log.LogPath,
             _log.SessionStartedAt)
@@ -1093,8 +1101,10 @@ public partial class MainWindow : Window
             _appSettings.ProfileDirectory = directory;
             _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
             _appSettings.AutomaticRendererSelection = dialog.AutomaticRendererSelection;
+            _appSettings.AutomaticCaptureSelection = dialog.AutomaticCaptureSelection;
             _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
             _appSettings.Language = LocalizationService.NormalizeLanguage(dialog.SelectedLanguage);
+            _appSettings.CloseBehavior = dialog.SelectedCloseBehavior;
             LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
@@ -1117,7 +1127,9 @@ public partial class MainWindow : Window
             SetWindowStatusText(BuildWindowStatusText());
             _log.Info(
                 $"Settings saved: profileDirectory={directory}, renderMode={_appSettings.OverlayRenderMode}, " +
-                $"automaticRenderer={_appSettings.AutomaticRendererSelection}, captureBackend={_appSettings.CaptureBackend}");
+                $"automaticRenderer={_appSettings.AutomaticRendererSelection}, " +
+                $"automaticCapture={_appSettings.AutomaticCaptureSelection}, captureBackend={CurrentCaptureBackend}, " +
+                $"closeBehavior={_appSettings.CloseBehavior}");
         }
         catch (Exception exception)
         {
@@ -1136,7 +1148,7 @@ public partial class MainWindow : Window
             "Settings saved: {0}, renderer={1}, capture={2}",
             _profileStore.ProfileDirectory,
             rendererStatus,
-            L.T(CaptureBackendLabel(_appSettings.CaptureBackend))));
+            L.T(CaptureBackendLabel(CurrentCaptureBackend))));
     }
 
     private void DebugTabToggle_Click(object sender, RoutedEventArgs e) =>

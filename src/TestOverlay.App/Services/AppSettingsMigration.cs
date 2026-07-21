@@ -4,7 +4,7 @@ namespace TestOverlay.App.Services;
 
 public static class AppSettingsMigration
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     public static void Apply(AppSettings settings)
     {
@@ -32,6 +32,15 @@ public static class AppSettingsMigration
         if (settings.SchemaVersion < 3 && string.IsNullOrWhiteSpace(settings.ActiveProfileName))
         {
             settings.ActiveProfileName = "default";
+        }
+
+        if (settings.SchemaVersion < 4)
+        {
+            settings.AutomaticCaptureSelection = settings.CaptureBackend == CaptureBackend.Wgc;
+            if (!Enum.IsDefined(settings.CloseBehavior))
+            {
+                settings.CloseBehavior = AppCloseBehavior.Ask;
+            }
         }
 
         settings.SchemaVersion = CurrentSchemaVersion;
