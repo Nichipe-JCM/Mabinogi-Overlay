@@ -11,20 +11,25 @@ public partial class MainWindow
 {
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ToolStripMenuItem? _trayOpenMenuItem;
+    private Forms.ToolStripMenuItem? _trayOverlayMenuItem;
     private Forms.ToolStripMenuItem? _trayExitMenuItem;
     private bool _isAppExitRequested;
 
     private void InitializeTrayBehavior()
     {
         _trayOpenMenuItem = new Forms.ToolStripMenuItem();
+        _trayOverlayMenuItem = new Forms.ToolStripMenuItem();
         _trayExitMenuItem = new Forms.ToolStripMenuItem();
         _trayOpenMenuItem.Click += (_, _) => Dispatcher.BeginInvoke(RestoreFromTray);
+        _trayOverlayMenuItem.Click += (_, _) => Dispatcher.BeginInvoke(ToggleOverlayFromTrayAsync);
         _trayExitMenuItem.Click += (_, _) => Dispatcher.BeginInvoke(ExitFromTray);
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add(_trayOpenMenuItem);
+        menu.Items.Add(_trayOverlayMenuItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(_trayExitMenuItem);
+        menu.Opening += (_, _) => RefreshTrayMenuText();
 
         _trayIcon = new Forms.NotifyIcon
         {
@@ -132,6 +137,20 @@ public partial class MainWindow
         Close();
     }
 
+    private async void ToggleOverlayFromTrayAsync()
+    {
+        if (_overlayRuntime.IsRunning)
+        {
+            StopOverlay();
+        }
+        else
+        {
+            await StartOverlayAsync();
+        }
+
+        RefreshTrayMenuText();
+    }
+
     private void SaveCloseBehaviorPreference()
     {
         try
@@ -153,6 +172,12 @@ public partial class MainWindow
         if (_trayExitMenuItem is not null)
         {
             _trayExitMenuItem.Text = L.T("tray.exit");
+        }
+        if (_trayOverlayMenuItem is not null)
+        {
+            _trayOverlayMenuItem.Text = _overlayRuntime.IsRunning
+                ? L.T("tray.overlay.stop")
+                : L.T("tray.overlay.start");
         }
     }
 

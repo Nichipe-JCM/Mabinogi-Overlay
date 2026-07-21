@@ -612,3 +612,5 @@ settings.about.placeholder = 개발자 및 프로젝트 정보가 이곳에 추�
 settings.about.version.arg = 버전 {0}
 tray.open = Mabinogi Overlay 열기
 tray.exit = 앱 종료
+tray.overlay.start = 오버레이 실행
+tray.overlay.stop = 오버레이 중지

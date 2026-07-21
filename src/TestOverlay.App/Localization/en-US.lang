@@ -612,3 +612,5 @@ settings.about.placeholder = Developer and project information will be added her
 settings.about.version.arg = Version {0}
 tray.open = Open Mabinogi Overlay
 tray.exit = Exit app
+tray.overlay.start = Start overlay
+tray.overlay.stop = Stop overlay
