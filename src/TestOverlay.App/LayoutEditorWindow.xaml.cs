@@ -19,6 +19,7 @@ public partial class LayoutEditorWindow : Window
     private readonly Dictionary<OverlaySlot, Size> _sourceSizes = new();
     private readonly Stack<LayoutSnapshot> _undoStack = new();
     private readonly Stack<LayoutSnapshot> _redoStack = new();
+    private readonly Dictionary<Slider, LayoutSnapshot> _sliderDragSnapshots = new();
     private readonly List<WindowStateSnapshot> _placementPreviewWindowStates = new();
     private static readonly int[] FpsOptions = [30, 60, 120, 144];
     private Image? _draggingImage;
@@ -89,7 +90,7 @@ public partial class LayoutEditorWindow : Window
                 return;
             }
 
-            var before = CaptureLayoutSnapshot();
+            var before = CaptureSnapshotUnlessSliderIsDragging(SlotScaleSlider);
             ResizeSlotsToScale(SlotScaleSlider.Value);
             PushUndoIfChanged(before);
         };
@@ -131,12 +132,14 @@ public partial class LayoutEditorWindow : Window
                 return;
             }
 
-            var before = CaptureLayoutSnapshot();
+            var before = CaptureSnapshotUnlessSliderIsDragging(SelectedSlotScaleSlider);
             ApplySelectedSlotScale(SelectedSlotScaleSlider.Value);
             PushUndoIfChanged(before);
         };
         WireDirectSliderInput(OpacitySlider);
         WireDirectSliderInput(SelectedOpacitySlider);
+        WireUndoableSliderDrag(SlotScaleSlider);
+        WireUndoableSliderDrag(SelectedSlotScaleSlider);
         PopulateControls();
         UpdateGridSizeText();
         RenderSlots();
@@ -495,10 +498,10 @@ public partial class LayoutEditorWindow : Window
 
     private void MoveSlot(OverlaySlot slot, double x, double y, bool snap)
     {
-        var targetX = snap ? Snap(x) : x;
-        var targetY = snap ? Snap(y) : y;
-        targetX = Math.Clamp(targetX, 0, Math.Max(0, EditorCanvas.Width - slot.OverlayRect.Width));
-        targetY = Math.Clamp(targetY, 0, Math.Max(0, EditorCanvas.Height - slot.OverlayRect.Height));
+        var maxX = Math.Max(0, EditorCanvas.Width - slot.OverlayRect.Width);
+        var maxY = Math.Max(0, EditorCanvas.Height - slot.OverlayRect.Height);
+        var targetX = ClampCoordinateToCanvas(x, maxX, snap);
+        var targetY = ClampCoordinateToCanvas(y, maxY, snap);
         slot.OverlayRect = new Rect(targetX, targetY, slot.OverlayRect.Width, slot.OverlayRect.Height);
 
         var image = _images.FirstOrDefault(pair => ReferenceEquals(pair.Value, slot)).Key;
@@ -688,9 +691,9 @@ public partial class LayoutEditorWindow : Window
                 slot.OverlayRect.Y,
                 Math.Max(1, sourceSize.Width * clampedScale),
                 Math.Max(1, sourceSize.Height * clampedScale));
+            MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
         }
 
-        ClampSlotsToCanvas();
         RenderSlots();
         UpdateOverlayPreview();
     }
@@ -802,10 +805,51 @@ public partial class LayoutEditorWindow : Window
         slider.Value = Math.Clamp(value, slider.Minimum, slider.Maximum);
     }
 
+    private void WireUndoableSliderDrag(Slider slider)
+    {
+        slider.PreviewMouseLeftButtonDown += (_, _) =>
+        {
+            if (slider.IsEnabled && !_sliderDragSnapshots.ContainsKey(slider))
+            {
+                _sliderDragSnapshots[slider] = CaptureLayoutSnapshot();
+            }
+        };
+        slider.PreviewMouseLeftButtonUp += (_, _) => CompleteUndoableSliderDrag(slider);
+        slider.LostMouseCapture += (_, _) => CompleteUndoableSliderDrag(slider);
+    }
+
+    private LayoutSnapshot? CaptureSnapshotUnlessSliderIsDragging(Slider slider) =>
+        _sliderDragSnapshots.ContainsKey(slider) ? null : CaptureLayoutSnapshot();
+
+    private void CompleteUndoableSliderDrag(Slider slider)
+    {
+        if (_sliderDragSnapshots.Remove(slider, out var before))
+        {
+            PushUndoIfChanged(before);
+        }
+    }
+
     private double Snap(double value)
     {
         var gridSize = ReadGridSize();
         return gridSize <= 1 ? value : Math.Round(value / gridSize) * gridSize;
+    }
+
+    private double ClampCoordinateToCanvas(double value, double maximum, bool snap)
+    {
+        if (!snap)
+        {
+            return Math.Clamp(value, 0, maximum);
+        }
+
+        var gridSize = ReadGridSize();
+        if (gridSize <= 1)
+        {
+            return Math.Clamp(value, 0, maximum);
+        }
+
+        var snappedMaximum = Math.Floor(maximum / gridSize) * gridSize;
+        return Math.Clamp(Snap(value), 0, snappedMaximum);
     }
 
     private double ReadGridSize() => Math.Clamp(GridSizeSlider.Value, 1, 64);
@@ -856,6 +900,7 @@ public partial class LayoutEditorWindow : Window
             var height = Math.Max(MinimumOverlaySlotSize, sourceSize.Height * scale);
             slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, width, height);
             slot.Scale = Math.Clamp(scale, 0.1, 10);
+            MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
         }
 
         ClampSlotsToCanvas();
@@ -895,12 +940,18 @@ public partial class LayoutEditorWindow : Window
         UpdateOverlayPreview();
     }
 
-    private void ClampSlotsToCanvas()
+    private void ClampSlotsToCanvas(bool snap = false)
     {
         foreach (var slot in _slots)
         {
-            var x = Math.Clamp(slot.OverlayRect.X, 0, Math.Max(0, EditorCanvas.Width - slot.OverlayRect.Width));
-            var y = Math.Clamp(slot.OverlayRect.Y, 0, Math.Max(0, EditorCanvas.Height - slot.OverlayRect.Height));
+            var x = ClampCoordinateToCanvas(
+                slot.OverlayRect.X,
+                Math.Max(0, EditorCanvas.Width - slot.OverlayRect.Width),
+                snap);
+            var y = ClampCoordinateToCanvas(
+                slot.OverlayRect.Y,
+                Math.Max(0, EditorCanvas.Height - slot.OverlayRect.Height),
+                snap);
             slot.OverlayRect = new Rect(x, y, slot.OverlayRect.Width, slot.OverlayRect.Height);
         }
     }
@@ -924,8 +975,13 @@ public partial class LayoutEditorWindow : Window
             AlertPreviewRows);
     }
 
-    private void PushUndoIfChanged(LayoutSnapshot before)
+    private void PushUndoIfChanged(LayoutSnapshot? before)
     {
+        if (before is null)
+        {
+            return;
+        }
+
         var after = CaptureLayoutSnapshot();
         if (SnapshotsEqual(before, after))
         {

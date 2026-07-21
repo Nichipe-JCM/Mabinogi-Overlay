@@ -10,6 +10,8 @@ namespace TestOverlay.App;
 public partial class OverlayPlacementPreviewWindow : Window
 {
     private const double ControlHeaderHeight = 34;
+    private const double PreviewBorderThickness = 2;
+    private const double MinimumOverlayWidth = 120;
     private const double MinimumOverlayHeight = 80;
     private readonly IReadOnlyList<OverlaySlot> _slots;
     private readonly Action<double, double, double, double> _placementChanged;
@@ -17,6 +19,8 @@ public partial class OverlayPlacementPreviewWindow : Window
     private readonly Action<OverlaySlot, double, double> _slotMoved;
     private readonly Action<OverlaySlot> _slotDragCompleted;
     private double _defaultSlotOpacity;
+    private double _canvasWidth;
+    private double _canvasHeight;
     private bool _isPositionEditingEnabled;
     private Image? _draggingImage;
     private OverlaySlot? _draggingSlot;
@@ -43,27 +47,26 @@ public partial class OverlayPlacementPreviewWindow : Window
         _slotMoved = slotMoved;
         _slotDragCompleted = slotDragCompleted;
         _defaultSlotOpacity = Math.Clamp(opacity, 0, 1);
+        _canvasWidth = Math.Max(MinimumOverlayWidth, width);
+        _canvasHeight = Math.Max(MinimumOverlayHeight, height);
         _isPositionEditingEnabled = isPositionEditingEnabled;
         PreviewCanvas.IsHitTestVisible = isPositionEditingEnabled;
-        Left = left;
-        Top = top - ControlHeaderHeight;
-        Width = Math.Max(MinWidth, width);
-        Height = Math.Max(MinHeight, height + ControlHeaderHeight);
+        Left = left - PreviewBorderThickness;
+        Top = top - ControlHeaderHeight - PreviewBorderThickness;
+        Width = Math.Max(MinimumOverlayWidth + (PreviewBorderThickness * 2), _canvasWidth + (PreviewBorderThickness * 2));
+        Height = Math.Max(MinHeight, _canvasHeight + ControlHeaderHeight + (PreviewBorderThickness * 2));
         Opacity = 1;
         RenderSlots();
         LocationChanged += (_, _) => NotifyPlacementChanged();
         SizeChanged += (_, _) =>
         {
             RenderSlots();
-            NotifyPlacementChanged();
         };
     }
 
     private void RenderSlots()
     {
         PreviewCanvas.Children.Clear();
-        PreviewCanvas.Width = Width;
-        PreviewCanvas.Height = Math.Max(MinimumOverlayHeight, Height - ControlHeaderHeight);
 
         foreach (var slot in _slots)
         {
@@ -172,8 +175,14 @@ public partial class OverlayPlacementPreviewWindow : Window
 
     private void ResizeThumb_DragDelta(object sender, DragDeltaEventArgs e)
     {
-        Width = Math.Max(MinWidth, Width + e.HorizontalChange);
-        Height = Math.Max(MinimumOverlayHeight + ControlHeaderHeight, Height + e.VerticalChange);
+        Width = Math.Max(MinimumOverlayWidth + (PreviewBorderThickness * 2), Width + e.HorizontalChange);
+        Height = Math.Max(
+            MinimumOverlayHeight + ControlHeaderHeight + (PreviewBorderThickness * 2),
+            Height + e.VerticalChange);
+        _canvasWidth = Math.Max(MinimumOverlayWidth, Width - (PreviewBorderThickness * 2));
+        _canvasHeight = Math.Max(
+            MinimumOverlayHeight,
+            Height - ControlHeaderHeight - (PreviewBorderThickness * 2));
         NotifyPlacementChanged();
     }
 
@@ -181,8 +190,8 @@ public partial class OverlayPlacementPreviewWindow : Window
 
     private void NotifyPlacementChanged() =>
         _placementChanged(
-            Math.Round(Left),
-            Math.Round(Top + ControlHeaderHeight),
-            Math.Round(Width),
-            Math.Round(Height - ControlHeaderHeight));
+            Math.Round(Left + PreviewBorderThickness),
+            Math.Round(Top + ControlHeaderHeight + PreviewBorderThickness),
+            Math.Round(_canvasWidth),
+            Math.Round(_canvasHeight));
 }
