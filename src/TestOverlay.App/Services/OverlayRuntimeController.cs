@@ -85,13 +85,20 @@ public sealed class OverlayRuntimeController : IDisposable
         {
             Stop();
             _options = options;
-            _hotkey = new HotkeyService();
+            var captureTarget = _captureSession.SelectedWindow;
+            _log.Info(
+                $"Hotkey runtime target: title={captureTarget?.Title ?? "none"}, " +
+                $"executable={captureTarget?.ProcessExecutableName ?? "none"}, " +
+                $"hwnd={(captureTarget is null ? "none" : $"0x{captureTarget.Handle.ToInt64():X}")}, " +
+                $"targetElevated={(captureTarget is null ? "unknown(no-target)" : ProcessPrivilegeInspector.DescribeWindowElevation(captureTarget.Handle))}.");
+            _hotkey = new HotkeyService(_log);
             if (!_hotkey.Register(
                     new WindowInteropHelper(owner).Handle,
                     StopHotkeyId,
                     hotkeyDefinition.Modifiers,
                     hotkeyDefinition.VirtualKey,
-                    HandleStopHotkey))
+                    HandleStopHotkey,
+                    $"overlay.stop:{hotkeyDefinition.DisplayText}"))
             {
                 _log.Info($"Stop hotkey registration failed: {hotkeyDefinition.DisplayText}");
                 Stop();
@@ -391,10 +398,20 @@ public sealed class OverlayRuntimeController : IDisposable
             var startId = CustomTimerHotkeyBaseId + index * 2;
             var cancelId = startId + 1;
             var handle = new WindowInteropHelper(owner).Handle;
-            if (!_hotkey!.Register(handle, startId, start.Modifiers, start.VirtualKey,
-                    () => CustomTimerStartRequested?.Invoke(timer.Id)) ||
-                !_hotkey.Register(handle, cancelId, cancel.Modifiers, cancel.VirtualKey,
-                    () => CustomTimerCancelRequested?.Invoke(timer.Id)))
+            if (!_hotkey!.Register(
+                    handle,
+                    startId,
+                    start.Modifiers,
+                    start.VirtualKey,
+                    () => CustomTimerStartRequested?.Invoke(timer.Id),
+                    $"custom.timer.start:id={timer.Id},key={start.DisplayText}") ||
+                !_hotkey.Register(
+                    handle,
+                    cancelId,
+                    cancel.Modifiers,
+                    cancel.VirtualKey,
+                    () => CustomTimerCancelRequested?.Invoke(timer.Id),
+                    $"custom.timer.cancel:id={timer.Id},key={cancel.DisplayText}"))
             {
                 return new(
                     OverlayRuntimeStartStatus.CustomTimerHotkeyRegistrationFailed,
