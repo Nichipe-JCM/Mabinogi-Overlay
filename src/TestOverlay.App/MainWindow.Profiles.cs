@@ -132,10 +132,16 @@ public partial class MainWindow
         }
     }
 
-    private bool LoadSelectedProfile(bool allowDeferredQuickslots = false)
+    private bool LoadSelectedProfile(bool allowDeferredQuickslots = false) =>
+        LoadProfileByName(ReadProfileComboName(), allowDeferredQuickslots, restorePreviousOnFailure: true);
+
+    private bool LoadProfileByName(
+        string profileName,
+        bool allowDeferredQuickslots,
+        bool restorePreviousOnFailure)
     {
         FlushProfileAutoSave();
-        var profileName = ReadProfileComboName();
+        var previousProfileName = ProfileStore.NormalizeProfileName(_appSettings.ActiveProfileName);
         OverlayProfile? profile;
         try
         {
@@ -167,6 +173,7 @@ public partial class MainWindow
         var deferLayout = _capturedImage is null && allowDeferredQuickslots;
         _profileLayoutLoadPendingCapture = deferLayout;
 
+        Exception? applyException = null;
         _isLoadingProfile = true;
         try
         {
@@ -410,16 +417,32 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            var path = _profileStore.GetProfilePath(profileName);
-            _log.Error($"Validated profile could not be applied: {path}.", exception);
-            SetStatus(L.F("profile.apply.failed.arg", path, exception.Message));
-            return false;
+            applyException = exception;
         }
         finally
         {
             _profileAutoSaveTimer.Stop();
             _isProfileDirty = false;
             _isLoadingProfile = false;
+        }
+
+        if (applyException is not null)
+        {
+            var path = _profileStore.GetProfilePath(profileName);
+            _log.Error($"Validated profile could not be applied: {path}.", applyException);
+            var restored = false;
+            if (restorePreviousOnFailure && _profileStore.Exists(previousProfileName))
+            {
+                _log.Info($"Attempting profile rollback after apply failure: previous={previousProfileName}.");
+                restored = LoadProfileByName(
+                    previousProfileName,
+                    allowDeferredQuickslots: true,
+                    restorePreviousOnFailure: false);
+                _log.Info($"Profile rollback result: previous={previousProfileName}, restored={restored}.");
+            }
+
+            SetStatus(L.F("profile.apply.failed.arg", path, applyException.Message));
+            return false;
         }
 
         return true;

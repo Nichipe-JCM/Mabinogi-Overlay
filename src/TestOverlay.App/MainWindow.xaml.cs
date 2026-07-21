@@ -40,11 +40,13 @@ public partial class MainWindow : Window
     private readonly ProfileSession _profileSession;
     private AppSettings _appSettings;
     private readonly AppLog _log;
+    private readonly bool _ownsLog;
     private readonly object _detectLogSync = new();
     private readonly string _detectSessionLogPath;
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private CancellationTokenSource _monitorRecognitionCancellation = new();
     private readonly OverlayWorkspaceState _workspace = new();
     private readonly CandidateWorkspace _candidateWorkspace;
     private ObservableCollection<SlotCandidate> _candidates => _workspace.Candidates;
@@ -194,6 +196,7 @@ public partial class MainWindow : Window
 
     public MainWindow(AppLog? log = null)
     {
+        _ownsLog = log is null;
         _log = log ?? new AppLog();
         _captureSession = new CaptureSessionCoordinator(_log);
         _overlayRuntime = new OverlayRuntimeController(_captureSession, _log);
@@ -283,8 +286,13 @@ public partial class MainWindow : Window
             CloseGuideWindow();
             CloseCompactControlWindow();
             StopOverlay(setStatus: false);
+            _monitorRecognitionCancellation.Dispose();
             _overlayRuntime.Dispose();
             DisposeTrayBehavior();
+            if (_ownsLog)
+            {
+                _log.Dispose();
+            }
         };
         Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
         CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
@@ -1272,7 +1280,7 @@ public partial class MainWindow : Window
         _monitorRecognitionRetryPolicy.Reset();
         _pendingInitialBuffMinuteValidation.Clear();
         ResetTuairimPercentRecognitionState();
-        _monitorValueRecognitionGeneration++;
+        AdvanceMonitorRecognitionGeneration();
         _internalTimerOverlayWindow?.Close();
         _internalTimerOverlayWindow = null;
         UpdateMonitorControlAvailability();

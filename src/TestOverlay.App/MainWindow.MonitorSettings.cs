@@ -20,7 +20,7 @@ public partial class MainWindow
         BuffMonitorEnabledCheckBox.IsChecked = enabled;
         if (changed)
         {
-            _monitorValueRecognitionGeneration++;
+            AdvanceMonitorRecognitionGeneration();
             _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
         }
         if (!enabled && _monitorDetectionMode == MonitorDetectionMode.BuffWindow)
@@ -58,7 +58,7 @@ public partial class MainWindow
         TuairimMonitorEnabledCheckBox.IsChecked = enabled;
         if (changed)
         {
-            _monitorValueRecognitionGeneration++;
+            AdvanceMonitorRecognitionGeneration();
             _nextMonitorValueRecognitionAt = DateTimeOffset.MinValue;
         }
         if (!enabled && _monitorDetectionMode == MonitorDetectionMode.Tuairim)
@@ -130,7 +130,7 @@ public partial class MainWindow
         _monitorTestPreviousLayoutCanvasHeight = _layoutCanvasHeight;
         _monitorTestMode = true;
         _monitorTestScenario = scenario;
-        _monitorValueRecognitionGeneration++;
+        AdvanceMonitorRecognitionGeneration();
         SetMonitorDetectionMode(MonitorDetectionMode.None);
 
         _buffMonitorEnabled = true;
@@ -177,7 +177,7 @@ public partial class MainWindow
     {
         _monitorTestMode = false;
         _monitorTestScenario = 0;
-        _monitorValueRecognitionGeneration++;
+        AdvanceMonitorRecognitionGeneration();
         _internalBuffTimers.Clear();
         ResetTuairimPercentRecognitionState();
         _statusObservations.SetTuairimPercentForTest(0);

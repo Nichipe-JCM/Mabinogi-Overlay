@@ -13,6 +13,7 @@ public sealed class HotkeyService : IDisposable
     private readonly AppLog _log;
     private HwndSource? _source;
     private nint _windowHandle;
+    private bool _messagePathObserved;
     private readonly Dictionary<int, Action> _callbacks = [];
     private readonly Dictionary<int, PolledHotkey> _polledHotkeys = [];
     private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromMilliseconds(25) };
@@ -119,6 +120,11 @@ public sealed class HotkeyService : IDisposable
     {
         if (msg == Win32Methods.WmHotkey && _callbacks.TryGetValue(wParam.ToInt32(), out var callback))
         {
+            if (!_messagePathObserved)
+            {
+                _messagePathObserved = true;
+                _log.Info("WM_HOTKEY delivery confirmed; periodic key-state polling disabled for this session.");
+            }
             InvokeCallback(wParam.ToInt32(), callback, "WM_HOTKEY");
             handled = true;
         }
@@ -128,6 +134,11 @@ public sealed class HotkeyService : IDisposable
 
     private void PollTimer_Tick(object? sender, EventArgs e)
     {
+        if (_messagePathObserved)
+        {
+            return;
+        }
+
         foreach (var (id, hotkey) in _polledHotkeys)
         {
             var isDown = IsDown(hotkey.VirtualKey) && ModifiersAreDown(hotkey.Modifiers);

@@ -4,6 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using TestOverlay.App.Models;
+using TestOverlay.App.Services;
 
 namespace TestOverlay.App;
 
@@ -47,14 +48,23 @@ public partial class OverlayPlacementPreviewWindow : Window
         _slotMoved = slotMoved;
         _slotDragCompleted = slotDragCompleted;
         _defaultSlotOpacity = Math.Clamp(opacity, 0, 1);
-        _canvasWidth = Math.Max(MinimumOverlayWidth, width);
-        _canvasHeight = Math.Max(MinimumOverlayHeight, height);
+        var windowBounds = OverlayLayoutGeometry.CreatePreviewWindowBounds(
+            left,
+            top,
+            width,
+            height,
+            ControlHeaderHeight,
+            PreviewBorderThickness,
+            MinimumOverlayWidth,
+            MinimumOverlayHeight);
+        _canvasWidth = windowBounds.Width - (PreviewBorderThickness * 2);
+        _canvasHeight = windowBounds.Height - ControlHeaderHeight - (PreviewBorderThickness * 2);
         _isPositionEditingEnabled = isPositionEditingEnabled;
         PreviewCanvas.IsHitTestVisible = isPositionEditingEnabled;
-        Left = left - PreviewBorderThickness;
-        Top = top - ControlHeaderHeight - PreviewBorderThickness;
-        Width = Math.Max(MinimumOverlayWidth + (PreviewBorderThickness * 2), _canvasWidth + (PreviewBorderThickness * 2));
-        Height = Math.Max(MinHeight, _canvasHeight + ControlHeaderHeight + (PreviewBorderThickness * 2));
+        Left = windowBounds.X;
+        Top = windowBounds.Y;
+        Width = windowBounds.Width;
+        Height = windowBounds.Height;
         Opacity = 1;
         RenderSlots();
         LocationChanged += (_, _) => NotifyPlacementChanged();
@@ -179,19 +189,37 @@ public partial class OverlayPlacementPreviewWindow : Window
         Height = Math.Max(
             MinimumOverlayHeight + ControlHeaderHeight + (PreviewBorderThickness * 2),
             Height + e.VerticalChange);
-        _canvasWidth = Math.Max(MinimumOverlayWidth, Width - (PreviewBorderThickness * 2));
-        _canvasHeight = Math.Max(
-            MinimumOverlayHeight,
-            Height - ControlHeaderHeight - (PreviewBorderThickness * 2));
+        var canvasBounds = OverlayLayoutGeometry.ReadCanvasBounds(
+            Left,
+            Top,
+            Width,
+            Height,
+            ControlHeaderHeight,
+            PreviewBorderThickness,
+            MinimumOverlayWidth,
+            MinimumOverlayHeight);
+        _canvasWidth = canvasBounds.Width;
+        _canvasHeight = canvasBounds.Height;
         NotifyPlacementChanged();
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
-    private void NotifyPlacementChanged() =>
+    private void NotifyPlacementChanged()
+    {
+        var canvasBounds = OverlayLayoutGeometry.ReadCanvasBounds(
+            Left,
+            Top,
+            _canvasWidth + (PreviewBorderThickness * 2),
+            _canvasHeight + ControlHeaderHeight + (PreviewBorderThickness * 2),
+            ControlHeaderHeight,
+            PreviewBorderThickness,
+            MinimumOverlayWidth,
+            MinimumOverlayHeight);
         _placementChanged(
-            Math.Round(Left + PreviewBorderThickness),
-            Math.Round(Top + ControlHeaderHeight + PreviewBorderThickness),
-            Math.Round(_canvasWidth),
-            Math.Round(_canvasHeight));
+            Math.Round(canvasBounds.X),
+            Math.Round(canvasBounds.Y),
+            Math.Round(canvasBounds.Width),
+            Math.Round(canvasBounds.Height));
+    }
 }

@@ -32,6 +32,7 @@ public partial class BenchmarkWindow : Window
     public BenchmarkWindow()
     {
         InitializeComponent();
+        Closed += (_, _) => _log.Dispose();
     }
 
     private async void StartButton_Click(object sender, RoutedEventArgs e)

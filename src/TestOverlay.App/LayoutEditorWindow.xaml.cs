@@ -17,8 +17,7 @@ public partial class LayoutEditorWindow : Window
     private readonly HashSet<OverlaySlot> _selectedSlots = new();
     private readonly Dictionary<OverlaySlot, Rect> _slotDragOrigins = new();
     private readonly Dictionary<OverlaySlot, Size> _sourceSizes = new();
-    private readonly Stack<LayoutSnapshot> _undoStack = new();
-    private readonly Stack<LayoutSnapshot> _redoStack = new();
+    private readonly LayoutEditHistory<LayoutSnapshot> _editHistory = new();
     private readonly Dictionary<Slider, LayoutSnapshot> _sliderDragSnapshots = new();
     private readonly List<WindowStateSnapshot> _placementPreviewWindowStates = new();
     private static readonly int[] FpsOptions = [30, 60, 120, 144];
@@ -686,11 +685,10 @@ public partial class LayoutEditorWindow : Window
             var sourceSize = _sourceSizes.TryGetValue(slot, out var savedSize)
                 ? savedSize
                 : new Size(Math.Max(1, slot.Source.SourceRect.Width), Math.Max(1, slot.Source.SourceRect.Height));
-            slot.OverlayRect = new Rect(
-                slot.OverlayRect.X,
-                slot.OverlayRect.Y,
-                Math.Max(1, sourceSize.Width * clampedScale),
-                Math.Max(1, sourceSize.Height * clampedScale));
+            slot.OverlayRect = OverlayLayoutGeometry.ResizeSlotFromTopLeft(
+                slot.OverlayRect,
+                sourceSize,
+                clampedScale);
             MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
         }
 
@@ -842,14 +840,7 @@ public partial class LayoutEditorWindow : Window
             return Math.Clamp(value, 0, maximum);
         }
 
-        var gridSize = ReadGridSize();
-        if (gridSize <= 1)
-        {
-            return Math.Clamp(value, 0, maximum);
-        }
-
-        var snappedMaximum = Math.Floor(maximum / gridSize) * gridSize;
-        return Math.Clamp(Snap(value), 0, snappedMaximum);
+        return OverlayLayoutGeometry.ClampSnappedCoordinate(value, maximum, ReadGridSize());
     }
 
     private double ReadGridSize() => Math.Clamp(GridSizeSlider.Value, 1, 64);
@@ -896,9 +887,10 @@ public partial class LayoutEditorWindow : Window
             var sourceSize = _sourceSizes.TryGetValue(slot, out var savedSize)
                 ? savedSize
                 : new Size(Math.Max(1, slot.Source.SourceRect.Width), Math.Max(1, slot.Source.SourceRect.Height));
-            var width = Math.Max(MinimumOverlaySlotSize, sourceSize.Width * scale);
-            var height = Math.Max(MinimumOverlaySlotSize, sourceSize.Height * scale);
-            slot.OverlayRect = new Rect(slot.OverlayRect.X, slot.OverlayRect.Y, width, height);
+            slot.OverlayRect = OverlayLayoutGeometry.ResizeSlotFromTopLeft(
+                slot.OverlayRect,
+                sourceSize,
+                scale);
             slot.Scale = Math.Clamp(scale, 0.1, 10);
             MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
         }
@@ -982,40 +974,25 @@ public partial class LayoutEditorWindow : Window
             return;
         }
 
-        var after = CaptureLayoutSnapshot();
-        if (SnapshotsEqual(before, after))
-        {
-            return;
-        }
-
-        _undoStack.Push(before);
-        _redoStack.Clear();
+        _editHistory.Record(before, CaptureLayoutSnapshot(), SnapshotsEqual);
     }
 
     private void UndoLayoutEdit()
     {
-        if (_undoStack.Count == 0)
-        {
-            return;
-        }
-
         var current = CaptureLayoutSnapshot();
-        var previous = _undoStack.Pop();
-        _redoStack.Push(current);
-        RestoreLayoutSnapshot(previous);
+        if (_editHistory.TryUndo(current, out var previous))
+        {
+            RestoreLayoutSnapshot(previous);
+        }
     }
 
     private void RedoLayoutEdit()
     {
-        if (_redoStack.Count == 0)
-        {
-            return;
-        }
-
         var current = CaptureLayoutSnapshot();
-        var next = _redoStack.Pop();
-        _undoStack.Push(current);
-        RestoreLayoutSnapshot(next);
+        if (_editHistory.TryRedo(current, out var next))
+        {
+            RestoreLayoutSnapshot(next);
+        }
     }
 
     private void RestoreLayoutSnapshot(LayoutSnapshot snapshot)

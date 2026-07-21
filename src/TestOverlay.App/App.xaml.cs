@@ -75,4 +75,11 @@ public partial class App : Application
             Shutdown(-1);
         }
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _log.Info("Application exiting.");
+        _log.Dispose();
+        base.OnExit(e);
+    }
 }

@@ -19,7 +19,8 @@ public sealed partial class MonitorValueRecognitionService
     public async Task<BatchBuffTimeReadResult> ReadBuffTimesAsync(
         BitmapSource source,
         Rect monitorRoi,
-        IReadOnlyList<BuffIconMatch> activeAnchors)
+        IReadOnlyList<BuffIconMatch> activeAnchors,
+        CancellationToken cancellationToken = default)
     {
         var columnBounds = CreateBuffTimeColumnBounds(source, monitorRoi, activeAnchors);
         if (columnBounds.IsEmpty || activeAnchors.Count == 0)
@@ -28,7 +29,7 @@ public sealed partial class MonitorValueRecognitionService
         }
 
         var crop = Crop(source, columnBounds);
-        var layout = await RecognizeLayoutAsync(crop).ConfigureAwait(false);
+        var layout = await RecognizeLayoutAsync(crop, cancellationToken).ConfigureAwait(false);
         var lines = layout.Lines
             .Select(line => line with
             {
@@ -46,7 +47,8 @@ public sealed partial class MonitorValueRecognitionService
     public async Task<BuffTimeReadResult> ReadBuffTimeAsync(
         BitmapSource source,
         Rect monitorRoi,
-        Rect iconBounds)
+        Rect iconBounds,
+        CancellationToken cancellationToken = default)
     {
         var rowBounds = CreateBuffTimeBounds(source, monitorRoi, iconBounds);
         if (rowBounds.IsEmpty)
@@ -55,14 +57,15 @@ public sealed partial class MonitorValueRecognitionService
         }
 
         var crop = Crop(source, rowBounds);
-        var (text, seconds) = await RecognizeCandidatesAsync(crop, ParseDurationSeconds).ConfigureAwait(false);
+        var (text, seconds) = await RecognizeCandidatesAsync(crop, ParseDurationSeconds, cancellationToken).ConfigureAwait(false);
 
         return new BuffTimeReadResult(seconds, NormalizeText(text), rowBounds);
     }
 
     public async Task<TuairimPercentReadResult> ReadTuairimPercentAsync(
         BitmapSource source,
-        Rect anchorBounds)
+        Rect anchorBounds,
+        CancellationToken cancellationToken = default)
     {
         var valueBounds = CreateTuairimPercentBounds(source, anchorBounds);
         if (valueBounds.IsEmpty)
@@ -71,7 +74,7 @@ public sealed partial class MonitorValueRecognitionService
         }
 
         var crop = Crop(source, valueBounds);
-        var (text, percent) = await RecognizeCandidatesAsync(crop, ParsePercent).ConfigureAwait(false);
+        var (text, percent) = await RecognizeCandidatesAsync(crop, ParsePercent, cancellationToken).ConfigureAwait(false);
 
         return new TuairimPercentReadResult(percent, NormalizeText(text), valueBounds);
     }
@@ -92,10 +95,11 @@ public sealed partial class MonitorValueRecognitionService
 
     private async Task<(string Text, int? Value)> RecognizeCandidatesAsync(
         BitmapSource crop,
-        Func<string?, int?> parser)
+        Func<string?, int?> parser,
+        CancellationToken cancellationToken)
     {
         var recognized = new List<string>();
-        var rawText = NormalizeText(await RecognizeAsync(crop).ConfigureAwait(false));
+        var rawText = NormalizeText(await RecognizeAsync(crop, cancellationToken).ConfigureAwait(false));
         if (!string.IsNullOrWhiteSpace(rawText))
         {
             recognized.Add(rawText);
@@ -109,8 +113,9 @@ public sealed partial class MonitorValueRecognitionService
 
         foreach (var invert in new[] { false, true })
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var candidate = CreateTextMask(crop, invert);
-            var text = NormalizeText(await RecognizeAsync(candidate).ConfigureAwait(false));
+            var text = NormalizeText(await RecognizeAsync(candidate, cancellationToken).ConfigureAwait(false));
             if (!string.IsNullOrWhiteSpace(text))
             {
                 recognized.Add(text);
@@ -204,11 +209,14 @@ public sealed partial class MonitorValueRecognitionService
             : null;
     }
 
-    private async Task<string> RecognizeAsync(BitmapSource source)
-        => (await RecognizeLayoutAsync(source).ConfigureAwait(false)).Text;
+    private async Task<string> RecognizeAsync(BitmapSource source, CancellationToken cancellationToken)
+        => (await RecognizeLayoutAsync(source, cancellationToken).ConfigureAwait(false)).Text;
 
-    private async Task<OcrLayoutResult> RecognizeLayoutAsync(BitmapSource source)
+    private async Task<OcrLayoutResult> RecognizeLayoutAsync(
+        BitmapSource source,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var maxDimension = Math.Max(source.PixelWidth, source.PixelHeight);
         var scale = Math.Clamp(2400 / Math.Max(1, maxDimension), 1, OcrScale);
         var padding = Math.Max(24, scale * 4);
@@ -218,14 +226,14 @@ public sealed partial class MonitorValueRecognitionService
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(scaled));
         using var output = stream.AsStreamForWrite();
         encoder.Save(output);
-        await output.FlushAsync().ConfigureAwait(false);
+        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
 
         stream.Seek(0);
-        var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
+        var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream).AsTask(cancellationToken);
         using var bitmap = await decoder.GetSoftwareBitmapAsync(
             BitmapPixelFormat.Bgra8,
-            BitmapAlphaMode.Premultiplied);
-        var result = await _engine.Value.RecognizeAsync(bitmap);
+            BitmapAlphaMode.Premultiplied).AsTask(cancellationToken);
+        var result = await _engine.Value.RecognizeAsync(bitmap).AsTask(cancellationToken);
         var lines = result.Lines
             .Select(line => CreateRecognizedLine(line, scale, padding, source.PixelWidth, source.PixelHeight))
             .Where(line => line is not null)
