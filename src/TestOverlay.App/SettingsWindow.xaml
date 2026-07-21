@@ -7,9 +7,9 @@
         Title="Settings"
         loc:Localize.TitleKey="Settings"
         Icon="/Image/AppIcon.ico"
-        Width="1080"
+        Width="920"
         Height="760"
-        MinWidth="860"
+        MinWidth="760"
         MinHeight="620"
         Background="{StaticResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
