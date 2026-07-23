@@ -445,6 +445,7 @@ monitor.buff.harvest.song = 풍년가
 monitor.buff.divine.link = 디바인 링크
 monitor.buff.condition.support = 상태 지원
 monitor.buff.purification.wave = 정화의 물결
+monitor.buff.hamjji = 햄찌
 monitor.buff.icons.only = 버프 아이콘만 표시
 layout.reset = 레이아웃 초기화
 layout.reset.confirm.title = 오버레이 레이아웃 초기화

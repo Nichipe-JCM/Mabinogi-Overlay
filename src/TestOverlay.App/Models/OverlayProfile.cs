@@ -179,6 +179,8 @@ public sealed class OverlayProfileBuffAnchor
 {
     public string NameKey { get; set; } = string.Empty;
 
+    public string TemplateId { get; set; } = string.Empty;
+
     public OverlayProfileRect Bounds { get; set; } = new();
 
     public double StructureScore { get; set; }

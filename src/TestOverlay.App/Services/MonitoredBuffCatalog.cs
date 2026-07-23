@@ -9,6 +9,7 @@ public static class MonitoredBuffCatalog
     public const string DivineLink = "monitor.buff.divine.link";
     public const string ConditionSupport = "monitor.buff.condition.support";
     public const string PurificationWave = "monitor.buff.purification.wave";
+    public const string Hamjji = "monitor.buff.hamjji";
 
     public static IReadOnlyList<string> MusicBuffNameKeys { get; } =
     [
@@ -22,7 +23,8 @@ public static class MonitoredBuffCatalog
     [
         DivineLink,
         ConditionSupport,
-        PurificationWave
+        PurificationWave,
+        Hamjji
     ];
 
     public static IReadOnlyList<string> AllBuffNameKeys { get; } =

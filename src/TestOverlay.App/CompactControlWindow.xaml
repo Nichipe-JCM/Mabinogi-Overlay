@@ -138,6 +138,10 @@
                                           Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
                                     <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/PurificationWaveOn.png"/><TextBlock Text="Purification Wave" loc:Localize.TextKey="monitor.buff.purification.wave"/><TextBlock x:Name="PurificationWaveDetectionStatusText" Margin="6,0,0,0" FontWeight="Bold"/></StackPanel>
                                 </CheckBox>
+                                <CheckBox x:Name="HamjjiBuffCheckBox" Tag="monitor.buff.hamjji" Margin="0,3"
+                                          Style="{StaticResource CandidateCheckBoxStyle}" Click="BuffCheckBox_Click">
+                                    <StackPanel Orientation="Horizontal"><Image Width="18" Height="18" Margin="0,0,7,0" Source="/Image/HamjjiOn.png"/><TextBlock Text="Hamjji" loc:Localize.TextKey="monitor.buff.hamjji"/><TextBlock x:Name="HamjjiDetectionStatusText" Margin="6,0,0,0" FontWeight="Bold"/></StackPanel>
+                                </CheckBox>
                             </StackPanel>
                         </Border>
                         <TextBlock x:Name="BuffConfigurationText" Margin="2,9,2,0" Style="{StaticResource MutedTextStyle}"/>

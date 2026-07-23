@@ -421,7 +421,7 @@ public partial class MainWindow
             90,
             100,
             settings.TuairimAlertPercent);
-        var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4, BuffAlertVolumeBox5, BuffAlertVolumeBox6, BuffAlertVolumeBox7 };
+        var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4, BuffAlertVolumeBox5, BuffAlertVolumeBox6, BuffAlertVolumeBox7, BuffAlertVolumeBox8 };
         for (var index = 0; index < volumeBoxes.Length; index++)
         {
             _alertAudio.SetBuffVolume(
@@ -458,11 +458,12 @@ public partial class MainWindow
             BuffAlertSoundRow5.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
             BuffAlertSoundRow6.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
             BuffAlertSoundRow7.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
+            BuffAlertSoundRow8.Visibility = individual ? Visibility.Visible : Visibility.Collapsed;
 
-            var pathBoxes = new[] { BuffAlertSoundPathBox1, BuffAlertSoundPathBox2, BuffAlertSoundPathBox3, BuffAlertSoundPathBox4, BuffAlertSoundPathBox5, BuffAlertSoundPathBox6, BuffAlertSoundPathBox7 };
-            var clearButtons = new[] { ClearBuffAlertSoundButton1, ClearBuffAlertSoundButton2, ClearBuffAlertSoundButton3, ClearBuffAlertSoundButton4, ClearBuffAlertSoundButton5, ClearBuffAlertSoundButton6, ClearBuffAlertSoundButton7 };
-            var testButtons = new[] { TestBuffAlertSoundButton1, TestBuffAlertSoundButton2, TestBuffAlertSoundButton3, TestBuffAlertSoundButton4, TestBuffAlertSoundButton5, TestBuffAlertSoundButton6, TestBuffAlertSoundButton7 };
-            var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4, BuffAlertVolumeBox5, BuffAlertVolumeBox6, BuffAlertVolumeBox7 };
+            var pathBoxes = new[] { BuffAlertSoundPathBox1, BuffAlertSoundPathBox2, BuffAlertSoundPathBox3, BuffAlertSoundPathBox4, BuffAlertSoundPathBox5, BuffAlertSoundPathBox6, BuffAlertSoundPathBox7, BuffAlertSoundPathBox8 };
+            var clearButtons = new[] { ClearBuffAlertSoundButton1, ClearBuffAlertSoundButton2, ClearBuffAlertSoundButton3, ClearBuffAlertSoundButton4, ClearBuffAlertSoundButton5, ClearBuffAlertSoundButton6, ClearBuffAlertSoundButton7, ClearBuffAlertSoundButton8 };
+            var testButtons = new[] { TestBuffAlertSoundButton1, TestBuffAlertSoundButton2, TestBuffAlertSoundButton3, TestBuffAlertSoundButton4, TestBuffAlertSoundButton5, TestBuffAlertSoundButton6, TestBuffAlertSoundButton7, TestBuffAlertSoundButton8 };
+            var volumeBoxes = new[] { BuffAlertVolumeBox1, BuffAlertVolumeBox2, BuffAlertVolumeBox3, BuffAlertVolumeBox4, BuffAlertVolumeBox5, BuffAlertVolumeBox6, BuffAlertVolumeBox7, BuffAlertVolumeBox8 };
             for (var index = 0; index < pathBoxes.Length; index++)
             {
                 var path = _alertAudio.GetBuffPath(index);
@@ -736,6 +737,7 @@ public partial class MainWindow
         DivineLinkBuffNameText.Visibility = visibility;
         ConditionSupportBuffNameText.Visibility = visibility;
         PurificationWaveBuffNameText.Visibility = visibility;
+        HamjjiBuffNameText.Visibility = visibility;
 
         foreach (var checkBox in BuffSelectionCheckBoxes())
         {
@@ -773,6 +775,7 @@ public partial class MainWindow
         yield return DivineLinkBuffCheckBox;
         yield return ConditionSupportBuffCheckBox;
         yield return PurificationWaveBuffCheckBox;
+        yield return HamjjiBuffCheckBox;
     }
 
     private void UpdateBuffSelectionCheckStates()
@@ -802,6 +805,7 @@ public partial class MainWindow
         MonitoredBuffCatalog.DivineLink => DivineLinkDetectionStatusText,
         MonitoredBuffCatalog.ConditionSupport => ConditionSupportDetectionStatusText,
         MonitoredBuffCatalog.PurificationWave => PurificationWaveDetectionStatusText,
+        MonitoredBuffCatalog.Hamjji => HamjjiDetectionStatusText,
         _ => null
     };
 

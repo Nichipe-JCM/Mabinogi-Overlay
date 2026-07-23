@@ -60,6 +60,7 @@ public partial class CompactControlWindow : Window
             ApplyBuffState(DivineLinkBuffCheckBox, DivineLinkDetectionStatusText, state, MonitoredBuffCatalog.DivineLink);
             ApplyBuffState(ConditionSupportBuffCheckBox, ConditionSupportDetectionStatusText, state, MonitoredBuffCatalog.ConditionSupport);
             ApplyBuffState(PurificationWaveBuffCheckBox, PurificationWaveDetectionStatusText, state, MonitoredBuffCatalog.PurificationWave);
+            ApplyBuffState(HamjjiBuffCheckBox, HamjjiDetectionStatusText, state, MonitoredBuffCatalog.Hamjji);
             BuffConfigurationText.Text = L.T(state.IsBuffMonitorConfigured
                 ? "compact.buff.configured"
                 : "compact.buff.not.configured");

@@ -17,6 +17,7 @@ public sealed class MonitoredBuffCatalogTests
         };
 
         Assert.True(MonitoredBuffCatalog.CanAddSelection(selected, MonitoredBuffCatalog.PurificationWave));
+        Assert.True(MonitoredBuffCatalog.CanAddSelection(selected, MonitoredBuffCatalog.Hamjji));
     }
 
     [Fact]
@@ -30,6 +31,7 @@ public sealed class MonitoredBuffCatalogTests
         };
 
         Assert.True(MonitoredBuffCatalog.CanAddSelection(selected, MonitoredBuffCatalog.BattleOverture));
+        Assert.True(MonitoredBuffCatalog.IsStatusBuff(MonitoredBuffCatalog.Hamjji));
     }
 
     [Fact]

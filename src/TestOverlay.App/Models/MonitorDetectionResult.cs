@@ -7,7 +7,8 @@ public sealed record BuffIconMatch(
     Rect Bounds,
     double StructureScore,
     bool IsActive,
-    double StateConfidence);
+    double StateConfidence,
+    string TemplateId = "");
 
 public sealed record BuffWindowDetectionResult(
     Rect Roi,

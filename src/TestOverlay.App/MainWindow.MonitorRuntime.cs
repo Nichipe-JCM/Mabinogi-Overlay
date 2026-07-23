@@ -253,14 +253,21 @@ public partial class MainWindow
                 }
                 foreach (var match in evaluatedMatches)
                 {
-                    _buffIconMatches[match.NameKey] = match;
+                    _buffIconMatches[BuffAnchorMatchResolver.AnchorKey(match)] = match;
                 }
 
                 var activeMatches = new List<BuffIconMatch>();
                 foreach (var nameKey in _selectedBuffNameKeys.ToArray())
                 {
-                    var match = evaluatedMatches.FirstOrDefault(candidate => candidate.NameKey == nameKey);
-                    var anchorState = BuffAnchorObservationClassifier.Classify(match);
+                    var expectedForBuff = _buffIconMatches.Values
+                        .Where(candidate => candidate.NameKey == nameKey)
+                        .ToArray();
+                    var observedForBuff = evaluatedMatches
+                        .Where(candidate => candidate.NameKey == nameKey)
+                        .ToArray();
+                    var anchorState = BuffAnchorMatchResolver.ClassifyLogicalState(
+                        expectedForBuff,
+                        observedForBuff);
                     if (!_statusObservations.ObserveBuffAnchorState(nameKey, anchorState, reason))
                     {
                         // Missing or low-confidence evidence does not change validation state.
@@ -268,12 +275,21 @@ public partial class MainWindow
                         continue;
                     }
 
-                    var activeMatch = match!;
+                    var activeMatch = BuffAnchorMatchResolver.SelectActiveMatch(observedForBuff);
+                    if (activeMatch is null)
+                    {
+                        continue;
+                    }
 
-                    var transitionedFromOff = previousMatches.TryGetValue(nameKey, out var previousMatch) &&
-                                              BuffAnchorObservationClassifier.Classify(previousMatch) ==
-                                              BuffAnchorObservationState.Inactive &&
-                                              _internalBuffTimers.All(timer => timer.NameKey != nameKey);
+                    var previousForBuff = previousMatches.Values
+                        .Where(candidate => candidate.NameKey == nameKey)
+                        .ToArray();
+                    var previousState = BuffAnchorMatchResolver.ClassifyLogicalState(
+                        previousForBuff,
+                        previousForBuff);
+                    var transitionedFromOff =
+                        previousState == BuffAnchorObservationState.Inactive &&
+                        _internalBuffTimers.All(timer => timer.NameKey != nameKey);
                     if (transitionedFromOff)
                     {
                         _pendingInitialBuffMinuteValidation.Add(nameKey);

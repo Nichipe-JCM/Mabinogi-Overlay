@@ -163,7 +163,7 @@ public partial class MainWindow
                 _buffIconMatches.Clear();
                 foreach (var match in result.Matches)
                 {
-                    _buffIconMatches[match.NameKey] = match;
+                    _buffIconMatches[BuffAnchorMatchResolver.AnchorKey(match)] = match;
                 }
 
                 ApplyRecognizedBuffs(result.Matches.Select(match => match.NameKey));
@@ -171,13 +171,17 @@ public partial class MainWindow
                 foreach (var match in result.Matches)
                 {
                     _log.Info(
-                        $"Buff template match: key={match.NameKey}, bounds={FormatRect(match.Bounds)}, " +
+                        $"Buff template match: key={match.NameKey}, template={match.TemplateId}, bounds={FormatRect(match.Bounds)}, " +
                         $"structure={match.StructureScore:0.0000}, active={match.IsActive}, stateConfidence={match.StateConfidence:0.0000}");
                 }
 
-                SetStatus(result.Matches.Count == 0
+                var logicalBuffCount = result.Matches
+                    .Select(match => match.NameKey)
+                    .Distinct(StringComparer.Ordinal)
+                    .Count();
+                SetStatus(logicalBuffCount == 0
                     ? "monitor.buff.detect.none"
-                    : L.F("monitor.buff.detect.result", result.Matches.Count));
+                    : L.F("monitor.buff.detect.result", logicalBuffCount));
             }
             else if (mode == MonitorDetectionMode.Tuairim)
             {

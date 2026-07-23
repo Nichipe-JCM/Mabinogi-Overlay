@@ -144,6 +144,7 @@ public sealed class ProfileStoreTests : IDisposable
         profile.BuffAnchors.Add(new OverlayProfileBuffAnchor
         {
             NameKey = "battlefield",
+            TemplateId = "primary-template",
             Bounds = new OverlayProfileRect { X = 18, Y = 27, Width = 18, Height = 18 },
             StructureScore = 0.91,
             IsActive = true,
@@ -220,6 +221,7 @@ public sealed class ProfileStoreTests : IDisposable
         Assert.Equal(10, loaded.BuffMonitorRoi!.X);
         var anchor = Assert.Single(loaded.BuffAnchors);
         Assert.Equal("battlefield", anchor.NameKey);
+        Assert.Equal("primary-template", anchor.TemplateId);
         Assert.Equal(18, anchor.Bounds.X);
         var customTimer = Assert.Single(loaded.CustomTimers);
         Assert.Equal("Mechanic", customTimer.Name);

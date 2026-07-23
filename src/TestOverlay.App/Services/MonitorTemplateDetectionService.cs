@@ -39,7 +39,8 @@ public sealed class MonitorTemplateDetectionService
                 new Rect(candidate.X, candidate.Y, candidate.Width, candidate.Height),
                 candidate.Score,
                 active,
-                stateConfidence));
+                stateConfidence,
+                descriptor.TemplateId));
         }
 
         return new BuffWindowDetectionResult(searchRoi, SelectAlignedBuffMatches(rawMatches));
@@ -70,11 +71,17 @@ public sealed class MonitorTemplateDetectionService
             new Int32Rect(left, top, right - left, bottom - top));
         cropped.Freeze();
         var image = PixelImage.FromBitmapSource(cropped);
-        var descriptors = _catalog.Value.Buffs.ToDictionary(descriptor => descriptor.NameKey, StringComparer.Ordinal);
         var results = new List<BuffIconMatch>();
         foreach (var anchor in anchorList)
         {
-            if (!descriptors.TryGetValue(anchor.NameKey, out var descriptor))
+            var descriptor = _catalog.Value.Buffs.FirstOrDefault(candidate =>
+                string.Equals(candidate.NameKey, anchor.NameKey, StringComparison.Ordinal) &&
+                string.Equals(candidate.TemplateId, anchor.TemplateId, StringComparison.Ordinal));
+            descriptor ??= string.IsNullOrWhiteSpace(anchor.TemplateId)
+                ? _catalog.Value.Buffs.FirstOrDefault(candidate =>
+                    string.Equals(candidate.NameKey, anchor.NameKey, StringComparison.Ordinal))
+                : null;
+            if (descriptor is null)
             {
                 continue;
             }
@@ -117,7 +124,8 @@ public sealed class MonitorTemplateDetectionService
                 new Rect(x + left, y + top, width, height),
                 structureScore,
                 active,
-                stateConfidence));
+                stateConfidence,
+                descriptor.TemplateId));
         }
 
         return results;
@@ -368,7 +376,17 @@ public sealed class MonitorTemplateDetectionService
             new BuffTemplateDescriptor(
                 MonitoredBuffCatalog.PurificationWave,
                 LoadTemplate("PurificationWaveOn.png"),
-                LoadTemplate("PurificationWaveOff.png"))
+                LoadTemplate("PurificationWaveOff.png")),
+            new BuffTemplateDescriptor(
+                MonitoredBuffCatalog.Hamjji,
+                LoadTemplate("HamjjiOn.png"),
+                LoadTemplate("HamjjiOff.png"),
+                "ham-burning"),
+            new BuffTemplateDescriptor(
+                MonitoredBuffCatalog.Hamjji,
+                LoadTemplate("HamAdrenalineOn.png"),
+                LoadTemplate("HamAdrenalineOff.png"),
+                "ham-adrenaline")
         ],
         LoadTemplate("Tuairim.png"));
 
@@ -396,7 +414,8 @@ public sealed class MonitorTemplateDetectionService
     private sealed record BuffTemplateDescriptor(
         string NameKey,
         TemplateImage On,
-        TemplateImage Off);
+        TemplateImage Off,
+        string TemplateId = "");
 
     private sealed record MatchCandidate(int X, int Y, int Width, int Height, double Score);
 

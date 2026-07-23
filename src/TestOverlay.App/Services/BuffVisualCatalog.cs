@@ -13,7 +13,8 @@ public static class BuffVisualCatalog
             [MonitoredBuffCatalog.HarvestSong] = "/Image/RichyearOn.png",
             [MonitoredBuffCatalog.DivineLink] = "/Image/DivineLinkOn.png",
             [MonitoredBuffCatalog.ConditionSupport] = "/Image/ConditionSupportOn.png",
-            [MonitoredBuffCatalog.PurificationWave] = "/Image/PurificationWaveOn.png"
+            [MonitoredBuffCatalog.PurificationWave] = "/Image/PurificationWaveOn.png",
+            [MonitoredBuffCatalog.Hamjji] = "/Image/HamjjiOn.png"
         };
 
     private static readonly Dictionary<string, BitmapSource> Cache = new(StringComparer.Ordinal);

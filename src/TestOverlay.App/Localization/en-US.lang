@@ -445,6 +445,7 @@ monitor.buff.harvest.song = Song of rich year
 monitor.buff.divine.link = Divine Link
 monitor.buff.condition.support = Condition Support
 monitor.buff.purification.wave = Purification Wave
+monitor.buff.hamjji = Hamjji
 monitor.buff.icons.only = Buff icons only
 layout.reset = Reset layout
 layout.reset.confirm.title = Reset overlay layout

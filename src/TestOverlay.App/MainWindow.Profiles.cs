@@ -52,6 +52,7 @@ public partial class MainWindow
             .Select(match => new OverlayProfileBuffAnchor
             {
                 NameKey = match.NameKey,
+                TemplateId = match.TemplateId,
                 Bounds = ToProfileRect(match.Bounds)!,
                 StructureScore = match.StructureScore,
                 IsActive = match.IsActive,
@@ -238,12 +239,14 @@ public partial class MainWindow
                 continue;
             }
 
-            _buffIconMatches[savedAnchor.NameKey] = new BuffIconMatch(
+            var match = new BuffIconMatch(
                 savedAnchor.NameKey,
                 bounds.Value,
                 savedAnchor.StructureScore,
                 savedAnchor.IsActive,
-                savedAnchor.StateConfidence);
+                savedAnchor.StateConfidence,
+                savedAnchor.TemplateId);
+            _buffIconMatches[BuffAnchorMatchResolver.AnchorKey(match)] = match;
         }
         BuffMonitorEnabledCheckBox.IsChecked = _buffMonitorEnabled;
         TuairimMonitorEnabledCheckBox.IsChecked = _tuairimMonitorEnabled;

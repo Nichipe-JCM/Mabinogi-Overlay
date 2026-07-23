@@ -604,12 +604,22 @@
                                                     </StackPanel>
                                                 </CheckBox>
                                                 <CheckBox x:Name="PurificationWaveBuffCheckBox"
+                                                          Margin="0,0,18,0"
                                                           Tag="monitor.buff.purification.wave"
                                                           Click="BuffSelectionCheckBox_Click">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/PurificationWaveOn.png" Stretch="None" SnapsToDevicePixels="True"/>
                                                         <TextBlock x:Name="PurificationWaveBuffNameText" VerticalAlignment="Center" Text="Purification Wave" loc:Localize.TextKey="monitor.buff.purification.wave"/>
                                                         <TextBlock x:Name="PurificationWaveDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                                                    </StackPanel>
+                                                </CheckBox>
+                                                <CheckBox x:Name="HamjjiBuffCheckBox"
+                                                          Tag="monitor.buff.hamjji"
+                                                          Click="BuffSelectionCheckBox_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Image Width="16" Height="16" Margin="0,0,6,0" Source="/Image/HamjjiOn.png" Stretch="None" SnapsToDevicePixels="True"/>
+                                                        <TextBlock x:Name="HamjjiBuffNameText" VerticalAlignment="Center" Text="Hamjji" loc:Localize.TextKey="monitor.buff.hamjji"/>
+                                                        <TextBlock x:Name="HamjjiDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
                                             </WrapPanel>
@@ -728,6 +738,16 @@
                                                 <Button x:Name="TestBuffAlertSoundButton7" Grid.Column="4" Tag="6" Margin="6,0,0,0" MinWidth="58" Height="32" Padding="9,0" Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
                                                 <TextBlock Grid.Column="5" Margin="8,0,6,0" VerticalAlignment="Center" Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
                                                 <TextBox x:Name="BuffAlertVolumeBox7" Grid.Column="6" Tag="6" Height="32" Padding="7,4" MaxLength="3" PreviewTextInput="AlertNumberTextBox_PreviewTextInput" LostKeyboardFocus="BuffAlertVolumeBox_LostKeyboardFocus"/>
+                                            </Grid>
+                                            <Grid x:Name="BuffAlertSoundRow8" Margin="0,8,0,0" Visibility="Collapsed">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="56"/></Grid.ColumnDefinitions>
+                                                <TextBlock VerticalAlignment="Center" Text="Hamjji" loc:Localize.TextKey="monitor.buff.hamjji"/>
+                                                <TextBox x:Name="BuffAlertSoundPathBox8" Grid.Column="1" Margin="0,0,8,0" Height="32" Padding="8,4" IsReadOnly="True" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                                <Button Grid.Column="2" Tag="7" MinWidth="54" Height="32" Padding="9,0" Content="Open" loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="ClearBuffAlertSoundButton8" Grid.Column="3" Tag="7" Margin="6,0,0,0" Width="34" Height="32" Content="X" FontWeight="Bold" Click="ClearBuffAlertSoundSlotButton_Click"/>
+                                                <Button x:Name="TestBuffAlertSoundButton8" Grid.Column="4" Tag="7" Margin="6,0,0,0" MinWidth="58" Height="32" Padding="9,0" Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestBuffAlertSoundSlotButton_Click"/>
+                                                <TextBlock Grid.Column="5" Margin="8,0,6,0" VerticalAlignment="Center" Text="Volume" loc:Localize.TextKey="monitor.alert.sound.volume"/>
+                                                <TextBox x:Name="BuffAlertVolumeBox8" Grid.Column="6" Tag="7" Height="32" Padding="7,4" MaxLength="3" PreviewTextInput="AlertNumberTextBox_PreviewTextInput" LostKeyboardFocus="BuffAlertVolumeBox_LostKeyboardFocus"/>
                                             </Grid>
                                             </StackPanel>
                                             </ScrollViewer>
