@@ -336,11 +336,12 @@
                                PlacementTarget="{Binding ElementName=ManualSectionToggle}"
                                Placement="Bottom"
                                IsOpen="{Binding ElementName=ManualSectionToggle, Path=IsChecked, Mode=TwoWay}"
-                               StaysOpen="True"
+                               StaysOpen="False"
                                AllowsTransparency="True">
                             <Border Width="{Binding ElementName=CandidatePanelGrid, Path=ActualWidth}"
                                     MaxWidth="720"
                                     Margin="14,0,14,0"
+                                    Background="{StaticResource OverlayPanelBrush}"
                                     Style="{StaticResource GlassCardStyle}">
                                 <Grid Margin="14">
                                     <Grid.RowDefinitions>
@@ -485,6 +486,8 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="5"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Style="{StaticResource GlassCardStyle}">
@@ -609,12 +612,6 @@
                                                         <TextBlock x:Name="PurificationWaveDetectionStatusText" Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </CheckBox>
-                                            </WrapPanel>
-                                            <WrapPanel Margin="0,10,0,0">
-                                                <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" Text="Overlay display" loc:Localize.TextKey="monitor.display.title" Style="{StaticResource MutedTextStyle}"/>
-                                                <CheckBox x:Name="ShowBuffTimerCheckBox" Margin="0,0,16,0" Content="Buff timer" loc:Localize.ContentKey="monitor.display.buff.timer" Click="MonitorDisplayCheckBox_Click"/>
-                                                <CheckBox x:Name="ShowTuairimGaugeCheckBox" Margin="0,0,16,0" Content="Tuairim gauge" loc:Localize.ContentKey="monitor.display.tuairim" Click="MonitorDisplayCheckBox_Click"/>
-                                                <CheckBox x:Name="ShowVisualAlertCheckBox" Content="Visual alert" loc:Localize.ContentKey="monitor.display.visual.alert" Click="MonitorDisplayCheckBox_Click"/>
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
@@ -844,6 +841,36 @@
                                         </StackPanel>
                                     </Border>
                                 </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="4" Style="{StaticResource GlassCardStyle}">
+                            <Grid Margin="14,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Center"
+                                           Text="Overlay display"
+                                           loc:Localize.TextKey="monitor.display.title"
+                                           Style="{StaticResource PanelTitleStyle}"/>
+                                <TextBlock Grid.Column="1" Margin="12,0,18,0" VerticalAlignment="Center"
+                                           Text="Choose which detected information appears on the overlay."
+                                           loc:Localize.TextKey="monitor.display.description"
+                                           TextTrimming="CharacterEllipsis"
+                                           Style="{StaticResource MutedTextStyle}"/>
+                                <WrapPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <CheckBox x:Name="ShowBuffTimerCheckBox" Margin="0,0,18,0"
+                                              Content="Buff timer" loc:Localize.ContentKey="monitor.display.buff.timer"
+                                              Click="MonitorDisplayCheckBox_Click"/>
+                                    <CheckBox x:Name="ShowTuairimGaugeCheckBox" Margin="0,0,18,0"
+                                              Content="Tuairim gauge" loc:Localize.ContentKey="monitor.display.tuairim"
+                                              Click="MonitorDisplayCheckBox_Click"/>
+                                    <CheckBox x:Name="ShowVisualAlertCheckBox"
+                                              Content="Visual alert" loc:Localize.ContentKey="monitor.display.visual.alert"
+                                              Click="MonitorDisplayCheckBox_Click"/>
+                                </WrapPanel>
                             </Grid>
                         </Border>
                     </Grid>

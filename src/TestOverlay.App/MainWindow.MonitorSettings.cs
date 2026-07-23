@@ -466,16 +466,21 @@ public partial class MainWindow
             for (var index = 0; index < pathBoxes.Length; index++)
             {
                 var path = _alertAudio.GetBuffPath(index);
-                pathBoxes[index].Text = path;
+                pathBoxes[index].Text = string.IsNullOrWhiteSpace(path)
+                    ? L.T("monitor.alert.sound.default")
+                    : path;
                 volumeBoxes[index].Text = _alertAudio.GetBuffVolume(index).ToString();
                 clearButtons[index].IsEnabled = !string.IsNullOrWhiteSpace(path);
-                testButtons[index].IsEnabled = File.Exists(path);
+                testButtons[index].IsEnabled = string.IsNullOrWhiteSpace(path) || File.Exists(path);
             }
 
-            TuairimAlertSoundPathBox.Text = settings.TuairimPath;
+            TuairimAlertSoundPathBox.Text = string.IsNullOrWhiteSpace(settings.TuairimPath)
+                ? L.T("monitor.alert.sound.default")
+                : settings.TuairimPath;
             TuairimAlertVolumeBox.Text = settings.TuairimVolume.ToString();
             ClearTuairimAlertSoundButton.IsEnabled = !string.IsNullOrWhiteSpace(settings.TuairimPath);
-            TestTuairimAlertSoundButton.IsEnabled = File.Exists(settings.TuairimPath);
+            TestTuairimAlertSoundButton.IsEnabled =
+                string.IsNullOrWhiteSpace(settings.TuairimPath) || File.Exists(settings.TuairimPath);
             RefreshMonitorDisplayControls();
         }
         finally

@@ -294,7 +294,11 @@ public partial class MainWindow : Window
                 _log.Dispose();
             }
         };
-        Deactivated += (_, _) => CancelInterruptedCaptureInteraction();
+        Deactivated += (_, _) =>
+        {
+            CloseManualSectionPopup();
+            CancelInterruptedCaptureInteraction();
+        };
         CaptureCanvas.LostMouseCapture += (_, _) => CancelInterruptedCaptureInteraction();
         ApplySectionSettingsToControls(_currentSectionIndex);
         UpdateSizeLabels();
@@ -1061,6 +1065,7 @@ public partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        CloseManualSectionPopup();
         FlushProfileAutoSave();
         var dialog = new SettingsWindow(
             _profileStore.ProfileDirectory,
@@ -1157,6 +1162,19 @@ public partial class MainWindow : Window
             _profileStore.ProfileDirectory,
             rendererStatus,
             L.T(CaptureBackendLabel(CurrentCaptureBackend))));
+    }
+
+    private void CloseManualSectionPopup()
+    {
+        if (ManualSectionToggle is not null)
+        {
+            ManualSectionToggle.IsChecked = false;
+        }
+
+        if (ManualSectionPopup is not null)
+        {
+            ManualSectionPopup.IsOpen = false;
+        }
     }
 
     private void DebugTabToggle_Click(object sender, RoutedEventArgs e) =>

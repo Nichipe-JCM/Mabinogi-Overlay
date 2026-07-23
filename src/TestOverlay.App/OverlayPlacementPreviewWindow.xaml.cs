@@ -23,6 +23,7 @@ public partial class OverlayPlacementPreviewWindow : Window
     private double _canvasWidth;
     private double _canvasHeight;
     private bool _isPositionEditingEnabled;
+    private bool _isApplyingResize;
     private Image? _draggingImage;
     private OverlaySlot? _draggingSlot;
     private Point _slotDragPointerOrigin;
@@ -67,7 +68,13 @@ public partial class OverlayPlacementPreviewWindow : Window
         Height = windowBounds.Height;
         Opacity = 1;
         RenderSlots();
-        LocationChanged += (_, _) => NotifyPlacementChanged();
+        LocationChanged += (_, _) =>
+        {
+            if (!_isApplyingResize)
+            {
+                NotifyPlacementChanged();
+            }
+        };
         SizeChanged += (_, _) =>
         {
             RenderSlots();
@@ -185,21 +192,58 @@ public partial class OverlayPlacementPreviewWindow : Window
 
     private void ResizeThumb_DragDelta(object sender, DragDeltaEventArgs e)
     {
-        Width = Math.Max(MinimumOverlayWidth + (PreviewBorderThickness * 2), Width + e.HorizontalChange);
-        Height = Math.Max(
-            MinimumOverlayHeight + ControlHeaderHeight + (PreviewBorderThickness * 2),
-            Height + e.VerticalChange);
-        var canvasBounds = OverlayLayoutGeometry.ReadCanvasBounds(
-            Left,
-            Top,
-            Width,
-            Height,
-            ControlHeaderHeight,
-            PreviewBorderThickness,
-            MinimumOverlayWidth,
-            MinimumOverlayHeight);
-        _canvasWidth = canvasBounds.Width;
-        _canvasHeight = canvasBounds.Height;
+        if (sender is not Thumb { Tag: string direction })
+        {
+            return;
+        }
+
+        var minimumWidth = MinimumOverlayWidth + (PreviewBorderThickness * 2);
+        var minimumHeight = MinimumOverlayHeight + ControlHeaderHeight + (PreviewBorderThickness * 2);
+        var oldRight = Left + Width;
+        var oldBottom = Top + Height;
+        var resizeWest = direction.Contains('W');
+        var resizeNorth = direction.Contains('N');
+
+        _isApplyingResize = true;
+        try
+        {
+            if (resizeWest)
+            {
+                Width = Math.Max(minimumWidth, Width - e.HorizontalChange);
+                Left = oldRight - Width;
+            }
+            else
+            {
+                Width = Math.Max(minimumWidth, Width + e.HorizontalChange);
+            }
+
+            if (resizeNorth)
+            {
+                Height = Math.Max(minimumHeight, Height - e.VerticalChange);
+                Top = oldBottom - Height;
+            }
+            else
+            {
+                Height = Math.Max(minimumHeight, Height + e.VerticalChange);
+            }
+
+            var canvasBounds = OverlayLayoutGeometry.ReadCanvasBounds(
+                Left,
+                Top,
+                Width,
+                Height,
+                ControlHeaderHeight,
+                PreviewBorderThickness,
+                MinimumOverlayWidth,
+                MinimumOverlayHeight);
+            _canvasWidth = canvasBounds.Width;
+            _canvasHeight = canvasBounds.Height;
+        }
+        finally
+        {
+            _isApplyingResize = false;
+        }
+
         NotifyPlacementChanged();
     }
 

@@ -12,6 +12,20 @@
         Topmost="True"
         MinWidth="120"
         MinHeight="114">
+    <Window.Resources>
+        <Style x:Key="PreviewResizeThumbStyle" TargetType="Thumb">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Panel.ZIndex" Value="8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="#CC00A6FF" BorderBrush="White" BorderThickness="1" CornerRadius="2"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Grid>
         <Border x:Name="DragHeader"
                 Height="28"
@@ -53,19 +67,32 @@
             <Canvas x:Name="PreviewCanvas"
                     IsHitTestVisible="False"/>
         </Border>
-        <Thumb x:Name="ResizeThumb"
-               Width="18"
-               Height="18"
+        <Thumb Tag="NW"
+               Margin="0,34,0,0"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Top"
+               Cursor="SizeNWSE"
+               Style="{StaticResource PreviewResizeThumbStyle}"
+               DragDelta="ResizeThumb_DragDelta"/>
+        <Thumb Tag="NE"
+               Margin="0,34,0,0"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Top"
+               Cursor="SizeNESW"
+               Style="{StaticResource PreviewResizeThumbStyle}"
+               DragDelta="ResizeThumb_DragDelta"/>
+        <Thumb Tag="SW"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Bottom"
+               Cursor="SizeNESW"
+               Style="{StaticResource PreviewResizeThumbStyle}"
+               DragDelta="ResizeThumb_DragDelta"/>
+        <Thumb Tag="SE"
                HorizontalAlignment="Right"
                VerticalAlignment="Bottom"
                Cursor="SizeNWSE"
-               DragDelta="ResizeThumb_DragDelta">
-            <Thumb.Template>
-                <ControlTemplate TargetType="Thumb">
-                    <Border Background="#CC00A6FF" BorderBrush="White" BorderThickness="1"/>
-                </ControlTemplate>
-            </Thumb.Template>
-        </Thumb>
+               Style="{StaticResource PreviewResizeThumbStyle}"
+               DragDelta="ResizeThumb_DragDelta"/>
         <Button Width="28"
                 Height="28"
                 Margin="0,2,0,0"
