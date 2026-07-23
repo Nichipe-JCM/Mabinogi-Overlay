@@ -48,6 +48,8 @@
     <Resource Include="..\..\Image\ConditionSupportOn.png" Link="Image\ConditionSupportOn.png" />
     <Resource Include="..\..\Image\PurificationWaveOff.png" Link="Image\PurificationWaveOff.png" />
     <Resource Include="..\..\Image\PurificationWaveOn.png" Link="Image\PurificationWaveOn.png" />
+    <Resource Include="..\..\Image\HamjjiOff.png" Link="Image\HamjjiOff.png" />
+    <Resource Include="..\..\Image\HamjjiOn.png" Link="Image\HamjjiOn.png" />
     <Resource Include="..\..\Image\Tuairim.png" Link="Image\Tuairim.png" />
     <Resource Include="..\..\Image\Guide\*.png" Link="Image\Guide\%(Filename)%(Extension)" />
     <Resource Include="..\..\Image\VivaceOff.png" Link="Image\VivaceOff.png" />
