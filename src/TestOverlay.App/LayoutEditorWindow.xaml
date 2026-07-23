@@ -114,11 +114,16 @@
                                            Style="{StaticResource PanelTitleStyle}" VerticalAlignment="Center"/>
                                 <Border Width="18" Height="18" Margin="6,0,0,0" CornerRadius="9"
                                         Background="{StaticResource OverlayPanelElevatedBrush}"
-                                        BorderBrush="{StaticResource OverlayBorderBrush}" BorderThickness="1">
+                                        BorderBrush="{StaticResource OverlayBorderBrush}" BorderThickness="1"
+                                        ToolTipService.InitialShowDelay="120"
+                                        ToolTipService.BetweenShowDelay="0"
+                                        ToolTipService.ShowDuration="30000">
                                     <Border.ToolTip>
-                                        <TextBlock Width="290" TextWrapping="Wrap"
-                                                   Text="Adjusts the base opacity and size of every overlay element."
-                                                   loc:Localize.TextKey="layout.appearance.all.help"/>
+                                        <ToolTip Placement="Mouse" MaxWidth="380" Padding="12,10">
+                                            <TextBlock MaxWidth="340" TextWrapping="Wrap"
+                                                       Text="Adjusts the base opacity and size of every overlay element."
+                                                       loc:Localize.TextKey="layout.appearance.all.help"/>
+                                        </ToolTip>
                                     </Border.ToolTip>
                                     <TextBlock Text="?" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Foreground="{StaticResource OverlayAccentBrush}" FontWeight="Bold"/>
@@ -137,11 +142,16 @@
                                            Style="{StaticResource PanelTitleStyle}" VerticalAlignment="Center"/>
                                 <Border Width="18" Height="18" Margin="6,0,0,0" CornerRadius="9"
                                         Background="{StaticResource OverlayPanelElevatedBrush}"
-                                        BorderBrush="{StaticResource OverlayBorderBrush}" BorderThickness="1">
+                                        BorderBrush="{StaticResource OverlayBorderBrush}" BorderThickness="1"
+                                        ToolTipService.InitialShowDelay="120"
+                                        ToolTipService.BetweenShowDelay="0"
+                                        ToolTipService.ShowDuration="30000">
                                     <Border.ToolTip>
-                                        <TextBlock Width="320" TextWrapping="Wrap"
-                                                   Text="Hold Shift or Ctrl while clicking to select multiple elements, then adjust them together."
-                                                   loc:Localize.TextKey="layout.appearance.selected.help"/>
+                                        <ToolTip Placement="Mouse" MaxWidth="420" Padding="12,10">
+                                            <TextBlock MaxWidth="380" TextWrapping="Wrap"
+                                                       Text="Hold Shift or Ctrl while clicking to select multiple elements, then adjust them together."
+                                                       loc:Localize.TextKey="layout.appearance.selected.help"/>
+                                        </ToolTip>
                                     </Border.ToolTip>
                                     <TextBlock Text="?" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Foreground="{StaticResource OverlayAccentBrush}" FontWeight="Bold"/>

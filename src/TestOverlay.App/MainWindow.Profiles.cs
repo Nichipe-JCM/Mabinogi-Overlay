@@ -192,11 +192,19 @@ public partial class MainWindow
         {
             _hiddenMonitorElementKinds.Add(OverlayElementKind.InternalBuffTimer);
         }
+        if (!_buffMonitorEnabled)
+        {
+            _hiddenMonitorElementKinds.Add(OverlayElementKind.InternalBuffTimer);
+        }
         if (!profile.ShowAlertNotification)
         {
             _hiddenMonitorElementKinds.Add(OverlayElementKind.AlertNotification);
         }
         if (!profile.ShowTuairimGauge)
+        {
+            _hiddenMonitorElementKinds.Add(OverlayElementKind.TuairimGauge);
+        }
+        if (!_tuairimMonitorEnabled)
         {
             _hiddenMonitorElementKinds.Add(OverlayElementKind.TuairimGauge);
         }

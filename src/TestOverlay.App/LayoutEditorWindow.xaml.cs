@@ -13,7 +13,7 @@ public partial class LayoutEditorWindow : Window
 {
     private const double MinimumOverlaySlotSize = 1;
     private readonly IList<OverlaySlot> _slots;
-    private readonly Dictionary<Image, OverlaySlot> _images = new();
+    private readonly Dictionary<Grid, (OverlaySlot Slot, Image Image, Border SelectionBorder)> _slotVisuals = new();
     private readonly HashSet<OverlaySlot> _selectedSlots = new();
     private readonly Dictionary<OverlaySlot, Rect> _slotDragOrigins = new();
     private readonly Dictionary<OverlaySlot, Size> _sourceSizes = new();
@@ -21,7 +21,7 @@ public partial class LayoutEditorWindow : Window
     private readonly Dictionary<Slider, LayoutSnapshot> _sliderDragSnapshots = new();
     private readonly List<WindowStateSnapshot> _placementPreviewWindowStates = new();
     private static readonly int[] FpsOptions = [30, 60, 120, 144];
-    private Image? _draggingImage;
+    private Grid? _draggingVisual;
     private Rectangle? _selectionRect;
     private OverlayPlacementPreviewWindow? _placementPreviewWindow;
     private bool _isResizingEditorCanvas;
@@ -190,7 +190,7 @@ public partial class LayoutEditorWindow : Window
     private void RenderSlots()
     {
         EditorCanvas.Children.Clear();
-        _images.Clear();
+        _slotVisuals.Clear();
         _selectedSlots.RemoveWhere(slot => !_slots.Contains(slot));
 
         foreach (var slot in _slots)
@@ -198,30 +198,44 @@ public partial class LayoutEditorWindow : Window
             var image = new Image
             {
                 Source = slot.Preview,
-                Width = slot.OverlayRect.Width,
-                Height = slot.OverlayRect.Height,
                 Stretch = Stretch.Fill,
                 Opacity = slot.EffectiveOpacity(OverlayOpacity),
-                Cursor = Cursors.SizeAll
             };
-            image.MouseLeftButtonDown += SlotImage_MouseLeftButtonDown;
-            _images[image] = slot;
-            EditorCanvas.Children.Add(image);
-            Canvas.SetLeft(image, slot.OverlayRect.X);
-            Canvas.SetTop(image, slot.OverlayRect.Y);
+            var selectionBorder = new Border
+            {
+                BorderBrush = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                IsHitTestVisible = false,
+                SnapsToDevicePixels = true
+            };
+            var visual = new Grid
+            {
+                Width = slot.OverlayRect.Width,
+                Height = slot.OverlayRect.Height,
+                Cursor = Cursors.SizeAll,
+                SnapsToDevicePixels = true
+            };
+            visual.Children.Add(image);
+            visual.Children.Add(selectionBorder);
+            visual.MouseLeftButtonDown += SlotVisual_MouseLeftButtonDown;
+            _slotVisuals[visual] = (slot, image, selectionBorder);
+            EditorCanvas.Children.Add(visual);
+            Canvas.SetLeft(visual, slot.OverlayRect.X);
+            Canvas.SetTop(visual, slot.OverlayRect.Y);
         }
 
         UpdateSlotSelectionVisuals();
         UpdateSelectedSlotControls();
     }
 
-    private void SlotImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void SlotVisual_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        var image = (Image)sender;
-        if (!_images.TryGetValue(image, out var slot))
+        var visual = (Grid)sender;
+        if (!_slotVisuals.TryGetValue(visual, out var slotVisual))
         {
             return;
         }
+        var slot = slotVisual.Slot;
 
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ||
             Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -239,8 +253,8 @@ public partial class LayoutEditorWindow : Window
 
         UpdateSlotSelectionVisuals();
         UpdateSelectedSlotControls();
-        _draggingImage = image;
-        _dragOffset = e.GetPosition(_draggingImage);
+        _draggingVisual = visual;
+        _dragOffset = e.GetPosition(_draggingVisual);
         _slotDragStartPosition = e.GetPosition(EditorCanvas);
         _dragSnapshotBefore = CaptureLayoutSnapshot();
         _slotDragOrigins.Clear();
@@ -249,7 +263,7 @@ public partial class LayoutEditorWindow : Window
             _slotDragOrigins[selectedSlot] = selectedSlot.OverlayRect;
         }
 
-        _draggingImage.CaptureMouse();
+        _draggingVisual.CaptureMouse();
         EditorCanvas.Focus();
         e.Handled = true;
     }
@@ -293,7 +307,7 @@ public partial class LayoutEditorWindow : Window
             return;
         }
 
-        if (_draggingImage is null || e.LeftButton != MouseButtonState.Pressed)
+        if (_draggingVisual is null || e.LeftButton != MouseButtonState.Pressed)
         {
             return;
         }
@@ -309,8 +323,8 @@ public partial class LayoutEditorWindow : Window
             return;
         }
 
-        _draggingImage?.ReleaseMouseCapture();
-        _draggingImage = null;
+        _draggingVisual?.ReleaseMouseCapture();
+        _draggingVisual = null;
         _slotDragOrigins.Clear();
         SnapSelectedSlots();
         if (_dragSnapshotBefore is not null)
@@ -503,11 +517,11 @@ public partial class LayoutEditorWindow : Window
         var targetY = ClampCoordinateToCanvas(y, maxY, snap);
         slot.OverlayRect = new Rect(targetX, targetY, slot.OverlayRect.Width, slot.OverlayRect.Height);
 
-        var image = _images.FirstOrDefault(pair => ReferenceEquals(pair.Value, slot)).Key;
-        if (image is not null)
+        var visual = _slotVisuals.FirstOrDefault(pair => ReferenceEquals(pair.Value.Slot, slot)).Key;
+        if (visual is not null)
         {
-            Canvas.SetLeft(image, targetX);
-            Canvas.SetTop(image, targetY);
+            Canvas.SetLeft(visual, targetX);
+            Canvas.SetTop(visual, targetY);
         }
     }
 
@@ -566,18 +580,17 @@ public partial class LayoutEditorWindow : Window
 
     private void UpdateSlotSelectionVisuals()
     {
-        foreach (var (image, slot) in _images)
+        foreach (var (_, slotVisual) in _slotVisuals)
         {
-            image.Opacity = slot.EffectiveOpacity(OverlayOpacity);
-            image.Effect = _selectedSlots.Contains(slot)
-                ? new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = Colors.DeepSkyBlue,
-                    ShadowDepth = 0,
-                    BlurRadius = 10,
-                    Opacity = 0.95
-                }
-                : null;
+            var isSelected = _selectedSlots.Contains(slotVisual.Slot);
+            slotVisual.Image.Opacity = slotVisual.Slot.EffectiveOpacity(OverlayOpacity);
+
+            slotVisual.SelectionBorder.BorderBrush = isSelected
+                ? new SolidColorBrush(Color.FromRgb(255, 204, 0))
+                : Brushes.Transparent;
+            slotVisual.SelectionBorder.BorderThickness = isSelected
+                ? new Thickness(2)
+                : new Thickness(0);
         }
     }
 
@@ -849,7 +862,7 @@ public partial class LayoutEditorWindow : Window
     {
         if (GridSizeText is not null)
         {
-            GridSizeText.Text = L.F("Grid snap {0}px", ReadGridSize().ToString("0"));
+            GridSizeText.Text = L.F("layout.grid.size.argpx", ReadGridSize().ToString("0"));
         }
 
         UpdateEditorGridBrush();

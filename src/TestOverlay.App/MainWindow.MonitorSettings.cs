@@ -1,7 +1,9 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using TestOverlay.App.Models;
 using TestOverlay.App.Services;
@@ -31,6 +33,7 @@ public partial class MainWindow
         {
             _internalBuffTimers.Clear();
             _pendingInitialBuffMinuteValidation.Clear();
+            SetMonitorElementVisibility(OverlayElementKind.InternalBuffTimer, visible: false);
         }
         if (enabled)
         {
@@ -68,6 +71,7 @@ public partial class MainWindow
         if (!enabled)
         {
             ResetTuairimPercentRecognitionState();
+            SetMonitorElementVisibility(OverlayElementKind.TuairimGauge, visible: false);
         }
         if (enabled && (_tuairimAnchor is not null || _monitorTestMode))
         {
@@ -614,12 +618,35 @@ public partial class MainWindow
     {
         if (sender == ShowBuffTimerCheckBox)
         {
+            if (ShowBuffTimerCheckBox.IsChecked == true && !_buffMonitorEnabled)
+            {
+                RejectMonitorDisplaySelection(
+                    ShowBuffTimerCheckBox,
+                    "monitor.display.buff.requires.monitor");
+                return;
+            }
             SetMonitorElementVisibility(
                 OverlayElementKind.InternalBuffTimer,
                 ShowBuffTimerCheckBox.IsChecked == true);
         }
         else if (sender == ShowTuairimGaugeCheckBox)
         {
+            if (ShowTuairimGaugeCheckBox.IsChecked == true && !_tuairimMonitorEnabled)
+            {
+                RejectMonitorDisplaySelection(
+                    ShowTuairimGaugeCheckBox,
+                    "monitor.display.tuairim.requires.monitor");
+                return;
+            }
+            if (ShowTuairimGaugeCheckBox.IsChecked == true &&
+                _tuairimAnchor is null &&
+                !_monitorTestMode)
+            {
+                RejectMonitorDisplaySelection(
+                    ShowTuairimGaugeCheckBox,
+                    "monitor.display.tuairim.requires.detection");
+                return;
+            }
             SetMonitorElementVisibility(
                 OverlayElementKind.TuairimGauge,
                 ShowTuairimGaugeCheckBox.IsChecked == true);
@@ -631,6 +658,28 @@ public partial class MainWindow
                 ShowVisualAlertCheckBox.IsChecked == true);
         }
         RefreshInternalTimerOverlay();
+    }
+
+    private void RejectMonitorDisplaySelection(CheckBox checkBox, string messageKey)
+    {
+        checkBox.IsChecked = false;
+        SetStatus(messageKey);
+
+        var toolTip = new ToolTip
+        {
+            Content = L.T(messageKey),
+            Placement = PlacementMode.Bottom,
+            PlacementTarget = checkBox,
+            StaysOpen = true,
+            IsOpen = true
+        };
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            toolTip.IsOpen = false;
+        };
+        timer.Start();
     }
 
     private void RefreshMonitorDisplayControls()
