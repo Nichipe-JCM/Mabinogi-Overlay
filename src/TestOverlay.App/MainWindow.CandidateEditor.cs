@@ -358,7 +358,21 @@ public partial class MainWindow
 
     private void AddCandidate(SlotCandidate candidate)
     {
-        _candidates.Add(candidate);
+        var priority = CandidateListPriority(candidate.Kind);
+        if (priority < int.MaxValue)
+        {
+            var insertionIndex = 0;
+            while (insertionIndex < _candidates.Count &&
+                   CandidateListPriority(_candidates[insertionIndex].Kind) <= priority)
+            {
+                insertionIndex++;
+            }
+            _candidates.Insert(insertionIndex, candidate);
+        }
+        else
+        {
+            _candidates.Add(candidate);
+        }
         candidate.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(SlotCandidate.IsSelected))
@@ -370,6 +384,34 @@ public partial class MainWindow
         if (!candidate.IsBuiltIn)
         {
             AddCandidateVisual(candidate);
+        }
+    }
+
+    private static int CandidateListPriority(OverlayElementKind kind) => kind switch
+    {
+        OverlayElementKind.AlertNotification => 0,
+        OverlayElementKind.InternalBuffTimer => 1,
+        OverlayElementKind.TuairimGauge => 2,
+        _ => int.MaxValue
+    };
+
+    private void NormalizeCandidateListOrder()
+    {
+        var ordered = _candidates
+            .Select((candidate, index) => new { Candidate = candidate, Index = index })
+            .OrderBy(item => CandidateListPriority(item.Candidate.Kind))
+            .ThenBy(item => item.Index)
+            .Select(item => item.Candidate)
+            .ToArray();
+        if (_candidates.SequenceEqual(ordered))
+        {
+            return;
+        }
+
+        _candidates.Clear();
+        foreach (var candidate in ordered)
+        {
+            _candidates.Add(candidate);
         }
     }
 
@@ -980,6 +1022,7 @@ public partial class MainWindow
             restoredById[alertCandidate.Id] = alertCandidate;
         }
 
+        NormalizeCandidateListOrder();
         CandidateList.SelectedItem = restored.SelectedCandidate;
         if (restored.SelectedSection is not null)
         {

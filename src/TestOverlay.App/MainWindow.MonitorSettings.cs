@@ -37,10 +37,16 @@ public partial class MainWindow
         }
         if (enabled)
         {
+            if (changed)
+            {
+                _hiddenMonitorElementKinds.Remove(OverlayElementKind.InternalBuffTimer);
+                _hiddenMonitorElementKinds.Remove(OverlayElementKind.AlertNotification);
+            }
             EnsureMonitorElementPlaced(OverlayElementKind.InternalBuffTimer, scheduleAutoSave: false);
             EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave: false);
         }
         UpdateMonitorControlAvailability();
+        RefreshMonitorDisplayControls();
         RefreshInternalTimerElementPreviews();
         RefreshInternalTimerOverlay();
         ScheduleProfileAutoSave();
@@ -73,15 +79,18 @@ public partial class MainWindow
             ResetTuairimPercentRecognitionState();
             SetMonitorElementVisibility(OverlayElementKind.TuairimGauge, visible: false);
         }
-        if (enabled && (_tuairimAnchor is not null || _monitorTestMode))
-        {
-            EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave: false);
-        }
         if (enabled)
         {
+            if (changed)
+            {
+                _hiddenMonitorElementKinds.Remove(OverlayElementKind.TuairimGauge);
+                _hiddenMonitorElementKinds.Remove(OverlayElementKind.AlertNotification);
+            }
+            EnsureMonitorElementPlaced(OverlayElementKind.TuairimGauge, scheduleAutoSave: false);
             EnsureMonitorElementPlaced(OverlayElementKind.AlertNotification, scheduleAutoSave: false);
         }
         UpdateMonitorControlAvailability();
+        RefreshMonitorDisplayControls();
         RefreshInternalTimerOverlay();
         ScheduleProfileAutoSave();
         RefreshCompactControlState();

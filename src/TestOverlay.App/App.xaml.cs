@@ -43,6 +43,10 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        EventManager.RegisterClassHandler(
+            typeof(Window),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(Window_Loaded));
         base.OnStartup(e);
         if (BenchmarkWindow.HasAutomationArgs(e.Args))
         {
@@ -73,6 +77,14 @@ public partial class App : Application
         {
             _log.Error("Main window startup failed.", exception);
             Shutdown(-1);
+        }
+    }
+
+    private static void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Window window)
+        {
+            WindowCornerService.ApplyStandardCorners(window);
         }
     }
 

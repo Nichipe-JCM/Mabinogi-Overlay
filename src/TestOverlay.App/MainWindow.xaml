@@ -14,11 +14,12 @@
         MinWidth="1360"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource OverlayBgBrush}"
+        PreviewMouseDown="Window_PreviewMouseDown"
         PreviewKeyDown="Window_PreviewKeyDown"
         KeyDown="Window_KeyDown">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
-                            CornerRadius="0"
+                            CornerRadius="8"
                             GlassFrameThickness="0"
                             ResizeBorderThickness="7"
                             UseAeroCaptionButtons="False"/>
@@ -336,7 +337,7 @@
                                PlacementTarget="{Binding ElementName=ManualSectionToggle}"
                                Placement="Bottom"
                                IsOpen="{Binding ElementName=ManualSectionToggle, Path=IsChecked, Mode=TwoWay}"
-                               StaysOpen="False"
+                               StaysOpen="True"
                                AllowsTransparency="True">
                             <Border Width="{Binding ElementName=CandidatePanelGrid, Path=ActualWidth}"
                                     MaxWidth="720"

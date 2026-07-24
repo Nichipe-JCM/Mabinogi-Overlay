@@ -13,7 +13,7 @@
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource OverlayBgBrush}">
     <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="0" CornerRadius="0" GlassFrameThickness="0"
+        <shell:WindowChrome CaptionHeight="0" CornerRadius="8" GlassFrameThickness="0"
                             ResizeBorderThickness="0" UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
     <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">

@@ -1177,6 +1177,16 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ManualSectionPopup.IsOpen &&
+            !ManualSectionToggle.IsMouseOver &&
+            ManualSectionPopup.Child is UIElement { IsMouseOver: false })
+        {
+            CloseManualSectionPopup();
+        }
+    }
+
     private void DebugTabToggle_Click(object sender, RoutedEventArgs e) =>
         RightPanelTabs.SelectedItem = DebugTabItem;
 

@@ -17,7 +17,7 @@
         KeyDown="Window_KeyDown">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
-                            CornerRadius="0"
+                            CornerRadius="8"
                             GlassFrameThickness="0"
                             ResizeBorderThickness="7"
                             UseAeroCaptionButtons="False"/>
