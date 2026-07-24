@@ -35,7 +35,9 @@ public partial class LayoutEditorWindow : Window
     private Point _selectionStartPosition;
     private LayoutSnapshot? _dragSnapshotBefore;
     private readonly LayoutSnapshot _initialLayoutSnapshot;
+    private readonly EditorSettingsSnapshot _initialSettingsSnapshot;
     private bool _changesAccepted;
+    private bool _discardChangesConfirmed;
 
     public LayoutEditorWindow(
         double canvasWidth,
@@ -143,6 +145,7 @@ public partial class LayoutEditorWindow : Window
         UpdateGridSizeText();
         RenderSlots();
         _initialLayoutSnapshot = CaptureLayoutSnapshot();
+        _initialSettingsSnapshot = CaptureSettingsSnapshot();
     }
 
     public double CanvasWidth { get; private set; }
@@ -326,7 +329,6 @@ public partial class LayoutEditorWindow : Window
         _draggingVisual?.ReleaseMouseCapture();
         _draggingVisual = null;
         _slotDragOrigins.Clear();
-        SnapSelectedSlots();
         if (_dragSnapshotBefore is not null)
         {
             PushUndoIfChanged(_dragSnapshotBefore);
@@ -337,6 +339,19 @@ public partial class LayoutEditorWindow : Window
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void ContinueEditingButton_Click(object sender, RoutedEventArgs e)
+    {
+        UnsavedChangesConfirmationOverlay.Visibility = Visibility.Collapsed;
+        EditorCanvas.Focus();
+    }
+
+    private void DiscardChangesButton_Click(object sender, RoutedEventArgs e)
+    {
+        _discardChangesConfirmed = true;
+        UnsavedChangesConfirmationOverlay.Visibility = Visibility.Collapsed;
+        Close();
+    }
 
     private void ApplyButton_Click(object sender, RoutedEventArgs e)
     {
@@ -494,18 +509,17 @@ public partial class LayoutEditorWindow : Window
             return;
         }
 
-        var requestedDeltaX = position.X - _slotDragStartPosition.X;
-        var requestedDeltaY = position.Y - _slotDragStartPosition.Y;
-        var minDeltaX = _slotDragOrigins.Max(item => -item.Value.X);
-        var minDeltaY = _slotDragOrigins.Max(item => -item.Value.Y);
-        var maxDeltaX = _slotDragOrigins.Min(item => EditorCanvas.Width - item.Value.Right);
-        var maxDeltaY = _slotDragOrigins.Min(item => EditorCanvas.Height - item.Value.Bottom);
-        var deltaX = Math.Clamp(requestedDeltaX, minDeltaX, maxDeltaX);
-        var deltaY = Math.Clamp(requestedDeltaY, minDeltaY, maxDeltaY);
+        var delta = OverlayLayoutGeometry.CalculateSnappedGroupDelta(
+            _slotDragOrigins.Values,
+            new Size(EditorCanvas.Width, EditorCanvas.Height),
+            new Vector(
+                position.X - _slotDragStartPosition.X,
+                position.Y - _slotDragStartPosition.Y),
+            ReadGridSize());
 
         foreach (var (slot, origin) in _slotDragOrigins)
         {
-            MoveSlot(slot, origin.X + deltaX, origin.Y + deltaY, snap: true);
+            MoveSlot(slot, origin.X + delta.X, origin.Y + delta.Y, snap: false);
         }
     }
 
@@ -570,14 +584,6 @@ public partial class LayoutEditorWindow : Window
         UpdateSelectedSlotControls();
     }
 
-    private void SnapSelectedSlots()
-    {
-        foreach (var slot in _selectedSlots)
-        {
-            MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
-        }
-    }
-
     private void UpdateSlotSelectionVisuals()
     {
         foreach (var (_, slotVisual) in _slotVisuals)
@@ -634,9 +640,15 @@ public partial class LayoutEditorWindow : Window
         }
 
         var before = CaptureLayoutSnapshot();
-        foreach (var slot in _selectedSlots)
+        var origins = _selectedSlots.ToDictionary(slot => slot, slot => slot.OverlayRect);
+        var snappedDelta = OverlayLayoutGeometry.CalculateSnappedGroupDelta(
+            origins.Values,
+            new Size(EditorCanvas.Width, EditorCanvas.Height),
+            delta,
+            ReadGridSize());
+        foreach (var (slot, origin) in origins)
         {
-            MoveSlot(slot, slot.OverlayRect.X + delta.X, slot.OverlayRect.Y + delta.Y, snap: true);
+            MoveSlot(slot, origin.X + snappedDelta.X, origin.Y + snappedDelta.Y, snap: false);
         }
 
         e.Handled = true;
@@ -702,7 +714,7 @@ public partial class LayoutEditorWindow : Window
                 slot.OverlayRect,
                 sourceSize,
                 clampedScale);
-            MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
+            MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: false);
         }
 
         RenderSlots();
@@ -905,7 +917,7 @@ public partial class LayoutEditorWindow : Window
                 sourceSize,
                 scale);
             slot.Scale = Math.Clamp(scale, 0.1, 10);
-            MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: true);
+            MoveSlot(slot, slot.OverlayRect.X, slot.OverlayRect.Y, snap: false);
         }
 
         ClampSlotsToCanvas();
@@ -1107,8 +1119,64 @@ public partial class LayoutEditorWindow : Window
         return true;
     }
 
+    private EditorSettingsSnapshot CaptureSettingsSnapshot()
+    {
+        return new EditorSettingsSnapshot(
+            ReadPositiveDouble(CanvasWidthBox.Text, CanvasWidth),
+            ReadPositiveDouble(CanvasHeightBox.Text, CanvasHeight),
+            ReadDouble(ScreenLeftBox.Text, ScreenLeft),
+            ReadDouble(ScreenTopBox.Text, ScreenTop),
+            Math.Clamp(OpacitySlider.Value, 0, 1),
+            HotkeyBox.Text,
+            RefreshFpsCombo.SelectedItem is int selectedFps ? selectedFps : RefreshFps,
+            Math.Clamp(SlotScaleSlider.Value, 0.1, 10),
+            ReadGridSize(),
+            AlertPreviewRowsCombo.SelectedItem is int rows ? rows : AlertPreviewRows);
+    }
+
+    private bool HasUnsavedChanges()
+    {
+        if (_initialSettingsSnapshot != CaptureSettingsSnapshot())
+        {
+            return true;
+        }
+
+        var current = CaptureLayoutSnapshot();
+        if (_initialLayoutSnapshot.Slots.Count != current.Slots.Count
+            || _initialLayoutSnapshot.AlertPreviewRows != current.AlertPreviewRows)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < _initialLayoutSnapshot.Slots.Count; i++)
+        {
+            var initial = _initialLayoutSnapshot.Slots[i];
+            var latest = current.Slots[i];
+            if (!ReferenceEquals(initial.Slot, latest.Slot)
+                || initial.OverlayRect != latest.OverlayRect
+                || initial.SourceRect != latest.SourceRect
+                || initial.SourceInOverlay != latest.SourceInOverlay
+                || !DoubleEquals(initial.Opacity, latest.Opacity)
+                || !DoubleEquals(initial.Scale, latest.Scale)
+                || initial.HasOpacityOverride != latest.HasOpacityOverride)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
+        if (!_changesAccepted && !_discardChangesConfirmed && HasUnsavedChanges())
+        {
+            e.Cancel = true;
+            UnsavedChangesConfirmationOverlay.Visibility = Visibility.Visible;
+            ContinueEditingButton.Focus();
+            return;
+        }
+
         if (!_changesAccepted)
         {
             RestoreLayoutSnapshot(_initialLayoutSnapshot);
@@ -1173,5 +1241,17 @@ public partial class LayoutEditorWindow : Window
     private sealed record LayoutSnapshot(
         List<SlotSnapshot> Slots,
         List<OverlaySlot> SelectedSlots,
+        int AlertPreviewRows);
+
+    private sealed record EditorSettingsSnapshot(
+        double CanvasWidth,
+        double CanvasHeight,
+        double ScreenLeft,
+        double ScreenTop,
+        double OverlayOpacity,
+        string StopHotkey,
+        int RefreshFps,
+        double SlotScale,
+        double GridSnapSize,
         int AlertPreviewRows);
 }

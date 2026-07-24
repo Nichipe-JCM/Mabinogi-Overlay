@@ -585,10 +585,14 @@ public partial class MainWindow : Window
             }
         }
 
-        var cursorX = 8.0;
+        var gridSize = Math.Clamp(_layoutGridSnapSize, 1, 64);
+        var placementMargin = OverlayLayoutGeometry.SnapUp(8, gridSize);
+        var cursorX = placementMargin;
         var cursorY = clearExisting || _overlaySlots.Count == 0
-            ? 8.0
-            : _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + 8;
+            ? placementMargin
+            : OverlayLayoutGeometry.SnapUp(
+                _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + placementMargin,
+                gridSize);
         var rowHeight = 0.0;
         foreach (var candidate in selected)
         {
@@ -601,21 +605,27 @@ public partial class MainWindow : Window
                 : RenderMonitorElementPreview(candidate.Kind);
             var width = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Width * ReadLayoutSlotScale());
             var height = Math.Max(MinimumOverlaySlotSize, candidate.SourceRect.Height * ReadLayoutSlotScale());
-            if (cursorX + width > _layoutCanvasWidth - 8)
+            if (cursorX + width > _layoutCanvasWidth - placementMargin)
             {
-                cursorX = 8;
-                cursorY += rowHeight + 8;
+                cursorX = placementMargin;
+                cursorY = OverlayLayoutGeometry.SnapUp(
+                    cursorY + rowHeight + placementMargin,
+                    gridSize);
                 rowHeight = 0;
             }
 
             var rect = new Rect(cursorX, cursorY, width, height);
             var slot = new OverlaySlot(candidate, rect, crop, scale: ReadLayoutSlotScale());
             _overlaySlots.Add(slot);
-            cursorX += width + 8;
+            cursorX = OverlayLayoutGeometry.SnapUp(
+                cursorX + width + placementMargin,
+                gridSize);
             rowHeight = Math.Max(rowHeight, height);
         }
 
-        var requiredHeight = cursorY + rowHeight + 8;
+        var requiredHeight = OverlayLayoutGeometry.SnapUp(
+            cursorY + rowHeight + placementMargin,
+            gridSize);
         if (requiredHeight > _layoutCanvasHeight)
         {
             _layoutCanvasHeight = requiredHeight;

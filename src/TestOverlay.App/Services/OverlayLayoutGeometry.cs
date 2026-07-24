@@ -54,6 +54,42 @@ public static class OverlayLayoutGeometry
         return Math.Clamp(snapped, 0, snappedMaximum);
     }
 
+    public static double SnapUp(double value, double gridSize)
+    {
+        gridSize = Math.Max(1, gridSize);
+        return Math.Ceiling(Math.Max(0, value) / gridSize) * gridSize;
+    }
+
+    public static Vector CalculateSnappedGroupDelta(
+        IReadOnlyCollection<Rect> origins,
+        Size canvasSize,
+        Vector requestedDelta,
+        double gridSize)
+    {
+        if (origins.Count == 0)
+        {
+            return default;
+        }
+
+        var bounds = origins.First();
+        foreach (var origin in origins.Skip(1))
+        {
+            bounds.Union(origin);
+        }
+
+        var maximumLeft = Math.Max(0, canvasSize.Width - bounds.Width);
+        var maximumTop = Math.Max(0, canvasSize.Height - bounds.Height);
+        var targetLeft = ClampSnappedCoordinate(
+            bounds.Left + requestedDelta.X,
+            maximumLeft,
+            gridSize);
+        var targetTop = ClampSnappedCoordinate(
+            bounds.Top + requestedDelta.Y,
+            maximumTop,
+            gridSize);
+        return new Vector(targetLeft - bounds.Left, targetTop - bounds.Top);
+    }
+
     public static Rect ResizeSlotFromTopLeft(Rect current, Size sourceSize, double scale)
     {
         var clampedScale = Math.Clamp(scale, 0.1, 10);

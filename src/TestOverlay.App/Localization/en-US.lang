@@ -626,3 +626,7 @@ tray.open = Open Mabinogi Overlay
 tray.exit = Exit app
 tray.overlay.start = Start overlay
 tray.overlay.stop = Stop overlay
+layout.unsaved.confirm.title = Unsaved layout changes
+layout.unsaved.confirm.message = Your changes will not be saved. Do you want to leave the layout editor?
+layout.unsaved.continue = Continue editing
+layout.unsaved.discard = Leave without saving

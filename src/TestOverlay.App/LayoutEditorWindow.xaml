@@ -259,5 +259,52 @@
             <Button MinWidth="116" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Save &amp; Close" loc:Localize.ContentKey="layout.save.and.close" Click="ApplyButton_Click"/>
             <Button MinWidth="96" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CloseButton_Click"/>
         </WrapPanel>
+
+        <Border x:Name="UnsavedChangesConfirmationOverlay"
+                Grid.RowSpan="4"
+                Panel.ZIndex="300"
+                Background="#B8000000"
+                Visibility="Collapsed">
+            <Border Width="500"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource GlassCardStyle}">
+                <Grid Margin="22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Unsaved layout changes"
+                               loc:Localize.TextKey="layout.unsaved.confirm.title"
+                               Style="{StaticResource SectionTitleStyle}"/>
+                    <TextBlock Grid.Row="1"
+                               Margin="0,14,0,0"
+                               Text="Your changes will not be saved. Do you want to leave the layout editor?"
+                               loc:Localize.TextKey="layout.unsaved.confirm.message"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}"/>
+                    <StackPanel Grid.Row="2"
+                                Margin="0,20,0,0"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                        <Button x:Name="ContinueEditingButton"
+                                MinWidth="112"
+                                Height="34"
+                                Padding="14,0"
+                                Content="Continue editing"
+                                loc:Localize.ContentKey="layout.unsaved.continue"
+                                Click="ContinueEditingButton_Click"/>
+                        <Button MinWidth="120"
+                                Height="34"
+                                Padding="14,0"
+                                Margin="8,0,0,0"
+                                Content="Leave without saving"
+                                loc:Localize.ContentKey="layout.unsaved.discard"
+                                Click="DiscardChangesButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
     </Grid>
 </Window>

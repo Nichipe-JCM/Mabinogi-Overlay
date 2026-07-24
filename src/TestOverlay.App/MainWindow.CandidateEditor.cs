@@ -737,8 +737,9 @@ public partial class MainWindow
 
     private Point FindMonitorElementPlacement(double width, double height)
     {
-        const double margin = 8;
-        const double step = 8;
+        var gridSize = Math.Clamp(_layoutGridSnapSize, 1, 64);
+        var margin = OverlayLayoutGeometry.SnapUp(8, gridSize);
+        var step = gridSize;
         _layoutCanvasWidth = Math.Max(_layoutCanvasWidth, width + margin * 2);
         _layoutCanvasHeight = Math.Max(_layoutCanvasHeight, height + margin * 2);
 
@@ -762,7 +763,11 @@ public partial class MainWindow
             }
         }
 
-        var nextY = _overlaySlots.Count == 0 ? margin : _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + margin;
+        var nextY = _overlaySlots.Count == 0
+            ? margin
+            : OverlayLayoutGeometry.SnapUp(
+                _overlaySlots.Max(slot => slot.OverlayRect.Bottom) + margin,
+                gridSize);
         _layoutCanvasHeight = Math.Max(_layoutCanvasHeight, nextY + height + margin);
         return new Point(margin, nextY);
     }

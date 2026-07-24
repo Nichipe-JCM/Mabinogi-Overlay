@@ -626,3 +626,7 @@ tray.open = Mabinogi Overlay 열기
 tray.exit = 앱 종료
 tray.overlay.start = 오버레이 실행
 tray.overlay.stop = 오버레이 중지
+layout.unsaved.confirm.title = 저장되지 않은 레이아웃 변경사항
+layout.unsaved.confirm.message = 변경사항이 저장되지 않습니다. 레이아웃 에디터를 나가시겠습니까?
+layout.unsaved.continue = 계속 편집
+layout.unsaved.discard = 저장하지 않고 나가기
