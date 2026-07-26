@@ -19,7 +19,7 @@ public static class GuideCatalog
         Topic("layout", "guide.topic.layout.title", "guide.topic.layout.summary", "guide.topic.layout.tip",
             GuideNavigationTarget.None, "guide.open.overlay", 4),
         Topic("monitors", "guide.topic.monitors.title", "guide.topic.monitors.summary", "guide.topic.monitors.tip",
-            GuideNavigationTarget.MonitorAlerts, "guide.open.monitors", 4),
+            GuideNavigationTarget.MonitorAlerts, "guide.open.monitors", 4, "guide.topic.monitors.tuairim.tip"),
         Topic("custom-timers", "guide.topic.timers.title", "guide.topic.timers.summary", "guide.topic.timers.tip",
             GuideNavigationTarget.CustomTimers, "guide.open.timers", 4),
         Topic("erin-timer", "guide.topic.erin.title", "guide.topic.erin.summary", "guide.topic.erin.tip",
@@ -40,7 +40,10 @@ public static class GuideCatalog
             definition.StepKeys.Select((key, index) => new GuideStepDisplay(
                 L.T(key),
                 $"{definition.Id}-{index + 1:00}.png")).ToArray(),
-            L.T(definition.TipKey),
+            definition.TipKeys
+                .Select(L.T)
+                .Where(tip => !string.IsNullOrWhiteSpace(tip))
+                .ToArray(),
             L.T(definition.NavigationLabelKey))).ToArray();
 
     private static GuideTopicDefinition Topic(
@@ -50,13 +53,14 @@ public static class GuideCatalog
         string tipKey,
         GuideNavigationTarget target,
         string navigationLabelKey,
-        int stepCount) =>
+        int stepCount,
+        params string[] additionalTipKeys) =>
         new(
             id,
             titleKey,
             summaryKey,
             Enumerable.Range(1, stepCount).Select(index => $"guide.topic.{TopicKey(id)}.step.{index}").ToArray(),
-            tipKey,
+            new[] { tipKey }.Concat(additionalTipKeys).ToArray(),
             target,
             navigationLabelKey);
 

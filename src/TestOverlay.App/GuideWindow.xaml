@@ -114,29 +114,34 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <Border x:Name="TopicTipBorder"
-                                    Margin="0,12,0,0"
-                                    Padding="13,11"
-                                    Background="#1819C9BD"
-                                    BorderBrush="#663ED7CE"
-                                    BorderThickness="1"
-                                    CornerRadius="7">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="30"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="!"
-                                               FontSize="18"
-                                               FontWeight="Bold"
-                                               Foreground="{StaticResource OverlayAccentBrush}"/>
-                                    <TextBlock x:Name="TopicTipText"
-                                               Grid.Column="1"
-                                               Foreground="{StaticResource OverlayTextBrush}"
-                                               TextWrapping="Wrap"
-                                               LineHeight="20"/>
-                                </Grid>
-                            </Border>
+                            <ItemsControl x:Name="TopicTipList" Margin="0,5,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,7,0,0"
+                                                Padding="13,11"
+                                                Background="#1819C9BD"
+                                                BorderBrush="#663ED7CE"
+                                                BorderThickness="1"
+                                                CornerRadius="7">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="30"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="!"
+                                                           FontSize="18"
+                                                           FontWeight="Bold"
+                                                           Foreground="{StaticResource OverlayAccentBrush}"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding}"
+                                                           Foreground="{StaticResource OverlayTextBrush}"
+                                                           TextWrapping="Wrap"
+                                                           LineHeight="20"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </ScrollViewer>
 

@@ -58,10 +58,7 @@ public partial class GuideWindow : Window
         TopicTitleText.Text = topic.Title;
         TopicSummaryText.Text = topic.Summary;
         StepList.ItemsSource = topic.Steps;
-        TopicTipText.Text = topic.Tip;
-        TopicTipBorder.Visibility = string.IsNullOrWhiteSpace(topic.Tip)
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        TopicTipList.ItemsSource = topic.Tips;
         OpenRelatedSectionButton.Content = topic.NavigationLabel;
         OpenRelatedSectionButton.Visibility = topic.Definition.NavigationTarget == GuideNavigationTarget.None
             ? Visibility.Collapsed

@@ -15,7 +15,7 @@ public sealed record GuideTopicDefinition(
     string TitleKey,
     string SummaryKey,
     IReadOnlyList<string> StepKeys,
-    string TipKey,
+    IReadOnlyList<string> TipKeys,
     GuideNavigationTarget NavigationTarget,
     string NavigationLabelKey);
 
@@ -24,7 +24,7 @@ public sealed record GuideTopicDisplay(
     string Title,
     string Summary,
     IReadOnlyList<GuideStepDisplay> Steps,
-    string Tip,
+    IReadOnlyList<string> Tips,
     string NavigationLabel);
 
 public sealed record GuideStepDisplay(
