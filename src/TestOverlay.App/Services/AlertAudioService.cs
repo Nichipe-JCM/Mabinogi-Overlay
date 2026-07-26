@@ -6,7 +6,7 @@ namespace TestOverlay.App.Services;
 
 public sealed class AlertAudioService : IDisposable
 {
-    private const int DefaultSoundSampleRate = 44100;
+    private const string DefaultAlertSoundRelativePath = "Audio/DefaultAlert.mp3";
     private readonly AppLog _log;
     private readonly IReadOnlyList<string> _buffNameKeys;
     private readonly MediaPlayer _globalBuffPlayer = new();
@@ -235,12 +235,14 @@ public sealed class AlertAudioService : IDisposable
 
         try
         {
-            var directory = Path.Combine(Path.GetTempPath(), "MabinogiOverlay");
-            Directory.CreateDirectory(directory);
-            var path = Path.Combine(directory, "default-alert-v1.wav");
-            if (!File.Exists(path) || new FileInfo(path).Length < 128)
+            var path = Path.GetFullPath(
+                Path.Combine(
+                    AppContext.BaseDirectory,
+                    DefaultAlertSoundRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+            if (!File.Exists(path))
             {
-                WriteDefaultAlertSound(path);
+                _log.Info($"Built-in monitor alert sound unavailable: path={path}");
+                return null;
             }
 
             _defaultAlertSoundPath = path;
@@ -250,43 +252,6 @@ public sealed class AlertAudioService : IDisposable
         {
             _log.Error("Failed to prepare the built-in monitor alert sound.", exception);
             return null;
-        }
-    }
-
-    private static void WriteDefaultAlertSound(string path)
-    {
-        const double durationSeconds = 0.36;
-        const short channelCount = 1;
-        const short bitsPerSample = 16;
-        var sampleCount = (int)(DefaultSoundSampleRate * durationSeconds);
-        var dataSize = sampleCount * channelCount * (bitsPerSample / 8);
-
-        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
-        using var writer = new BinaryWriter(stream);
-        writer.Write("RIFF"u8.ToArray());
-        writer.Write(36 + dataSize);
-        writer.Write("WAVE"u8.ToArray());
-        writer.Write("fmt "u8.ToArray());
-        writer.Write(16);
-        writer.Write((short)1);
-        writer.Write(channelCount);
-        writer.Write(DefaultSoundSampleRate);
-        writer.Write(DefaultSoundSampleRate * channelCount * (bitsPerSample / 8));
-        writer.Write((short)(channelCount * (bitsPerSample / 8)));
-        writer.Write(bitsPerSample);
-        writer.Write("data"u8.ToArray());
-        writer.Write(dataSize);
-
-        for (var index = 0; index < sampleCount; index++)
-        {
-            var time = index / (double)DefaultSoundSampleRate;
-            var noteTime = time % 0.18;
-            var frequency = time < 0.18 ? 783.99 : 1046.50;
-            var attack = Math.Min(1, noteTime / 0.012);
-            var release = Math.Min(1, Math.Max(0, (0.18 - noteTime) / 0.055));
-            var envelope = attack * release;
-            var sample = Math.Sin(2 * Math.PI * frequency * time) * envelope * 0.28;
-            writer.Write((short)Math.Round(sample * short.MaxValue));
         }
     }
 

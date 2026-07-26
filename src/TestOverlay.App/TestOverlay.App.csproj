@@ -60,6 +60,10 @@
 
   <ItemGroup>
     <Content Include="Localization\*.lang" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\Audio\DefaultAlert.mp3"
+             Link="Audio\DefaultAlert.mp3"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
