@@ -25,7 +25,7 @@ This program was developed with assistance from OpenAI Codex and ChatGPT.
 - Lets you correct detected slots manually when needed.
 - Adds selected slots to a separate overlay layout.
 - Shows the overlay above the game while mouse clicks pass through to the game.
-- Saves layouts and candidates as portable profiles.
+- Saves layouts, candidates, and custom alert sounds as portable profile packages.
 - Supports English and Korean UI.
 
 ## Basic Workflow
@@ -67,7 +67,7 @@ This program was developed with assistance from OpenAI Codex and ChatGPT.
 - **Capture:** Windows Graphics Capture, DXGI Desktop Duplication, GDI BitBlt
 - **Graphics interop:** Direct3D 11, DXGI, Direct2D, DirectComposition
 - **Native integration:** Win32 window styles, global hotkey registration, click-through overlay behavior
-- **Storage:** JSON profiles and settings via `System.Text.Json`
+- **Storage:** JSON profiles and settings via `System.Text.Json`, with `.moverlayprofile` packages for portable export
 - **Text recognition:** Windows OCR with image-mask fallbacks for monitored values
 
 ## Build and Test
@@ -77,7 +77,7 @@ dotnet build MabinogiOverlay.sln -c Release
 dotnet run --project tests/TestOverlay.App.Tests/TestOverlay.App.Tests.csproj -c Release
 ```
 
-The automated tests cover renderer/capture compatibility policy, invalid profile rejection, atomic backup recovery, and backup-only profile discovery.
+The automated tests cover renderer/capture compatibility policy, invalid profile rejection, atomic backup recovery, portable profile audio, overlay position recovery, and backup-only profile discovery.
 
 ## License
 

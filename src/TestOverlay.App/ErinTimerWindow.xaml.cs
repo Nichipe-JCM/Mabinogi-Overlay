@@ -215,8 +215,20 @@ public partial class ErinTimerWindow : UserControl, IDisposable
 
     private void PlayAudio(string? audioFile)
     {
-        if (string.IsNullOrWhiteSpace(audioFile) || !File.Exists(audioFile))
+        var usesDefaultSound = string.IsNullOrWhiteSpace(audioFile);
+        var soundPath = usesDefaultSound
+            ? DefaultAlertSound.ResolvePath(_log)
+            : audioFile;
+        if (string.IsNullOrWhiteSpace(soundPath) || !File.Exists(soundPath))
         {
+            if (usesDefaultSound && !_settings.IsMuted)
+            {
+                System.Media.SystemSounds.Asterisk.Play();
+            }
+            else if (!usesDefaultSound)
+            {
+                _log?.Info($"Erin timer sound unavailable: path={audioFile}");
+            }
             return;
         }
 
@@ -224,7 +236,7 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         {
             _mediaPlayer.Stop();
             _mediaPlayer.Close();
-            _mediaPlayer.Open(new Uri(audioFile, UriKind.Absolute));
+            _mediaPlayer.Open(new Uri(soundPath, UriKind.Absolute));
             _mediaPlayer.Volume = _settings.IsMuted ? 0 : _settings.Volume;
             _mediaPlayer.Play();
         }
@@ -552,7 +564,7 @@ public partial class ErinTimerWindow : UserControl, IDisposable
     private void RefreshStaticState()
     {
         AudioFileText.Text = string.IsNullOrWhiteSpace(_settings.AudioFile)
-            ? L.T("erin.no.audio.file")
+            ? L.T("monitor.alert.sound.default")
             : Path.GetFileName(_settings.AudioFile);
         DesktopNotificationsCheckBox.IsChecked = _settings.DesktopNotifications;
         RefreshSyncDelayText();

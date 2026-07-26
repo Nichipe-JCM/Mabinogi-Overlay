@@ -57,19 +57,29 @@ public sealed class WgcCaptureService
         using var registration = cancellation.Token.Register(() => bitmapTask.TrySetCanceled(cancellation.Token));
         TypedEventHandler<Direct3D11CaptureFramePool, object> frameArrivedHandler = (sender, _) =>
         {
-            var frame = sender.TryGetNextFrame();
-            if (frame is null)
+            Direct3D11CaptureFrame? frame = null;
+            try
             {
-                return;
-            }
+                frame = sender.TryGetNextFrame();
+                if (frame is null)
+                {
+                    return;
+                }
 
-            if (Interlocked.Exchange(ref frameClaimed, 1) != 0)
+                if (Interlocked.Exchange(ref frameClaimed, 1) != 0)
+                {
+                    frame.Dispose();
+                    return;
+                }
+
+                _ = CompleteSingleFrameAsync(frame, bitmapTask, cancellation.Token);
+                frame = null;
+            }
+            catch (Exception exception)
             {
-                frame.Dispose();
-                return;
+                frame?.Dispose();
+                bitmapTask.TrySetException(exception);
             }
-
-            _ = CompleteSingleFrameAsync(frame, bitmapTask, cancellation.Token);
         };
         framePool.FrameArrived += frameArrivedHandler;
 
@@ -177,57 +187,92 @@ public sealed class WgcCaptureService
         }
     }
 
-    private async void LiveFramePool_FrameArrived(
+    private void LiveFramePool_FrameArrived(
         Direct3D11CaptureFramePool sender,
         object args,
         int generation)
     {
-        if (generation != Volatile.Read(ref _liveGeneration))
-        {
-            return;
-        }
-
-        using var frame = sender.TryGetNextFrame();
-        if (frame is null)
-        {
-            return;
-        }
-
-        var now = Stopwatch.GetTimestamp();
-        var minimumInterval = Volatile.Read(ref _minimumLiveFrameIntervalTicks);
-        var lastConverted = Volatile.Read(ref _lastConvertedLiveFrameTicks);
-        if (minimumInterval > 0 && lastConverted > 0 && now - lastConverted < minimumInterval)
-        {
-            return;
-        }
-
-        if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
-        {
-            return;
-        }
-
+        Direct3D11CaptureFrame? frame = null;
         try
         {
-            Interlocked.Exchange(ref _lastConvertedLiveFrameTicks, now);
-            using var softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface).AsTask().ConfigureAwait(false);
             if (generation != Volatile.Read(ref _liveGeneration))
             {
                 return;
             }
 
-            var bitmap = ToBitmapSource(softwareBitmap);
-            lock (_sync)
+            frame = sender.TryGetNextFrame();
+            if (frame is null)
             {
-                if (generation == Volatile.Read(ref _liveGeneration))
+                return;
+            }
+
+            var now = Stopwatch.GetTimestamp();
+            var minimumInterval = Volatile.Read(ref _minimumLiveFrameIntervalTicks);
+            var lastConverted = Volatile.Read(ref _lastConvertedLiveFrameTicks);
+            if (minimumInterval > 0 && lastConverted > 0 && now - lastConverted < minimumInterval)
+            {
+                frame.Dispose();
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
+            {
+                frame.Dispose();
+                return;
+            }
+
+            _ = ProcessLiveFrameAsync(frame, generation, now);
+            frame = null;
+        }
+        catch (ObjectDisposedException)
+        {
+            frame?.Dispose();
+        }
+        catch (Exception exception)
+        {
+            frame?.Dispose();
+            if (generation == Volatile.Read(ref _liveGeneration))
+            {
+                LastLiveCaptureException = exception;
+            }
+        }
+    }
+
+    private async Task ProcessLiveFrameAsync(
+        Direct3D11CaptureFrame frame,
+        int generation,
+        long captureTicks)
+    {
+        try
+        {
+            using (frame)
+            {
+                Interlocked.Exchange(ref _lastConvertedLiveFrameTicks, captureTicks);
+                using var softwareBitmap = await SoftwareBitmap
+                    .CreateCopyFromSurfaceAsync(frame.Surface)
+                    .AsTask()
+                    .ConfigureAwait(false);
+                if (generation != Volatile.Read(ref _liveGeneration))
                 {
-                    _latestFrame = bitmap;
+                    return;
+                }
+
+                var bitmap = ToBitmapSource(softwareBitmap);
+                lock (_sync)
+                {
+                    if (generation == Volatile.Read(ref _liveGeneration))
+                    {
+                        _latestFrame = bitmap;
+                    }
                 }
             }
 
-            if (generation == Volatile.Read(ref _liveGeneration))
+            if (generation != Volatile.Read(ref _liveGeneration))
             {
-                LastLiveCaptureException = null;
+                return;
             }
+
+            LastLiveCaptureException = null;
         }
         catch (ObjectDisposedException)
         {

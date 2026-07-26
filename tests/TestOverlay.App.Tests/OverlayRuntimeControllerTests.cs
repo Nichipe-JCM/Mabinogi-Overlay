@@ -14,4 +14,38 @@ public sealed class OverlayRuntimeControllerTests
     {
         Assert.Equal(expectedMilliseconds, OverlayRuntimeController.RefreshIntervalFromFps(fps));
     }
+
+    [Fact]
+    public void NormalizeOverlayPosition_PreservesNegativeCoordinatesOnVisibleSecondaryMonitor()
+    {
+        var result = OverlayRuntimeController.NormalizeOverlayPosition(
+            left: -1600,
+            top: 100,
+            width: 720,
+            height: 320,
+            virtualLeft: -1920,
+            virtualTop: 0,
+            virtualWidth: 3840,
+            virtualHeight: 1080);
+
+        Assert.Equal(-1600, result.Left);
+        Assert.Equal(100, result.Top);
+    }
+
+    [Fact]
+    public void NormalizeOverlayPosition_RecoversWindowCompletelyOutsideVirtualDesktop()
+    {
+        var result = OverlayRuntimeController.NormalizeOverlayPosition(
+            left: 9000,
+            top: -5000,
+            width: 720,
+            height: 320,
+            virtualLeft: -1920,
+            virtualTop: 0,
+            virtualWidth: 3840,
+            virtualHeight: 1080);
+
+        Assert.Equal(1200, result.Left);
+        Assert.Equal(0, result.Top);
+    }
 }

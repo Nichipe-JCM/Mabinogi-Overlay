@@ -337,8 +337,20 @@ public partial class MainWindow
 
     private void PlayCustomTimerSound(CustomTimerDefinition definition)
     {
-        if (string.IsNullOrWhiteSpace(definition.SoundPath) || !File.Exists(definition.SoundPath))
+        var usesDefaultSound = string.IsNullOrWhiteSpace(definition.SoundPath);
+        var soundPath = usesDefaultSound
+            ? DefaultAlertSound.ResolvePath(_log)
+            : definition.SoundPath;
+        if (string.IsNullOrWhiteSpace(soundPath) || !File.Exists(soundPath))
         {
+            if (usesDefaultSound)
+            {
+                System.Media.SystemSounds.Asterisk.Play();
+            }
+            else
+            {
+                _log.Info($"Custom timer sound unavailable: id={definition.Id}, path={definition.SoundPath}");
+            }
             return;
         }
 
@@ -353,7 +365,7 @@ public partial class MainWindow
             }
             player.Stop();
             player.Close();
-            player.Open(new Uri(definition.SoundPath, UriKind.Absolute));
+            player.Open(new Uri(soundPath, UriKind.Absolute));
             player.Volume = Math.Clamp(definition.Volume, 0, 100) / 100.0;
             player.Play();
         }

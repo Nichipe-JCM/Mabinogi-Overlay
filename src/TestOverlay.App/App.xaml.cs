@@ -7,6 +7,7 @@ namespace TestOverlay.App;
 public partial class App : Application
 {
     private readonly AppLog _log = new();
+    private int _fatalErrorHandling;
 
     public App()
     {
@@ -21,7 +22,31 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             _log.Error("Unhandled UI exception.", args.Exception);
+            if (Interlocked.Exchange(ref _fatalErrorHandling, 1) != 0)
+            {
+                args.Handled = false;
+                return;
+            }
+
+            // An unknown dispatcher exception can leave capture, native handles, or profile
+            // state only partially updated. Terminate deliberately instead of pretending the
+            // application recovered and allowing it to continue in an indeterminate state.
             args.Handled = true;
+            try
+            {
+                MessageBox.Show(
+                    $"예기치 않은 오류로 앱을 종료합니다. 로그를 확인해 주세요.\n\n" +
+                    $"The app will close because of an unexpected error. Please check the log.\n\n" +
+                    _log.LogPath,
+                    "Mabinogi Overlay",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            catch
+            {
+                // The dispatcher is already failing; continue with controlled shutdown.
+            }
+            Shutdown(-1);
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {

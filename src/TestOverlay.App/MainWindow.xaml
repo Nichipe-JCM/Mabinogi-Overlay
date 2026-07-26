@@ -949,7 +949,11 @@
                                             <TextBlock Grid.Row="7" Margin="0,8,0,0" VerticalAlignment="Center" Text="Alert sound" loc:Localize.TextKey="monitor.alert.sound"/>
                                             <Grid Grid.Row="7" Grid.Column="1" Margin="0,8,0,0">
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                <TextBox x:Name="CustomTimerSoundPathBox" Height="32" Padding="8,4" IsReadOnly="True"/>
+                                                <TextBox x:Name="CustomTimerSoundPathBox" Height="32" Padding="8,4" IsReadOnly="True">
+                                                    <TextBox.ToolTip>
+                                                        <TextBlock Text="Default alert sound" loc:Localize.TextKey="monitor.alert.sound.default"/>
+                                                    </TextBox.ToolTip>
+                                                </TextBox>
                                                 <Button Grid.Column="1" Margin="6,0,0,0" MinWidth="54" Content="Open" loc:Localize.ContentKey="monitor.alert.sound.open" Click="BrowseCustomTimerSoundButton_Click"/>
                                                 <Button Grid.Column="2" Margin="6,0,0,0" Width="34" Content="X" Click="ClearCustomTimerSoundButton_Click"/>
                                                 <Button Grid.Column="3" Margin="6,0,0,0" MinWidth="58" Content="Test" loc:Localize.ContentKey="monitor.alert.sound.test" Click="TestCustomTimerSoundButton_Click"/>

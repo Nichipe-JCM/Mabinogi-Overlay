@@ -6,13 +6,11 @@ namespace TestOverlay.App.Services;
 
 public sealed class AlertAudioService : IDisposable
 {
-    private const string DefaultAlertSoundRelativePath = "Audio/DefaultAlert.mp3";
     private readonly AppLog _log;
     private readonly IReadOnlyList<string> _buffNameKeys;
     private readonly MediaPlayer _globalBuffPlayer = new();
     private readonly Dictionary<string, MediaPlayer> _individualBuffPlayers;
     private readonly MediaPlayer _tuairimPlayer = new();
-    private string? _defaultAlertSoundPath;
     private bool _isDisposed;
 
     public AlertAudioService(AppLog log, IReadOnlyList<string> buffNameKeys)
@@ -196,7 +194,7 @@ public sealed class AlertAudioService : IDisposable
     private void Play(MediaPlayer player, string path, int volume, string alertKind)
     {
         var usesDefaultSound = string.IsNullOrWhiteSpace(path);
-        var resolvedPath = usesDefaultSound ? EnsureDefaultAlertSoundPath() : path;
+        var resolvedPath = usesDefaultSound ? DefaultAlertSound.ResolvePath(_log) : path;
         if (!usesDefaultSound && !File.Exists(resolvedPath))
         {
             _log.Info($"Monitor alert custom sound unavailable: kind={alertKind}, path={path}");
@@ -223,35 +221,6 @@ public sealed class AlertAudioService : IDisposable
         catch (Exception exception)
         {
             _log.Error($"Failed to play monitor alert sound: kind={alertKind}, path={resolvedPath}", exception);
-        }
-    }
-
-    private string? EnsureDefaultAlertSoundPath()
-    {
-        if (!string.IsNullOrWhiteSpace(_defaultAlertSoundPath) && File.Exists(_defaultAlertSoundPath))
-        {
-            return _defaultAlertSoundPath;
-        }
-
-        try
-        {
-            var path = Path.GetFullPath(
-                Path.Combine(
-                    AppContext.BaseDirectory,
-                    DefaultAlertSoundRelativePath.Replace('/', Path.DirectorySeparatorChar)));
-            if (!File.Exists(path))
-            {
-                _log.Info($"Built-in monitor alert sound unavailable: path={path}");
-                return null;
-            }
-
-            _defaultAlertSoundPath = path;
-            return path;
-        }
-        catch (Exception exception)
-        {
-            _log.Error("Failed to prepare the built-in monitor alert sound.", exception);
-            return null;
         }
     }
 

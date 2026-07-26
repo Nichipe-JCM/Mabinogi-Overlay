@@ -105,14 +105,72 @@ public sealed class ProfileStoreTests : IDisposable
         var targetStore = new ProfileStore(Path.Combine(_directory, "target"));
         var profile = CreateValidProfile();
         profile.CanvasWidth = 777;
+        var audioPath = Path.Combine(_directory, "custom-alert.mp3");
+        Directory.CreateDirectory(_directory);
+        File.WriteAllBytes(audioPath, [1, 2, 3, 4, 5]);
+        profile.BuffAlertSoundPath = audioPath;
+        profile.CustomTimers.Add(new CustomTimerDefinition
+        {
+            Id = 1,
+            Name = "Portable timer",
+            DurationSeconds = 60,
+            AlertBeforeSeconds = 10,
+            SoundPath = audioPath
+        });
         sourceStore.Save(profile, "portable");
-        var exportPath = Path.Combine(_directory, "exported.json");
+        var exportPath = Path.Combine(_directory, $"exported{ProfileStore.ProfilePackageExtension}");
 
         sourceStore.Export("portable", exportPath);
         var importedName = targetStore.Import(exportPath, "imported");
+        var imported = targetStore.Load("imported");
 
         Assert.Equal("imported", importedName);
-        Assert.Equal(777, targetStore.Load("imported")!.CanvasWidth);
+        Assert.NotNull(imported);
+        Assert.Equal(777, imported.CanvasWidth);
+        Assert.NotEqual(audioPath, imported.BuffAlertSoundPath);
+        Assert.True(File.Exists(imported.BuffAlertSoundPath));
+        Assert.Equal([1, 2, 3, 4, 5], File.ReadAllBytes(imported.BuffAlertSoundPath));
+        Assert.Equal(imported.BuffAlertSoundPath, Assert.Single(imported.CustomTimers).SoundPath);
+
+        var importedAssetDirectory = Path.GetDirectoryName(imported.BuffAlertSoundPath)!;
+        targetStore.Delete("imported");
+        Assert.False(Directory.Exists(importedAssetDirectory));
+    }
+
+    [Fact]
+    public void Import_LegacyJsonProfile_RemainsSupported()
+    {
+        var store = new ProfileStore(_directory);
+        var sourcePath = Path.Combine(_directory, "legacy.json");
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(
+            sourcePath,
+            """
+            {
+              "Name": "legacy",
+              "CanvasWidth": 720,
+              "CanvasHeight": 320
+            }
+            """);
+
+        var importedName = store.Import(sourcePath, "legacy-import");
+
+        Assert.Equal("legacy-import", importedName);
+        Assert.Equal(720, store.Load(importedName)!.CanvasWidth);
+    }
+
+    [Fact]
+    public void Save_RejectsCanvasThatCouldCauseExcessiveAllocation()
+    {
+        var store = new ProfileStore(_directory);
+        var profile = CreateValidProfile();
+        profile.CanvasWidth = OverlayProfileValidator.MaximumCanvasDimension;
+        profile.CanvasHeight = OverlayProfileValidator.MaximumCanvasDimension;
+
+        var exception = Assert.Throws<InvalidDataException>(() => store.Save(profile, "too-large"));
+
+        Assert.Contains("Canvas area", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(store.Exists("too-large"));
     }
 
     [Fact]

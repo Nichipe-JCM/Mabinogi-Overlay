@@ -5,15 +5,29 @@ namespace TestOverlay.App.Services;
 
 internal static class OverlayProfileValidator
 {
+    internal const double MaximumCanvasDimension = 16384;
+    internal const double MaximumCanvasArea = 67_108_864;
+    internal const double MaximumRectDimension = 32768;
+    internal const double MaximumCoordinateMagnitude = 1_000_000;
+    internal const int MaximumCandidates = 4096;
+    internal const int MaximumSlots = 4096;
+    internal const int MaximumSections = 1024;
+    internal const int MaximumAnchors = 128;
+    internal const int MaximumCustomTimers = 64;
+
     public static void Validate(OverlayProfile profile)
     {
-        RequireFinitePositive(profile.CanvasWidth, nameof(profile.CanvasWidth));
-        RequireFinitePositive(profile.CanvasHeight, nameof(profile.CanvasHeight));
-        RequireFinite(profile.ScreenLeft, nameof(profile.ScreenLeft));
-        RequireFinite(profile.ScreenTop, nameof(profile.ScreenTop));
-        RequireFinite(profile.Opacity, nameof(profile.Opacity));
-        RequireFinitePositive(profile.LayoutSlotScale, nameof(profile.LayoutSlotScale));
-        RequireFinitePositive(profile.GridSnapSize, nameof(profile.GridSnapSize));
+        RequireInRange(profile.CanvasWidth, 1, MaximumCanvasDimension, nameof(profile.CanvasWidth));
+        RequireInRange(profile.CanvasHeight, 1, MaximumCanvasDimension, nameof(profile.CanvasHeight));
+        if (profile.CanvasWidth * profile.CanvasHeight > MaximumCanvasArea)
+        {
+            throw Invalid($"Canvas area exceeds the supported maximum of {MaximumCanvasArea}.");
+        }
+        RequireInRange(profile.ScreenLeft, -MaximumCoordinateMagnitude, MaximumCoordinateMagnitude, nameof(profile.ScreenLeft));
+        RequireInRange(profile.ScreenTop, -MaximumCoordinateMagnitude, MaximumCoordinateMagnitude, nameof(profile.ScreenTop));
+        RequireInRange(profile.Opacity, 0, 1, nameof(profile.Opacity));
+        RequireInRange(profile.LayoutSlotScale, 0.1, 10, nameof(profile.LayoutSlotScale));
+        RequireInRange(profile.GridSnapSize, 1, 512, nameof(profile.GridSnapSize));
         if (profile.AlertPreviewRows is < 1 or > 4)
         {
             throw Invalid("AlertPreviewRows must be between 1 and 4.");
@@ -29,6 +43,11 @@ internal static class OverlayProfileValidator
         RequireCollection(profile.BuffAlertSoundPaths, nameof(profile.BuffAlertSoundPaths));
         RequireCollection(profile.BuffAlertVolumes, nameof(profile.BuffAlertVolumes));
         RequireCollection(profile.CustomTimers, nameof(profile.CustomTimers));
+        RequireMaximumCount(profile.Candidates, MaximumCandidates, nameof(profile.Candidates));
+        RequireMaximumCount(profile.Sections, MaximumSections, nameof(profile.Sections));
+        RequireMaximumCount(profile.Slots, MaximumSlots, nameof(profile.Slots));
+        RequireMaximumCount(profile.BuffAnchors, MaximumAnchors, nameof(profile.BuffAnchors));
+        RequireMaximumCount(profile.CustomTimers, MaximumCustomTimers, nameof(profile.CustomTimers));
 
         ValidateRect(profile.BuffMonitorRoi, nameof(profile.BuffMonitorRoi));
         ValidateRect(profile.TuairimMonitorRoi, nameof(profile.TuairimMonitorRoi));
@@ -101,8 +120,8 @@ internal static class OverlayProfileValidator
         {
             ValidateRect(slot.SourceX, slot.SourceY, slot.SourceWidth, slot.SourceHeight, "Slot source");
             ValidateRect(slot.OverlayX, slot.OverlayY, slot.OverlayWidth, slot.OverlayHeight, "Slot overlay");
-            RequireFinite(slot.Opacity, "Slot.Opacity");
-            RequireFinitePositive(slot.Scale, "Slot.Scale");
+            RequireInRange(slot.Opacity, 0, 1, "Slot.Opacity");
+            RequireInRange(slot.Scale, 0.1, 10, "Slot.Scale");
         }
 
         foreach (var anchor in profile.BuffAnchors)
@@ -148,10 +167,10 @@ internal static class OverlayProfileValidator
 
     private static void ValidateRect(double x, double y, double width, double height, string name)
     {
-        RequireFinite(x, $"{name}.X");
-        RequireFinite(y, $"{name}.Y");
-        RequireFinitePositive(width, $"{name}.Width");
-        RequireFinitePositive(height, $"{name}.Height");
+        RequireInRange(x, -MaximumCoordinateMagnitude, MaximumCoordinateMagnitude, $"{name}.X");
+        RequireInRange(y, -MaximumCoordinateMagnitude, MaximumCoordinateMagnitude, $"{name}.Y");
+        RequireInRange(width, 1, MaximumRectDimension, $"{name}.Width");
+        RequireInRange(height, 1, MaximumRectDimension, $"{name}.Height");
     }
 
     private static void RequireFinite(double value, string name)
@@ -162,11 +181,11 @@ internal static class OverlayProfileValidator
         }
     }
 
-    private static void RequireFinitePositive(double value, string name)
+    private static void RequireInRange(double value, double minimum, double maximum, string name)
     {
-        if (!double.IsFinite(value) || value <= 0)
+        if (!double.IsFinite(value) || value < minimum || value > maximum)
         {
-            throw Invalid($"{name} must be a positive finite number.");
+            throw Invalid($"{name} must be between {minimum} and {maximum}.");
         }
     }
 
@@ -175,6 +194,14 @@ internal static class OverlayProfileValidator
         if (collection is null)
         {
             throw Invalid($"{name} is missing.");
+        }
+    }
+
+    private static void RequireMaximumCount<T>(ICollection<T> collection, int maximum, string name)
+    {
+        if (collection.Count > maximum)
+        {
+            throw Invalid($"{name} exceeds the supported maximum count of {maximum}.");
         }
     }
 

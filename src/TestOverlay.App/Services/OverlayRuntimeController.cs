@@ -114,10 +114,26 @@ public sealed class OverlayRuntimeController : IDisposable
 
             _log.Info($"Stop hotkey registered: {hotkeyDefinition.DisplayText}");
             var layout = options.Layout;
+            var normalizedPosition = NormalizeOverlayPosition(
+                layout.ScreenLeft,
+                layout.ScreenTop,
+                layout.CanvasWidth,
+                layout.CanvasHeight,
+                SystemParameters.VirtualScreenLeft,
+                SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth,
+                SystemParameters.VirtualScreenHeight);
+            if (normalizedPosition.Left != layout.ScreenLeft || normalizedPosition.Top != layout.ScreenTop)
+            {
+                _log.Info(
+                    $"Overlay position recovered to visible desktop: " +
+                    $"requested=({layout.ScreenLeft:0.##},{layout.ScreenTop:0.##}), " +
+                    $"applied=({normalizedPosition.Left:0.##},{normalizedPosition.Top:0.##}).");
+            }
             _overlayWindow = new OverlayWindow(layout.CanvasWidth, layout.CanvasHeight, layout.Opacity, options.Slots)
             {
-                Left = layout.ScreenLeft,
-                Top = layout.ScreenTop
+                Left = normalizedPosition.Left,
+                Top = normalizedPosition.Top
             };
             _overlayWindow.Show();
             _overlayWindow.UpdateLayout();
@@ -187,6 +203,47 @@ public sealed class OverlayRuntimeController : IDisposable
             Stop();
             return new(OverlayRuntimeStartStatus.Failed, null, null, exception.Message);
         }
+    }
+
+    internal static (double Left, double Top) NormalizeOverlayPosition(
+        double left,
+        double top,
+        double width,
+        double height,
+        double virtualLeft,
+        double virtualTop,
+        double virtualWidth,
+        double virtualHeight)
+    {
+        if (!double.IsFinite(left) ||
+            !double.IsFinite(top) ||
+            !double.IsFinite(width) ||
+            !double.IsFinite(height) ||
+            width <= 0 ||
+            height <= 0 ||
+            virtualWidth <= 0 ||
+            virtualHeight <= 0)
+        {
+            return (virtualLeft, virtualTop);
+        }
+
+        var virtualRight = virtualLeft + virtualWidth;
+        var virtualBottom = virtualTop + virtualHeight;
+        var intersectsDesktop =
+            left < virtualRight &&
+            left + width > virtualLeft &&
+            top < virtualBottom &&
+            top + height > virtualTop;
+        if (intersectsDesktop)
+        {
+            return (left, top);
+        }
+
+        var maxLeft = Math.Max(virtualLeft, virtualRight - Math.Min(width, virtualWidth));
+        var maxTop = Math.Max(virtualTop, virtualBottom - Math.Min(height, virtualHeight));
+        return (
+            Math.Clamp(left, virtualLeft, maxLeft),
+            Math.Clamp(top, virtualTop, maxTop));
     }
 
     public void Stop()

@@ -263,10 +263,10 @@ public partial class SettingsWindow : Window
         var dialog = new SaveFileDialog
         {
             Title = L.T("profile.export"),
-            Filter = L.T("profile.file.filter"),
-            FileName = $"{profileName}.json",
+            Filter = L.T("profile.package.filter"),
+            FileName = $"{profileName}{ProfileStore.ProfilePackageExtension}",
             AddExtension = true,
-            DefaultExt = ".json"
+            DefaultExt = ProfileStore.ProfilePackageExtension
         };
         if (dialog.ShowDialog(this) != true)
         {
