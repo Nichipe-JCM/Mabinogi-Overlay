@@ -42,7 +42,8 @@ public partial class MainWindow : Window
     private readonly AppLog _log;
     private readonly bool _ownsLog;
     private readonly object _detectLogSync = new();
-    private readonly string _detectSessionLogPath;
+    private readonly string _detectSessionLogFileName;
+    private string DetectSessionLogPath => System.IO.Path.Combine(_log.LogDirectory, _detectSessionLogFileName);
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
@@ -222,9 +223,7 @@ public partial class MainWindow : Window
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
         _profileSession = new ProfileSession(_profileStore);
         _profileSession.SelectedProfileName = _appSettings.ActiveProfileName;
-        _detectSessionLogPath = System.IO.Path.Combine(
-            _log.LogDirectory,
-            $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
+        _detectSessionLogFileName = $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log";
         InitializeComponent();
         InitializeTrayBehavior();
         InitializeCustomTimerFeature();

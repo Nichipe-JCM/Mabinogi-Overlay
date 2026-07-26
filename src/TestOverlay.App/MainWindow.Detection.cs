@@ -600,7 +600,8 @@ public partial class MainWindow
         lock (_detectLogSync)
         {
             System.IO.Directory.CreateDirectory(_log.LogDirectory);
-            var isNewLog = !System.IO.File.Exists(_detectSessionLogPath);
+            var detectSessionLogPath = DetectSessionLogPath;
+            var isNewLog = !System.IO.File.Exists(detectSessionLogPath);
             var output = new List<string>();
             if (isNewLog)
             {
@@ -610,9 +611,9 @@ public partial class MainWindow
 
             output.Add("----");
             output.AddRange(lines);
-            System.IO.File.AppendAllLines(_detectSessionLogPath, output);
+            System.IO.File.AppendAllLines(detectSessionLogPath, output);
         }
 
-        return _detectSessionLogPath;
+        return DetectSessionLogPath;
     }
 }

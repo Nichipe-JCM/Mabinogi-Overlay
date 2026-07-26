@@ -21,13 +21,13 @@ public partial class App : Application
         }
         DispatcherUnhandledException += (_, args) =>
         {
-            _log.Error("Unhandled UI exception.", args.Exception);
             if (Interlocked.Exchange(ref _fatalErrorHandling, 1) != 0)
             {
                 args.Handled = false;
                 return;
             }
 
+            var fatalLogPath = _log.WriteCritical("Unhandled UI exception.", args.Exception);
             // An unknown dispatcher exception can leave capture, native handles, or profile
             // state only partially updated. Terminate deliberately instead of pretending the
             // application recovered and allowing it to continue in an indeterminate state.
@@ -37,7 +37,9 @@ public partial class App : Application
                 MessageBox.Show(
                     $"예기치 않은 오류로 앱을 종료합니다. 로그를 확인해 주세요.\n\n" +
                     $"The app will close because of an unexpected error. Please check the log.\n\n" +
-                    _log.LogPath,
+                    (fatalLogPath is not null
+                        ? fatalLogPath
+                        : $"{args.Exception.GetType().Name}: {args.Exception.Message}"),
                     "Mabinogi Overlay",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -52,7 +54,7 @@ public partial class App : Application
         {
             if (args.ExceptionObject is Exception exception)
             {
-                _log.Error("Unhandled app domain exception.", exception);
+                _log.WriteCritical("Unhandled app domain exception.", exception);
             }
             else
             {

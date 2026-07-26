@@ -11,7 +11,7 @@ public partial class MainWindow
     {
         if (_guideWindow is null)
         {
-            _guideWindow = new GuideWindow();
+            _guideWindow = new GuideWindow(_log);
             _guideWindow.NavigationRequested += GuideWindow_NavigationRequested;
             _guideWindow.Closed += (_, _) => _guideWindow = null;
         }

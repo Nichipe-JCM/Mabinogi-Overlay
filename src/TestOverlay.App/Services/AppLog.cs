@@ -13,8 +13,11 @@ public sealed class AppLog : IDisposable
     private readonly bool _enabled;
     private readonly long _maximumLogBytes;
     private readonly int _retainedLogFiles;
+    private readonly string _primaryLogDirectory;
+    private readonly string _fallbackLogDirectory;
     private readonly BlockingCollection<string>? _queue;
     private readonly Task? _writerTask;
+    private string _activeLogDirectory;
     private int _droppedMessages;
     private bool _disposed;
 
@@ -22,16 +25,27 @@ public sealed class AppLog : IDisposable
         string? logDirectory = null,
         bool enabled = true,
         long maximumLogBytes = DefaultMaximumLogBytes,
-        int retainedLogFiles = DefaultRetainedLogFiles)
+        int retainedLogFiles = DefaultRetainedLogFiles,
+        string? fallbackLogDirectory = null)
     {
         _enabled = enabled;
         _maximumLogBytes = Math.Max(64 * 1024, maximumLogBytes);
         _retainedLogFiles = Math.Clamp(retainedLogFiles, 1, 10);
         if (enabled && logDirectory is null)
         {
-            AppDataPaths.EnsureInitialized();
+            try
+            {
+                AppDataPaths.EnsureInitialized();
+            }
+            catch
+            {
+                // The writer will switch to the fallback directory on its first entry.
+            }
         }
-        LogDirectory = logDirectory ?? (enabled ? AppDataPaths.LogDirectory : Path.GetTempPath());
+        _primaryLogDirectory = logDirectory ?? (enabled ? AppDataPaths.LogDirectory : Path.GetTempPath());
+        _fallbackLogDirectory = fallbackLogDirectory ??
+                                Path.Combine(Path.GetTempPath(), "Mabinogi Overlay", "Logs");
+        _activeLogDirectory = _primaryLogDirectory;
         if (_enabled)
         {
             _queue = new BlockingCollection<string>(QueueCapacity);
@@ -43,7 +57,7 @@ public sealed class AppLog : IDisposable
         }
     }
 
-    public string LogDirectory { get; }
+    public string LogDirectory => Volatile.Read(ref _activeLogDirectory);
 
     public string LogPath => Path.Combine(LogDirectory, "app.log");
 
@@ -53,6 +67,25 @@ public sealed class AppLog : IDisposable
 
     public void Error(string message, Exception exception) =>
         Write("ERROR", $"{message}{Environment.NewLine}{exception}");
+
+    public string? WriteCritical(string message, Exception exception)
+    {
+        if (!_enabled)
+        {
+            return null;
+        }
+
+        var entry = FormatEntry("FATAL", $"{message}{Environment.NewLine}{exception}");
+        try
+        {
+            WriteEntry(entry);
+            return LogPath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     public void Dispose()
     {
@@ -85,7 +118,7 @@ public sealed class AppLog : IDisposable
             return;
         }
 
-        var entry = $"[{DateTimeOffset.Now:O}] {level} {RedactLocalPaths(message)}{Environment.NewLine}";
+        var entry = FormatEntry(level, message);
         if (!_queue.TryAdd(entry))
         {
             Interlocked.Increment(ref _droppedMessages);
@@ -120,34 +153,63 @@ public sealed class AppLog : IDisposable
     {
         lock (IoSync)
         {
-            Directory.CreateDirectory(LogDirectory);
-            RotateIfNeeded(Encoding.UTF8.GetByteCount(entry));
-            File.AppendAllText(LogPath, entry, new UTF8Encoding(false));
+            var activeDirectory = LogDirectory;
+            try
+            {
+                WriteEntryToDirectory(activeDirectory, entry);
+            }
+            catch (Exception primaryException) when (!PathsEqual(activeDirectory, _fallbackLogDirectory))
+            {
+                var fallbackNotice = FormatEntry(
+                    "WARN",
+                    $"Primary log unavailable; switched to fallback log. " +
+                    $"primary={_primaryLogDirectory}{Environment.NewLine}{primaryException}");
+                WriteEntryToDirectory(_fallbackLogDirectory, fallbackNotice + entry);
+                Volatile.Write(ref _activeLogDirectory, _fallbackLogDirectory);
+            }
         }
     }
 
-    private void RotateIfNeeded(int incomingBytes)
+    private void WriteEntryToDirectory(string directory, string entry)
     {
-        if (!File.Exists(LogPath) || new FileInfo(LogPath).Length + incomingBytes <= _maximumLogBytes)
+        Directory.CreateDirectory(directory);
+        var logPath = Path.Combine(directory, "app.log");
+        RotateIfNeeded(directory, logPath, Encoding.UTF8.GetByteCount(entry));
+        File.AppendAllText(logPath, entry, new UTF8Encoding(false));
+    }
+
+    private void RotateIfNeeded(string directory, string logPath, int incomingBytes)
+    {
+        if (!File.Exists(logPath) || new FileInfo(logPath).Length + incomingBytes <= _maximumLogBytes)
         {
             return;
         }
 
-        var oldest = RotatedLogPath(_retainedLogFiles);
+        var oldest = RotatedLogPath(directory, _retainedLogFiles);
         File.Delete(oldest);
         for (var index = _retainedLogFiles - 1; index >= 1; index--)
         {
-            var source = RotatedLogPath(index);
+            var source = RotatedLogPath(directory, index);
             if (File.Exists(source))
             {
-                File.Move(source, RotatedLogPath(index + 1));
+                File.Move(source, RotatedLogPath(directory, index + 1));
             }
         }
 
-        File.Move(LogPath, RotatedLogPath(1));
+        File.Move(logPath, RotatedLogPath(directory, 1));
     }
 
-    private string RotatedLogPath(int index) => Path.Combine(LogDirectory, $"app.{index}.log");
+    private static string RotatedLogPath(string directory, int index) =>
+        Path.Combine(directory, $"app.{index}.log");
+
+    private static string FormatEntry(string level, string message) =>
+        $"[{DateTimeOffset.Now:O}] {level} {RedactLocalPaths(message)}{Environment.NewLine}";
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(
+            Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
 
     private static string RedactLocalPaths(string message)
     {

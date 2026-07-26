@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -10,10 +11,13 @@ namespace TestOverlay.App;
 
 public partial class GuideWindow : Window
 {
+    private readonly AppLog? _log;
+    private readonly HashSet<string> _unavailableImages = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<GuideTopicDisplay> _topics = [];
 
-    public GuideWindow()
+    public GuideWindow(AppLog? log = null)
     {
+        _log = log;
         InitializeComponent();
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
         Closed += (_, _) => LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
@@ -94,24 +98,45 @@ public partial class GuideWindow : Window
 
     private bool TryLoadGuideImage(string fileName)
     {
-        var uri = new Uri($"/Image/Guide/{fileName}", UriKind.Relative);
-        var resource = Application.GetResourceStream(uri);
-        if (resource is null)
+        if (_unavailableImages.Contains(fileName))
         {
             return false;
         }
 
-        using (resource.Stream)
+        try
         {
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.StreamSource = resource.Stream;
-            image.EndInit();
-            image.Freeze();
-            GuidePopupImage.Source = image;
+            var uri = new Uri($"/Image/Guide/{fileName}", UriKind.Relative);
+            var resource = Application.GetResourceStream(uri);
+            if (resource is null)
+            {
+                _unavailableImages.Add(fileName);
+                return false;
+            }
+
+            using (resource.Stream)
+            {
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.StreamSource = resource.Stream;
+                image.EndInit();
+                image.Freeze();
+                GuidePopupImage.Source = image;
+            }
+            return true;
         }
-        return true;
+        catch (IOException)
+        {
+            // Guide images are optional. Missing files are expected until an image is supplied.
+            _unavailableImages.Add(fileName);
+            return false;
+        }
+        catch (Exception exception)
+        {
+            _unavailableImages.Add(fileName);
+            _log?.Error($"Guide image could not be loaded: file={fileName}.", exception);
+            return false;
+        }
     }
 
     private void UpdateGuideImagePopupPosition(MouseEventArgs e)
