@@ -59,9 +59,14 @@ public partial class MainWindow
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
-        FlushProfileAutoSave();
+        var profileSaved = FlushProfileAutoSave();
         if (_isAppExitRequested)
         {
+            if (!profileSaved && !ResolveProfileSaveFailureBeforeExit())
+            {
+                e.Cancel = true;
+                CancelPendingExit();
+            }
             return;
         }
 
@@ -93,7 +98,64 @@ public partial class MainWindow
             return;
         }
 
+        if (!profileSaved && !ResolveProfileSaveFailureBeforeExit())
+        {
+            e.Cancel = true;
+            return;
+        }
+
         _isAppExitRequested = true;
+    }
+
+    private bool ResolveProfileSaveFailureBeforeExit()
+    {
+        while (true)
+        {
+            var dialog = new ProfileSaveFailureDialog(_lastProfileSaveError);
+            Window? owner = _compactControlWindow is { IsVisible: true } compact
+                ? compact
+                : IsVisible
+                    ? this
+                    : null;
+            if (owner is not null)
+            {
+                dialog.Owner = owner;
+            }
+            else
+            {
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+
+            dialog.ShowDialog();
+            if (dialog.Choice == ProfileSaveFailureChoice.DiscardAndExit)
+            {
+                _log.Info("Application exit continued after the user discarded unsaved profile changes.");
+                return true;
+            }
+
+            if (dialog.Choice != ProfileSaveFailureChoice.Retry)
+            {
+                return false;
+            }
+
+            if (FlushProfileAutoSave())
+            {
+                return true;
+            }
+        }
+    }
+
+    private void CancelPendingExit()
+    {
+        _isAppExitRequested = false;
+        if (_appSettings.CompactModeEnabled)
+        {
+            EnterCompactMode(savePreference: false);
+        }
+        else
+        {
+            RestoreFromTray();
+        }
     }
 
     private void MinimizeToTray()

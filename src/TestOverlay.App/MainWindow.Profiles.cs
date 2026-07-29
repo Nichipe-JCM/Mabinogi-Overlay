@@ -8,6 +8,8 @@ namespace TestOverlay.App;
 
 public partial class MainWindow
 {
+    private string? _lastProfileSaveError;
+
     private void ProfileCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isUpdatingProfileSelection || ProfileCombo.SelectedItem is not string)
@@ -15,7 +17,20 @@ public partial class MainWindow
             return;
         }
 
-        FlushProfileAutoSave();
+        if (FlushProfileAutoSave())
+        {
+            return;
+        }
+
+        _isUpdatingProfileSelection = true;
+        try
+        {
+            ProfileCombo.SelectedItem = ReadSelectedProfileName();
+        }
+        finally
+        {
+            _isUpdatingProfileSelection = false;
+        }
     }
 
     private OverlayProfile BuildCurrentProfile(string profileName)
@@ -76,21 +91,23 @@ public partial class MainWindow
         _profileAutoSaveTimer.Start();
     }
 
-    private void FlushProfileAutoSave()
+    private bool FlushProfileAutoSave()
     {
         _profileAutoSaveTimer.Stop();
         if (_profileLayoutLoadPendingCapture)
         {
-            return;
+            return true;
         }
-        if (!_isLoadingProfile && IsLoaded && _isProfileDirty)
+
+        if (_isLoadingProfile || !IsLoaded)
         {
-            _isProfileDirty = false;
-            SaveActiveProfile(showStatus: false);
+            return true;
         }
+
+        return _profileSession.TryFlush(() => SaveActiveProfile(showStatus: false));
     }
 
-    private void SaveActiveProfile(bool showStatus)
+    private bool SaveActiveProfile(bool showStatus)
     {
         try
         {
@@ -99,6 +116,7 @@ public partial class MainWindow
             var path = _profileStore.Save(profile, profileName);
             _selectedProfileName = System.IO.Path.GetFileNameWithoutExtension(path);
             _isProfileDirty = false;
+            _lastProfileSaveError = null;
             _log.Info(
                 $"Profile saved: path={path}, automatic={!showStatus}, " +
                 $"buffEnabled={profile.BuffMonitorEnabled}, tuairimEnabled={profile.TuairimMonitorEnabled}, " +
@@ -109,12 +127,15 @@ public partial class MainWindow
                 _log.Info($"Profile created: {path}, candidates={profile.Candidates.Count}, slots={profile.Slots.Count}");
                 SetStatus(L.F("Profile created: {0}", path));
             }
+            return true;
         }
         catch (Exception exception)
         {
             _isProfileDirty = true;
+            _lastProfileSaveError = exception.Message;
             _log.Error("Profile auto-save failed.", exception);
             SetStatus(L.F("Profile save failed: {0}", exception.Message));
+            return false;
         }
     }
 
@@ -141,7 +162,12 @@ public partial class MainWindow
         bool allowDeferredQuickslots,
         bool restorePreviousOnFailure)
     {
-        FlushProfileAutoSave();
+        if (!FlushProfileAutoSave())
+        {
+            SetStatus(L.T("profile.switch.blocked.save.failed"));
+            return false;
+        }
+
         var previousProfileName = ProfileStore.NormalizeProfileName(_appSettings.ActiveProfileName);
         OverlayProfile? profile;
         try

@@ -1075,7 +1075,12 @@ public partial class MainWindow : Window
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         CloseManualSectionPopup();
-        FlushProfileAutoSave();
+        if (!FlushProfileAutoSave())
+        {
+            SetStatus(L.T("profile.settings.blocked.save.failed"));
+            return;
+        }
+
         var dialog = new SettingsWindow(
             _profileStore.ProfileDirectory,
             _settingsStore.DefaultProfileDirectory,
@@ -1117,7 +1122,12 @@ public partial class MainWindow : Window
 
         try
         {
-            FlushProfileAutoSave();
+            if (!FlushProfileAutoSave())
+            {
+                SetStatus(L.T("profile.settings.blocked.save.failed"));
+                return;
+            }
+
             var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
             System.IO.Directory.CreateDirectory(directory);
             _appSettings.ProfileDirectory = directory;
@@ -1136,7 +1146,10 @@ public partial class MainWindow : Window
             if (!dialog.ProfileApplyRequested && !_profileStore.Exists(targetProfileName))
             {
                 _selectedProfileName = ProfileStore.NormalizeProfileName(targetProfileName);
-                SaveActiveProfile(showStatus: false);
+                if (!SaveActiveProfile(showStatus: false))
+                {
+                    return;
+                }
             }
             RefreshProfileList(targetProfileName);
             if ((dialog.ProfileApplyRequested || dialog.ActiveProfileDeleted) &&

@@ -17,6 +17,19 @@ public sealed class ProfileSession
 
     public bool IsDirty { get; set; }
 
+    public bool TryFlush(Func<bool> save)
+    {
+        ArgumentNullException.ThrowIfNull(save);
+        if (!IsDirty)
+        {
+            return true;
+        }
+
+        var saved = save();
+        IsDirty = !saved;
+        return saved;
+    }
+
     public void RefreshProfileNames(string? preferredName = null)
     {
         var names = _store.ListProfileNames().ToList();
