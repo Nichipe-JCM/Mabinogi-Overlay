@@ -13,6 +13,7 @@ The project must remain within this safety boundary:
 
 - Repository: `G:\gpt\git\testoverlayproj`
 - Stable integration branch: `develop`
+- Active stabilization branch: `codex/msr-stabilization`
 - Active release branch at the time of this document: `version/0.0.4.3`
 - Current app version in the project file: `0.0.4.3`
 - Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
@@ -118,15 +119,19 @@ The Buff/Tuairim tab is feature work on the current branch.
 - `Profiles/<profile>.json` stores candidates, sections, layout, monitor settings, and monitor anchors.
 - `Logs/app.log` contains the current session log, and `erin-timer.json` stores Erin timer settings separately from overlay profiles.
 - On first launch, portable data beside the executable is copied into LocalAppData without overwriting existing destination files or deleting the originals.
-- Missing or invalid settings fall back to defaults. Profile and settings files are directly rewritten; they are not yet atomically replaced.
+- Missing or invalid settings fall back to defaults.
+- `AtomicJsonFile` writes settings and profiles through a same-directory temporary file, flushes it to disk, replaces the primary file, and maintains a `.bak` recovery copy.
+- Profile loading can recover from an invalid primary file or a newer valid backup. Save failures must remain visible to callers so profile switches and process shutdown cannot silently discard dirty state.
 
 ## Recent Fixes
 
-The most recent commits on the active branch repaired Erin alarm state persistence and added settings reset behavior.
+The current `develop` baseline includes the profile, tray, guide, runtime, alert-sound, layout, and monitor improvements from `feature/settings-tray-exit`.
 
-- Erin alarm rows now use two-way bindings.
-- Alarm normalization preserves object identity instead of recreating models during every save.
-- Settings includes a two-step reset confirmation for the values in that dialog. Profiles and layouts are not deleted by this reset.
+- Settings and profiles use atomic primary/backup persistence.
+- Portable profile packages copy owned audio assets into the package.
+- The close button can exit, minimize to the tray, or ask the user.
+- The current stabilization branch propagates profile save failures so profile switching and actual process exit cannot silently discard dirty state.
+- Overlay startup serialization, WGC resize handling, and WGC target-close handling are the current runtime stabilization focus.
 
 ## Known Technical Risks
 
@@ -139,8 +144,8 @@ The most recent commits on the active branch repaired Erin alarm state persisten
 
 ## Recommended Next Work Order
 
-1. Obtain user runtime feedback for the current status monitor branch.
-2. Stabilize capture performance before increasing default FPS or adding more continuously scanned UI.
-3. Separate monitor orchestration and overlay session lifecycle from `MainWindow` when touching those areas again.
-4. Add atomic profile/settings writes before broader distribution.
-5. Merge the status-monitor branch into `develop` only after the user approves the runtime behavior.
+1. Finish the `codex/msr-stabilization` Gate F work: failed profile flush behavior, single-flight startup, WGC resize, WGC target close, and DXGI UI-stall measurement.
+2. Keep Release build and unit regression results separate from user-run Windows/game runtime verification.
+3. Before a public beta candidate, decide and enforce OCR diagnostic privacy, imported-audio trust boundaries, multi-instance behavior, and the minimum supported UI/accessibility baseline.
+4. Measure DXGI resource churn, full-frame managed copies, high-FPS CPU rendering, and OCR fallback cadence before starting broad performance refactors.
+5. Extract only the orchestration boundary that a verified defect or regression test shows is blocking maintainability; do not make a large `MainWindow` rewrite a goal by itself.
