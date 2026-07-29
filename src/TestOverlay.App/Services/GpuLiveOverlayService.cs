@@ -52,6 +52,8 @@ public sealed class GpuLiveOverlayService : IDisposable
     private int _framesDroppedByBusyRenderer;
     private int _framesNull;
     private int _isRendering;
+    private int _captureFrameWidth;
+    private int _captureFrameHeight;
     private bool _firstFrameLogged;
     private bool _isDisposed;
 
@@ -219,6 +221,8 @@ public sealed class GpuLiveOverlayService : IDisposable
             DirectXPixelFormat.B8G8R8A8UIntNormalized,
             2,
             captureItem.Size);
+        _captureFrameWidth = captureItem.Size.Width;
+        _captureFrameHeight = captureItem.Size.Height;
         _session = _framePool.CreateCaptureSession(captureItem);
         _session.IsCursorCaptureEnabled = false;
         if (_borderlessCaptureAllowed)
@@ -261,7 +265,7 @@ public sealed class GpuLiveOverlayService : IDisposable
 
         try
         {
-            using var frame = sender.TryGetNextFrame();
+            var frame = sender.TryGetNextFrame();
             if (frame is null)
             {
                 Interlocked.Increment(ref _framesNull);
@@ -269,19 +273,52 @@ public sealed class GpuLiveOverlayService : IDisposable
                 return;
             }
 
-            RenderFrame(frame);
-            var presented = Interlocked.Increment(ref _framesPresented);
-            Interlocked.Exchange(ref _lastPresentedTicks, _frameClock.ElapsedTicks);
-            if (!_firstFrameLogged)
+            var contentSize = frame.ContentSize;
+            if (WgcCaptureService.FrameSizeChanged(
+                    _captureFrameWidth,
+                    _captureFrameHeight,
+                    contentSize.Width,
+                    contentSize.Height))
             {
-                _firstFrameLogged = true;
+                frame.Dispose();
+                lock (_renderLock)
+                {
+                    if (_isDisposed || _winRtDevice is null)
+                    {
+                        return;
+                    }
+
+                    sender.Recreate(
+                        _winRtDevice,
+                        DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                        2,
+                        contentSize);
+                    _captureFrameWidth = contentSize.Width;
+                    _captureFrameHeight = contentSize.Height;
+                }
+
                 _log.Info(
-                    $"GPU renderer first frame presented: frame={frame.ContentSize.Width}x{frame.ContentSize.Height}, " +
-                    $"slots={_slots.Count}, presented={presented}");
+                    $"GPU renderer WGC frame pool resized: width={contentSize.Width}, height={contentSize.Height}.");
+                LastException = null;
+                return;
             }
 
-            MaybeLogStats(_frameClock.ElapsedTicks);
-            LastException = null;
+            using (frame)
+            {
+                RenderFrame(frame);
+                var presented = Interlocked.Increment(ref _framesPresented);
+                Interlocked.Exchange(ref _lastPresentedTicks, _frameClock.ElapsedTicks);
+                if (!_firstFrameLogged)
+                {
+                    _firstFrameLogged = true;
+                    _log.Info(
+                        $"GPU renderer first frame presented: frame={frame.ContentSize.Width}x{frame.ContentSize.Height}, " +
+                        $"slots={_slots.Count}, presented={presented}");
+                }
+
+                MaybeLogStats(_frameClock.ElapsedTicks);
+                LastException = null;
+            }
         }
         catch (ObjectDisposedException)
         {

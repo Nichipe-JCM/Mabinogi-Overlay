@@ -11,11 +11,13 @@ public sealed class OverlayRuntimeController : IDisposable
 {
     private const int StopHotkeyId = 0x3141;
     private const int CustomTimerHotkeyBaseId = 0x3200;
+    private const double ProvisionalUiStallThresholdMs = 250;
     private readonly CaptureSessionCoordinator _captureSession;
     private readonly CpuCompositedOverlayRenderer _cpuRenderer = new();
     private readonly AppLog _log;
     private readonly DispatcherTimer _refreshTimer = new();
     private readonly Stopwatch _cpuRenderClock = new();
+    private readonly SingleFlightGate _startGate = new();
     private OverlayRuntimeOptions? _options;
     private OverlayWindow? _overlayWindow;
     private GpuLiveOverlayService? _gpuRenderer;
@@ -27,6 +29,7 @@ public sealed class OverlayRuntimeController : IDisposable
     private int _cpuStatsFrames;
     private int _cpuStatsSkippedBusy;
     private int _cpuStatsErrors;
+    private int _cpuStatsStalls;
     private bool _isRefreshing;
     private bool _isDisposed;
 
@@ -48,6 +51,23 @@ public sealed class OverlayRuntimeController : IDisposable
     public bool IsRunning => _overlayWindow is not null;
 
     public async Task<OverlayRuntimeStartResult> StartAsync(Window owner, OverlayRuntimeOptions options)
+    {
+        if (!_startGate.TryEnter())
+        {
+            return OverlayRuntimeStartResult.AlreadyRunning;
+        }
+
+        try
+        {
+            return await StartCoreAsync(owner, options);
+        }
+        finally
+        {
+            _startGate.Exit();
+        }
+    }
+
+    private async Task<OverlayRuntimeStartResult> StartCoreAsync(Window owner, OverlayRuntimeOptions options)
     {
         ThrowIfDisposed();
         if (IsRunning)
@@ -323,7 +343,8 @@ public sealed class OverlayRuntimeController : IDisposable
     {
         var options = _options;
         if (options is null ||
-            !_captureSession.HasLiveCaptureSource(options.CaptureBackend) ||
+            (!_captureSession.HasLiveCaptureSource(options.CaptureBackend) &&
+             _captureSession.LastLiveCaptureException is null) ||
             _overlayWindow is null ||
             options.Slots.Count == 0 ||
             _isRefreshing)
@@ -340,6 +361,13 @@ public sealed class OverlayRuntimeController : IDisposable
         {
             _isRefreshing = true;
             _cpuRenderClock.Restart();
+            if (_captureSession.LastLiveCaptureException is not null)
+            {
+                throw new InvalidOperationException(
+                    "The selected live capture source is no longer available.",
+                    _captureSession.LastLiveCaptureException);
+            }
+
             if (_gpuRenderer is not null)
             {
                 if (_gpuRenderer.LastException is not null)
@@ -364,6 +392,7 @@ public sealed class OverlayRuntimeController : IDisposable
         catch (Exception exception)
         {
             _cpuStatsErrors++;
+            LogCpuStallIfNeeded(options, _cpuRenderClock.ElapsedTicks, failed: true);
             _log.Error("Live overlay refresh failed.", exception);
             Stop();
             RuntimeFailed?.Invoke(exception);
@@ -491,6 +520,7 @@ public sealed class OverlayRuntimeController : IDisposable
         _cpuStatsFrames = 0;
         _cpuStatsSkippedBusy = 0;
         _cpuStatsErrors = 0;
+        _cpuStatsStalls = 0;
     }
 
     private void RecordCpuRenderFrame(long elapsedTicks)
@@ -503,6 +533,10 @@ public sealed class OverlayRuntimeController : IDisposable
         _cpuStatsFrames++;
         _cpuStatsTicks += elapsedTicks;
         _cpuStatsMaxTicks = Math.Max(_cpuStatsMaxTicks, elapsedTicks);
+        if (_options is not null)
+        {
+            LogCpuStallIfNeeded(_options, elapsedTicks, failed: false);
+        }
         var now = Stopwatch.GetTimestamp();
         if ((now - _cpuStatsLastLogTicks) / (double)Stopwatch.Frequency >= 5)
         {
@@ -524,8 +558,23 @@ public sealed class OverlayRuntimeController : IDisposable
             $"CPU renderer stats{(final ? " final" : string.Empty)}: " +
             $"mode={RenderModeLabel(_activeRenderMode)}, frames={_cpuStatsFrames}, " +
             $"avgMs={averageMs:0.00}, maxMs={maxMs:0.00}, " +
-            $"skippedBusy={_cpuStatsSkippedBusy}, errors={_cpuStatsErrors}, " +
+            $"skippedBusy={_cpuStatsSkippedBusy}, errors={_cpuStatsErrors}, stalls={_cpuStatsStalls}, " +
             $"slots={_options?.Slots.Count ?? 0}");
+    }
+
+    private void LogCpuStallIfNeeded(OverlayRuntimeOptions options, long elapsedTicks, bool failed)
+    {
+        var elapsedMs = elapsedTicks * 1000.0 / Stopwatch.Frequency;
+        if (elapsedMs < ProvisionalUiStallThresholdMs)
+        {
+            return;
+        }
+
+        _cpuStatsStalls++;
+        _log.Info(
+            $"CPU renderer UI stall detected: elapsedMs={elapsedMs:0.00}, " +
+            $"thresholdMs={ProvisionalUiStallThresholdMs:0}, captureBackend={options.CaptureBackend}, " +
+            $"mode={RenderModeLabel(_activeRenderMode)}, failed={failed}.");
     }
 
     private void LogStarted(OverlayRuntimeOptions options, string rendererMode)

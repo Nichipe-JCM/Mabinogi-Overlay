@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
+using Windows.Graphics.Capture;
 
 namespace TestOverlay.App.Services;
 
@@ -14,6 +15,10 @@ public sealed class CaptureSessionCoordinator
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly WgcCaptureService _wgcCapture;
     private readonly AppLog _log;
+    private Windows.Foundation.TypedEventHandler<GraphicsCaptureItem, object>? _captureItemClosedHandler;
+    private GraphicsCaptureItem? _subscribedCaptureItem;
+    private Exception? _captureSourceException;
+    private int _captureSourceGeneration;
 
     public CaptureSessionCoordinator(AppLog log)
     {
@@ -31,7 +36,7 @@ public sealed class CaptureSessionCoordinator
 
     public bool IsBorderlessCaptureAllowed => _wgcCapture.IsBorderlessCaptureAllowed;
 
-    public Exception? LastLiveCaptureException => _wgcCapture.LastLiveCaptureException;
+    public Exception? LastLiveCaptureException => _captureSourceException ?? _wgcCapture.LastLiveCaptureException;
 
     public IReadOnlyList<GameWindowInfo> GetVisibleWindows() => _windowDiscovery.GetVisibleWindows();
 
@@ -55,9 +60,7 @@ public sealed class CaptureSessionCoordinator
         }
 
         var image = await _wgcCapture.CapturePreparedItemOnceAsync(selection.Item, SingleCaptureTimeout);
-        SelectedWindow = window;
-        WgcSelection = selection;
-        CapturedImage = image;
+        SetWgcCaptureSource(window, selection, image);
         return new CaptureOperationResult(CaptureOperationStatus.Success, windows, window, selection);
     }
 
@@ -90,9 +93,7 @@ public sealed class CaptureSessionCoordinator
         }
 
         var image = await _wgcCapture.CapturePreparedItemOnceAsync(selection.Item, SingleCaptureTimeout);
-        SelectedWindow = window;
-        WgcSelection = selection;
-        CapturedImage = image;
+        SetWgcCaptureSource(window, selection, image);
         return new CaptureOperationResult(CaptureOperationStatus.Success, windows, window, selection);
     }
 
@@ -182,6 +183,56 @@ public sealed class CaptureSessionCoordinator
         string.Equals(window.Title, displayName, StringComparison.OrdinalIgnoreCase)
         || displayName.Contains(window.Title, StringComparison.OrdinalIgnoreCase)
         || window.Title.Contains(displayName, StringComparison.OrdinalIgnoreCase);
+
+    private void SetWgcCaptureSource(
+        GameWindowInfo window,
+        WgcSelectionResult selection,
+        BitmapSource image)
+    {
+        UnsubscribeCaptureItemClosed();
+        SelectedWindow = window;
+        WgcSelection = selection;
+        CapturedImage = image;
+        _captureSourceException = null;
+        var generation = Interlocked.Increment(ref _captureSourceGeneration);
+        _captureItemClosedHandler = (item, _) =>
+        {
+            if (generation != Volatile.Read(ref _captureSourceGeneration))
+            {
+                return;
+            }
+
+            _captureSourceException = new InvalidOperationException(
+                "The selected game capture source was closed.");
+            WgcSelection = null;
+            SelectedWindow = null;
+            CapturedImage = null;
+            _log.Info("The selected WGC capture source was closed. Runtime reselection is required.");
+        };
+        _subscribedCaptureItem = selection.Item;
+        selection.Item.Closed += _captureItemClosedHandler;
+    }
+
+    private void UnsubscribeCaptureItemClosed()
+    {
+        Interlocked.Increment(ref _captureSourceGeneration);
+        if (_subscribedCaptureItem is null || _captureItemClosedHandler is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _subscribedCaptureItem.Closed -= _captureItemClosedHandler;
+        }
+        catch (ObjectDisposedException)
+        {
+            // The capture item may already be closed while a new source is being selected.
+        }
+
+        _captureItemClosedHandler = null;
+        _subscribedCaptureItem = null;
+    }
 }
 
 public enum CaptureOperationStatus

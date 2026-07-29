@@ -48,4 +48,20 @@ public sealed class OverlayRuntimeControllerTests
         Assert.Equal(1200, result.Left);
         Assert.Equal(0, result.Top);
     }
+
+    [Theory]
+    [InlineData(1920, 1080, 1920, 1080, false)]
+    [InlineData(1920, 1080, 2560, 1440, true)]
+    [InlineData(1920, 1080, 0, 1440, false)]
+    public void FrameSizeChanged_RequiresPositiveDifferentDimensions(
+        int currentWidth,
+        int currentHeight,
+        int nextWidth,
+        int nextHeight,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            WgcCaptureService.FrameSizeChanged(currentWidth, currentHeight, nextWidth, nextHeight));
+    }
 }
