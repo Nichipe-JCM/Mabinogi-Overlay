@@ -107,7 +107,7 @@ public sealed class ProfileStoreTests : IDisposable
         profile.CanvasWidth = 777;
         var audioPath = Path.Combine(_directory, "custom-alert.mp3");
         Directory.CreateDirectory(_directory);
-        File.WriteAllBytes(audioPath, [1, 2, 3, 4, 5]);
+        File.WriteAllBytes(audioPath, [(byte)'I', (byte)'D', (byte)'3', 1, 2, 3, 4, 5]);
         profile.BuffAlertSoundPath = audioPath;
         profile.CustomTimers.Add(new CustomTimerDefinition
         {
@@ -129,7 +129,9 @@ public sealed class ProfileStoreTests : IDisposable
         Assert.Equal(777, imported.CanvasWidth);
         Assert.NotEqual(audioPath, imported.BuffAlertSoundPath);
         Assert.True(File.Exists(imported.BuffAlertSoundPath));
-        Assert.Equal([1, 2, 3, 4, 5], File.ReadAllBytes(imported.BuffAlertSoundPath));
+        Assert.Equal(
+            [(byte)'I', (byte)'D', (byte)'3', 1, 2, 3, 4, 5],
+            File.ReadAllBytes(imported.BuffAlertSoundPath));
         Assert.Equal(imported.BuffAlertSoundPath, Assert.Single(imported.CustomTimers).SoundPath);
 
         var importedAssetDirectory = Path.GetDirectoryName(imported.BuffAlertSoundPath)!;

@@ -195,10 +195,17 @@ public sealed class AlertAudioService : IDisposable
     {
         var usesDefaultSound = string.IsNullOrWhiteSpace(path);
         var resolvedPath = usesDefaultSound ? DefaultAlertSound.ResolvePath(_log) : path;
-        if (!usesDefaultSound && !File.Exists(resolvedPath))
+        if (!usesDefaultSound)
         {
-            _log.Info($"Monitor alert custom sound unavailable: kind={alertKind}, path={path}");
-            return;
+            try
+            {
+                resolvedPath = AudioFilePolicy.Validate(path);
+            }
+            catch (Exception exception)
+            {
+                _log.Error($"Monitor alert custom sound rejected: kind={alertKind}, path={path}", exception);
+                return;
+            }
         }
 
         try

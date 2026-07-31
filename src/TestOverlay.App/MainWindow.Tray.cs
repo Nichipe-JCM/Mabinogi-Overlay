@@ -189,6 +189,16 @@ public partial class MainWindow
         _log.Info("Application restored from notification area.");
     }
 
+    internal void ActivateFromSecondInstance()
+    {
+        RestoreFromTray();
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+        Activate();
+    }
+
     private void ExitFromTray()
     {
         _isAppExitRequested = true;

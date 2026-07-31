@@ -24,6 +24,8 @@ public partial class MainWindow : Window
     private const int MonitorRecognitionIntervalSeconds = 2;
     private const int TuairimNormalChargeSecondsPerPercent = 6;
     private const int TuairimFullEffectSeconds = 20;
+    private static readonly TimeSpan ProfileAutoSaveDelay = TimeSpan.FromMilliseconds(400);
+    private static readonly TimeSpan ProfileAutoSaveRetryDelay = TimeSpan.FromSeconds(5);
     private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
@@ -44,7 +46,7 @@ public partial class MainWindow : Window
     private readonly object _detectLogSync = new();
     private readonly string _detectSessionLogFileName;
     private string DetectSessionLogPath => System.IO.Path.Combine(_log.LogDirectory, _detectSessionLogFileName);
-    private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = ProfileAutoSaveDelay };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private CancellationTokenSource _monitorRecognitionCancellation = new();
@@ -225,6 +227,7 @@ public partial class MainWindow : Window
         _profileSession.SelectedProfileName = _appSettings.ActiveProfileName;
         _detectSessionLogFileName = $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log";
         InitializeComponent();
+        HeaderVersionText.Text = $"v{AppVersion.DisplayVersion}";
         InitializeTrayBehavior();
         InitializeCustomTimerFeature();
         BuffIconsOnlyCheckBox.IsChecked = _appSettings.BuffIconsOnly;
@@ -1075,11 +1078,7 @@ public partial class MainWindow : Window
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         CloseManualSectionPopup();
-        if (!FlushProfileAutoSave())
-        {
-            SetStatus(L.T("profile.settings.blocked.save.failed"));
-            return;
-        }
+        var profileSavedBeforeSettings = FlushProfileAutoSave();
 
         var dialog = new SettingsWindow(
             _profileStore.ProfileDirectory,
@@ -1090,6 +1089,8 @@ public partial class MainWindow : Window
             _appSettings.CaptureBackend,
             _appSettings.Language,
             _appSettings.CloseBehavior,
+            _appSettings.SaveOcrDiagnosticImages,
+            !profileSavedBeforeSettings,
             ReadSelectedProfileName(),
             _log.LogPath,
             _log.SessionStartedAt)
@@ -1122,14 +1123,31 @@ public partial class MainWindow : Window
 
         try
         {
-            if (!FlushProfileAutoSave())
+            var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
+            var previousDirectory = _profileStore.ProfileDirectory;
+            var directoryChanged = !string.Equals(
+                System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(previousDirectory)),
+                System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(directory)),
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!directoryChanged && !FlushProfileAutoSave())
             {
-                SetStatus(L.T("profile.settings.blocked.save.failed"));
+                SetStatus(L.T("profile.settings.recovery.same.folder.failed"));
                 return;
             }
 
-            var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
             System.IO.Directory.CreateDirectory(directory);
+            if (directoryChanged)
+            {
+                _profileStore.SetProfileDirectory(directory);
+                if (_isProfileDirty && !SaveActiveProfile(showStatus: false))
+                {
+                    _profileStore.SetProfileDirectory(previousDirectory);
+                    SetStatus(L.T("profile.settings.recovery.new.folder.failed"));
+                    return;
+                }
+            }
+
             _appSettings.ProfileDirectory = directory;
             _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
             _appSettings.AutomaticRendererSelection = dialog.AutomaticRendererSelection;
@@ -1137,6 +1155,7 @@ public partial class MainWindow : Window
             _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
             _appSettings.Language = LocalizationService.NormalizeLanguage(dialog.SelectedLanguage);
             _appSettings.CloseBehavior = dialog.SelectedCloseBehavior;
+            _appSettings.SaveOcrDiagnosticImages = dialog.SaveOcrDiagnosticImages;
             LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);

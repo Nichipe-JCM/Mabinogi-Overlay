@@ -219,6 +219,18 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         var soundPath = usesDefaultSound
             ? DefaultAlertSound.ResolvePath(_log)
             : audioFile;
+        if (!usesDefaultSound)
+        {
+            try
+            {
+                soundPath = AudioFilePolicy.Validate(soundPath!);
+            }
+            catch (Exception exception)
+            {
+                _log?.Error($"Erin timer sound rejected: path={audioFile}", exception);
+                return;
+            }
+        }
         if (string.IsNullOrWhiteSpace(soundPath) || !File.Exists(soundPath))
         {
             if (usesDefaultSound && !_settings.IsMuted)
@@ -464,7 +476,26 @@ public partial class ErinTimerWindow : UserControl, IDisposable
             CheckFileExists = true,
             Multiselect = false
         };
-        return dialog.ShowDialog(Window.GetWindow(this)) == true ? dialog.FileName : null;
+        var owner = Window.GetWindow(this);
+        if (dialog.ShowDialog(owner) != true)
+        {
+            return null;
+        }
+
+        try
+        {
+            return AudioFilePolicy.Validate(dialog.FileName);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                owner,
+                L.F("audio.file.invalid.arg", exception.Message),
+                L.T("erin.choose.audio.file"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return null;
+        }
     }
 
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

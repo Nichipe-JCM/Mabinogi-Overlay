@@ -23,9 +23,13 @@ public partial class ProfileNameDialog : Window
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         var name = ProfileNameBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(name))
+        try
         {
-            ErrorText.Text = L.T("Enter a profile name.");
+            ProfileStore.ValidateUserProfileName(name);
+        }
+        catch (Exception exception)
+        {
+            ErrorText.Text = L.F("profile.name.invalid.arg", exception.Message);
             return;
         }
 

@@ -14,8 +14,8 @@ The project must remain within this safety boundary:
 - Repository: `G:\gpt\git\testoverlayproj`
 - Stable integration branch: `develop`
 - Active stabilization branch: `codex/msr-stabilization`
-- Active release branch at the time of this document: `version/0.0.4.3`
-- Current app version in the project file: `0.0.4.3`
+- Next planned release branch: `version/0.0.5-beta`
+- Current app version in the project file: `0.0.5-beta`
 - Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
 - Do not push unless the user explicitly requests it.
 
@@ -132,6 +132,8 @@ The current `develop` baseline includes the profile, tray, guide, runtime, alert
 - The close button can exit, minimize to the tray, or ask the user.
 - The current stabilization branch propagates profile save failures so profile switching and actual process exit cannot silently discard dirty state.
 - Overlay startup serialization, WGC resize handling, and WGC target-close handling are the current runtime stabilization focus.
+- OCR diagnostic image capture is opt-in, profile save failures retry automatically, and a failed save can be recovered by choosing a new profile folder.
+- Normal launches are single-instance; a second launch activates the existing window.
 
 ## Known Technical Risks
 
@@ -144,8 +146,8 @@ The current `develop` baseline includes the profile, tray, guide, runtime, alert
 
 ## Recommended Next Work Order
 
-1. Finish the `codex/msr-stabilization` Gate F work: failed profile flush behavior, single-flight startup, WGC resize, WGC target close, and DXGI UI-stall measurement.
+1. Run and record every applicable row in the 0.0.5-beta manual release matrix, especially WGC resize/close, mixed DPI, profile-folder recovery, and second-instance activation.
 2. Keep Release build and unit regression results separate from user-run Windows/game runtime verification.
-3. Before a public beta candidate, decide and enforce OCR diagnostic privacy, imported-audio trust boundaries, multi-instance behavior, and the minimum supported UI/accessibility baseline.
+3. Review accessibility names and keyboard behavior for the custom title bar and high-priority dialogs.
 4. Measure DXGI resource churn, full-frame managed copies, high-FPS CPU rendering, and OCR fallback cadence before starting broad performance refactors.
-5. Extract only the orchestration boundary that a verified defect or regression test shows is blocking maintainability; do not make a large `MainWindow` rewrite a goal by itself.
+5. Merge the verified stabilization work into `develop`, create `version/0.0.5-beta`, and perform signing/checksum/release work only from the reviewed release commit.

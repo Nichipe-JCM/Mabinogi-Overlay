@@ -8,10 +8,10 @@
         Title="Mabinogi Overlay"
         loc:Localize.TitleKey="Mabinogi Overlay"
         Icon="/Image/AppIcon.ico"
-        Height="1000"
-        Width="1660"
-        MinHeight="920"
-        MinWidth="1360"
+        Height="900"
+        Width="1440"
+        MinHeight="520"
+        MinWidth="760"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource OverlayBgBrush}"
         PreviewMouseDown="Window_PreviewMouseDown"
@@ -24,7 +24,10 @@
                             ResizeBorderThickness="7"
                             UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
-    <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
+    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto"
+                  CanContentScroll="False">
+    <Grid MinWidth="1280" MinHeight="820" Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -64,7 +67,7 @@
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
-                        <TextBlock Text="v0.0.4.3" Style="{StaticResource MutedTextStyle}"/>
+                        <TextBlock x:Name="HeaderVersionText" Text="v0.0.5-beta" Style="{StaticResource MutedTextStyle}"/>
                     </StackPanel>
                 </Grid>
 
@@ -1077,4 +1080,5 @@
             <TextBlock x:Name="InAppNoticeText" Foreground="{StaticResource OverlayTextBrush}" TextWrapping="Wrap"/>
         </Border>
     </Grid>
+    </ScrollViewer>
 </Window>

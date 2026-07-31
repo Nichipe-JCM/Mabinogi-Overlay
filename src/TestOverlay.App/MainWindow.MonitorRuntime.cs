@@ -522,6 +522,11 @@ public partial class MainWindow
 
     private void SaveMonitorDiagnosticOnce(BitmapSource source, Rect bounds, string kind)
     {
+        if (!_appSettings.SaveOcrDiagnosticImages)
+        {
+            return;
+        }
+
         if (!_monitorDiagnosticKindsSaved.Add(kind))
         {
             return;

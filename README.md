@@ -14,7 +14,7 @@ Development handoff and architecture notes are available at [docs/CODEX_PROJECT_
 
 Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
 
-Current version: `0.0.4.3`
+Current version: `0.0.5-beta`
 
 This program was developed with assistance from OpenAI Codex and ChatGPT.
 

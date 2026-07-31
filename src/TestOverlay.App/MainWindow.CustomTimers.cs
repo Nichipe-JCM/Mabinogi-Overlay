@@ -121,13 +121,20 @@ public partial class MainWindow
 
         var dialog = new OpenFileDialog
         {
-            Filter = "Audio files|*.wav;*.mp3;*.wma;*.m4a|All files|*.*",
+            Filter = L.T("audio.file.filter"),
             CheckFileExists = true
         };
         if (dialog.ShowDialog(this) == true)
         {
-            CustomTimerSoundPathBox.Text = dialog.FileName;
-            CommitCustomTimerEditor();
+            try
+            {
+                CustomTimerSoundPathBox.Text = AudioFilePolicy.Validate(dialog.FileName);
+                CommitCustomTimerEditor();
+            }
+            catch (Exception exception)
+            {
+                ShowInAppNotice(L.F("audio.file.invalid.arg", exception.Message));
+            }
         }
     }
 
@@ -341,6 +348,18 @@ public partial class MainWindow
         var soundPath = usesDefaultSound
             ? DefaultAlertSound.ResolvePath(_log)
             : definition.SoundPath;
+        if (!usesDefaultSound)
+        {
+            try
+            {
+                soundPath = AudioFilePolicy.Validate(soundPath!);
+            }
+            catch (Exception exception)
+            {
+                _log.Error($"Custom timer sound rejected: id={definition.Id}, path={definition.SoundPath}", exception);
+                return;
+            }
+        }
         if (string.IsNullOrWhiteSpace(soundPath) || !File.Exists(soundPath))
         {
             if (usesDefaultSound)

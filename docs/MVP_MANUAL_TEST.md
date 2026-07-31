@@ -2,6 +2,27 @@
 
 Run this checklist on the target Windows machine with Mabinogi in windowed or borderless-windowed mode. The user performs runtime verification; automated build verification alone does not confirm capture accuracy or click-through behavior.
 
+## 0.0.5-beta release gate
+
+Record the Windows version, display scale, resolution, monitor count, game display mode, capture backend, and privilege level for every run.
+
+- [ ] Windows 10 22H2 at 100% scale, 1920x1080
+- [ ] Windows 11 at 125% or 150% scale, 1920x1080
+- [ ] Windows 11 at 150% or 200% scale, 4K
+- [ ] Mixed-DPI dual monitors; move the main, compact, layout, and overlay windows between monitors
+- [ ] Windowed and borderless-windowed game modes
+- [ ] WGC, DXGI, and GDI capture backends
+- [ ] Resize, minimize, close, and reopen the selected game window while the overlay is active
+- [ ] Put Windows to sleep and resume with the app open
+- [ ] Start the app twice and verify that the existing window is activated without a second tray icon
+- [ ] Make the profile folder read-only, verify the persistent save warning, then recover by choosing a writable folder
+- [ ] Verify that no `monitor-*.png` files are created while OCR diagnostics are disabled
+- [ ] Enable OCR diagnostics, force one OCR failure, verify the local privacy notice, then disable the option again
+- [ ] Test with Windows OCR language support unavailable and verify that the failure is understandable
+- [ ] Verify GPU startup failure falls back to the CPU renderer without leaving a dead overlay window
+
+Do not approve the beta candidate until every applicable row has a recorded result. Attach only redacted logs; diagnostic images can contain visible game information.
+
 ## Build
 
 ```powershell

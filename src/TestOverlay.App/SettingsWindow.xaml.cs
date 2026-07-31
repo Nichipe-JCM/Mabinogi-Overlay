@@ -27,6 +27,8 @@ public partial class SettingsWindow : Window
         CaptureBackend selectedCaptureBackend,
         string selectedLanguage,
         AppCloseBehavior closeBehavior,
+        bool saveOcrDiagnosticImages,
+        bool profileRecoveryRequired,
         string activeProfileName,
         string logPath,
         DateTimeOffset logSessionStartedAt)
@@ -81,8 +83,11 @@ public partial class SettingsWindow : Window
             new(AppCloseBehavior.MinimizeToTray, L.T("settings.close.behavior.tray"))
         };
         SelectCloseBehavior(closeBehavior);
-        AboutVersionText.Text = L.F("settings.about.version.arg", typeof(SettingsWindow).Assembly.GetName().Version?.ToString(4) ?? "unknown");
-        SettingsSectionList.SelectedIndex = 0;
+        SaveOcrDiagnosticImagesCheckBox.IsChecked = saveOcrDiagnosticImages;
+        ProfileRecoveryNotice.Visibility = profileRecoveryRequired ? Visibility.Visible : Visibility.Collapsed;
+        ProfileManagementPanel.IsEnabled = !profileRecoveryRequired;
+        AboutVersionText.Text = L.F("settings.about.version.arg", AppVersion.DisplayVersion);
+        SettingsSectionList.SelectedIndex = profileRecoveryRequired ? 1 : 0;
     }
 
     public string ProfileDirectory { get; private set; }
@@ -98,6 +103,8 @@ public partial class SettingsWindow : Window
     public string SelectedLanguage { get; private set; } = LocalizationService.Korean;
 
     public AppCloseBehavior SelectedCloseBehavior { get; private set; } = AppCloseBehavior.Ask;
+
+    public bool SaveOcrDiagnosticImages { get; private set; }
 
     public string ActiveProfileName => _activeProfileName;
 
@@ -422,6 +429,7 @@ public partial class SettingsWindow : Window
         SelectCaptureBackend(CaptureBackend.Wgc);
         SelectLanguage(LocalizationService.Korean);
         SelectCloseBehavior(AppCloseBehavior.Ask);
+        SaveOcrDiagnosticImagesCheckBox.IsChecked = false;
         NormalizeRuntimeSelection();
     }
 
@@ -450,6 +458,7 @@ public partial class SettingsWindow : Window
             SelectedCloseBehavior = CloseBehaviorCombo.SelectedItem is CloseBehaviorOption closeBehaviorOption
                 ? closeBehaviorOption.Behavior
                 : AppCloseBehavior.Ask;
+            SaveOcrDiagnosticImages = SaveOcrDiagnosticImagesCheckBox.IsChecked == true;
             DialogResult = true;
         }
         catch (Exception exception)

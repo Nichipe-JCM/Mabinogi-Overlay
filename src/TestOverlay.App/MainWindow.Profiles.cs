@@ -88,6 +88,7 @@ public partial class MainWindow
 
         _isProfileDirty = true;
         _profileAutoSaveTimer.Stop();
+        _profileAutoSaveTimer.Interval = ProfileAutoSaveDelay;
         _profileAutoSaveTimer.Start();
     }
 
@@ -104,7 +105,16 @@ public partial class MainWindow
             return true;
         }
 
-        return _profileSession.TryFlush(() => SaveActiveProfile(showStatus: false));
+        var saved = _profileSession.TryFlush(() => SaveActiveProfile(showStatus: false));
+        if (saved)
+        {
+            _profileAutoSaveTimer.Interval = ProfileAutoSaveDelay;
+            return true;
+        }
+
+        _profileAutoSaveTimer.Interval = ProfileAutoSaveRetryDelay;
+        _profileAutoSaveTimer.Start();
+        return false;
     }
 
     private bool SaveActiveProfile(bool showStatus)

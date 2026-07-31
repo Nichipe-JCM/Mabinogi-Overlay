@@ -22,6 +22,8 @@ public sealed class AppSettings
 
     public bool BuffIconsOnly { get; set; }
 
+    public bool SaveOcrDiagnosticImages { get; set; }
+
     public AppCloseBehavior CloseBehavior { get; set; } = AppCloseBehavior.Ask;
 }
 
