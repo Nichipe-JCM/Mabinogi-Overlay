@@ -110,9 +110,6 @@ public sealed class CaptureSessionCoordinator
         cancellationToken.ThrowIfCancellationRequested();
         var requestGeneration = Volatile.Read(ref _captureRequestGeneration);
         var generation = Volatile.Read(ref _captureSourceGeneration);
-        if (TestLabEnvironment.Fault("capture-fail")) throw new IOException("TEST LAB: simulated capture failure.");
-        if (TestLabEnvironment.Fault("capture-pause")) return null;
-        if (TestLabEnvironment.Fault("capture-delay")) await Task.Delay(1500, cancellationToken);
         if (requestGeneration != Volatile.Read(ref _captureRequestGeneration) ||
             generation != Volatile.Read(ref _captureSourceGeneration)) return null;
         if (LastLiveCaptureException is { } failure)
@@ -193,8 +190,7 @@ public sealed class CaptureSessionCoordinator
         backend == CaptureBackend.Wgc ? WgcSelection is not null : SelectedWindow is not null;
 
     public static GameWindowInfo? SelectAutoWindow(IReadOnlyList<GameWindowInfo> windows) =>
-        TestLabEnvironment.Enabled ? windows.FirstOrDefault(TestLabEnvironment.IsTarget)
-        : windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
+        windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
         ?? windows.FirstOrDefault(item => item.IsExactClientExecutable && item.LooksLikeMabinogi)
         ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
 
@@ -202,8 +198,6 @@ public sealed class CaptureSessionCoordinator
         IReadOnlyList<GameWindowInfo> windows,
         string displayName)
     {
-        var testTarget = windows.FirstOrDefault(item => TestLabEnvironment.IsTarget(item) && item.Title == displayName);
-        if (TestLabEnvironment.Enabled) return testTarget;
         var titleMatch = windows.FirstOrDefault(item =>
             item.IsPreferredMabinogiClient && MatchesDisplayName(item, displayName))
             ?? windows.FirstOrDefault(item =>

@@ -28,16 +28,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build detection probe
         run: dotnet build tools/TestOverlay.DetectionProbe/TestOverlay.DetectionProbe.csproj -c Release -o artifacts/detection-probe --nologo
-      - name: Verify isolated storage and cross-process activation
-        run: |
-          dotnet build tools/TestOverlay.TestLab/TestOverlay.TestLab.csproj -c Release -o artifacts/test-lab --nologo
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:MABINOGI_OVERLAY_TEST_ROOT = Join-Path $PWD 'artifacts/lab-data'
-          dotnet artifacts/test-lab/TestOverlay.TestLab.dll --verify-sandbox --test-lab
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Get-Content artifacts/lab-data/verification.txt
-      - name: Measure synthetic CPU composition
-        run: ./scripts/run-performance-probe.ps1
       - name: Upload verification reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -45,6 +35,4 @@ jobs:
           name: verification-reports
           path: |
             artifacts/unit-tests.xml
-            artifacts/lab-data/verification.txt
-            artifacts/performance-*.json
           if-no-files-found: warn

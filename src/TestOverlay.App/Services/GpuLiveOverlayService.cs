@@ -240,7 +240,7 @@ public sealed class GpuLiveOverlayService : IDisposable
 
     private void FramePool_FrameArrived(Direct3D11CaptureFramePool sender, object args)
     {
-        if (_isDisposed || TestLabEnvironment.Fault("capture-pause"))
+        if (_isDisposed)
         {
             using var _ = sender.TryGetNextFrame();
             return;

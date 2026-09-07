@@ -108,13 +108,8 @@ public partial class App : Application
         {
             var mainWindow = new MainWindow(_log);
             MainWindow = mainWindow;
-            if (TestLabEnvironment.Enabled) mainWindow.Title += " — " + L.T("test.lab.title");
             mainWindow.Show();
-            _singleInstance.Attach(mainWindow, () =>
-            {
-                mainWindow.ActivateFromSecondInstance();
-                TestLabEnvironment.RecordActivation();
-            });
+            _singleInstance.Attach(mainWindow, mainWindow.ActivateFromSecondInstance);
         }
         catch (Exception exception)
         {
