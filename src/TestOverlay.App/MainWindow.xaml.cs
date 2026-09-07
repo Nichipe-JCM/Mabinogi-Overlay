@@ -49,7 +49,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = ProfileAutoSaveDelay };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
-    private CancellationTokenSource _monitorRecognitionCancellation = new();
+    private readonly MonitorRecognitionSession _monitorRecognitionSession = new();
     private readonly OverlayWorkspaceState _workspace = new();
     private readonly CandidateWorkspace _candidateWorkspace;
     private ObservableCollection<SlotCandidate> _candidates => _workspace.Candidates;
@@ -100,8 +100,6 @@ public partial class MainWindow : Window
     private MonitorDetectionMode _monitorDetectionMode;
     private bool _isSelectingMonitorDetectionRoi;
     private bool _isMonitorDetectionBusy;
-    private bool _isMonitorValueRecognitionBusy;
-    private int _monitorValueRecognitionGeneration;
     private DebugDetectionExpectation _debugDetectionExpectation = DebugDetectionExpectation.TopGrouped1();
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection
@@ -288,7 +286,7 @@ public partial class MainWindow : Window
             CloseGuideWindow();
             CloseCompactControlWindow();
             StopOverlay(setStatus: false);
-            _monitorRecognitionCancellation.Dispose();
+            _monitorRecognitionSession.Dispose();
             _overlayRuntime.Dispose();
             DisposeTrayBehavior();
             if (_ownsLog)

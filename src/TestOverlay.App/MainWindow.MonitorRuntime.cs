@@ -173,7 +173,7 @@ public partial class MainWindow
 
     private async Task SynchronizeMonitorValuesAsync(string reason)
     {
-        if (_monitorTestMode || _isMonitorValueRecognitionBusy || !_overlayRuntime.IsRunning)
+        if (_monitorTestMode || _monitorRecognitionSession.IsBusy || !_overlayRuntime.IsRunning)
         {
             return;
         }
@@ -188,14 +188,14 @@ public partial class MainWindow
             return;
         }
 
-        _isMonitorValueRecognitionBusy = true;
-        var generation = _monitorValueRecognitionGeneration;
-        var cancellation = _monitorRecognitionCancellation;
-        var cancellationToken = cancellation.Token;
+        using var attempt = _monitorRecognitionSession.TryBegin();
+        if (attempt is null) return;
+        var generation = attempt.Generation;
+        var cancellationToken = attempt.Token;
         try
         {
             var frame = await _captureSession.CaptureCurrentFrameAsync(CurrentCaptureBackend, cancellationToken);
-            if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning || frame is null) return;
+            if (!attempt.IsCurrent || !_overlayRuntime.IsRunning || frame is null) return;
             var frameCapturedAt = DateTimeOffset.UtcNow;
             var visibilityRoi = MonitorVisibilityRoi(shouldReadBuffs, shouldReadTuairim);
             if (visibilityRoi is Rect roi)
@@ -223,7 +223,7 @@ public partial class MainWindow
                 var evaluatedMatches = await Task.Run(
                     () => _monitorTemplateDetection.EvaluateBuffAnchors(frame, _buffIconMatches.Values.ToArray()),
                     cancellationToken);
-                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -289,7 +289,7 @@ public partial class MainWindow
                     activeMatches,
                     cancellationToken);
                 var batchElapsed = Stopwatch.GetElapsedTime(batchStartedAt);
-                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -311,7 +311,7 @@ public partial class MainWindow
                             buffRoi,
                             activeMatch.Bounds,
                             cancellationToken);
-                        if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                        if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                         {
                             return;
                         }
@@ -344,7 +344,7 @@ public partial class MainWindow
                     frame,
                     tuairimAnchor,
                     cancellationToken);
-                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -372,7 +372,7 @@ public partial class MainWindow
         catch (Exception exception)
         {
             _log.Error("Monitor value recognition failed.", exception);
-            if (generation == _monitorValueRecognitionGeneration)
+            if (attempt.IsCurrent)
             {
                 StopOverlay(setStatus: false);
                 ShowInAppNotice(L.F("monitor.runtime.failed", exception.Message));
@@ -381,12 +381,7 @@ public partial class MainWindow
         }
         finally
         {
-            _isMonitorValueRecognitionBusy = false;
-            if (!ReferenceEquals(cancellation, _monitorRecognitionCancellation))
-            {
-                cancellation.Dispose();
-            }
-            if (generation == _monitorValueRecognitionGeneration)
+            if (attempt.IsCurrent)
             {
                 var needsVerification = _statusObservations.NeedsVerification;
                 var retryDelay = _monitorRecognitionRetryPolicy.CompleteAttempt(needsVerification);
@@ -395,17 +390,7 @@ public partial class MainWindow
         }
     }
 
-    private void AdvanceMonitorRecognitionGeneration()
-    {
-        var previous = _monitorRecognitionCancellation;
-        _monitorRecognitionCancellation = new CancellationTokenSource();
-        _monitorValueRecognitionGeneration++;
-        previous.Cancel();
-        if (!_isMonitorValueRecognitionBusy)
-        {
-            previous.Dispose();
-        }
-    }
+    private void AdvanceMonitorRecognitionGeneration() => _monitorRecognitionSession.Reset();
 
     private void ApplyTuairimPercentObservation(int observedPercent, string reason)
     {
