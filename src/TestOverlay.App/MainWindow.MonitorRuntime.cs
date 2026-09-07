@@ -138,8 +138,8 @@ public partial class MainWindow
                 _internalBuffTimers,
                 _selectedBuffNameKeys)
             {
-                Left = _overlayLeft,
-                Top = _overlayTop
+                Left = _overlayRuntime.ActivePosition?.X ?? _overlayLeft,
+                Top = _overlayRuntime.ActivePosition?.Y ?? _overlayTop
             };
             _internalTimerOverlayWindow.Show();
             _internalTimerOverlayWindow.UpdateLayout();

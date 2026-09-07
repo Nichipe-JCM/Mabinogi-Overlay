@@ -50,6 +50,8 @@ public sealed class OverlayRuntimeController : IDisposable
 
     public bool IsRunning => _overlayWindow is not null;
 
+    public Point? ActivePosition => _overlayWindow is null ? null : new Point(_overlayWindow.Left, _overlayWindow.Top);
+
     public async Task<OverlayRuntimeStartResult> StartAsync(Window owner, OverlayRuntimeOptions options)
     {
         if (!_startGate.TryEnter())
@@ -134,15 +136,16 @@ public sealed class OverlayRuntimeController : IDisposable
 
             _log.Info($"Stop hotkey registered: {hotkeyDefinition.DisplayText}");
             var layout = options.Layout;
+            var fromDevice = PresentationSource.FromVisual(owner)?.CompositionTarget?.TransformFromDevice
+                             ?? System.Windows.Media.Matrix.Identity;
+            var monitors = System.Windows.Forms.Screen.AllScreens.Select(screen =>
+            {
+                var bounds = screen.Bounds;
+                return new Rect(fromDevice.Transform(new Point(bounds.Left, bounds.Top)),
+                                fromDevice.Transform(new Point(bounds.Right, bounds.Bottom)));
+            }).ToArray();
             var normalizedPosition = NormalizeOverlayPosition(
-                layout.ScreenLeft,
-                layout.ScreenTop,
-                layout.CanvasWidth,
-                layout.CanvasHeight,
-                SystemParameters.VirtualScreenLeft,
-                SystemParameters.VirtualScreenTop,
-                SystemParameters.VirtualScreenWidth,
-                SystemParameters.VirtualScreenHeight);
+                layout.ScreenLeft, layout.ScreenTop, layout.CanvasWidth, layout.CanvasHeight, monitors);
             if (normalizedPosition.Left != layout.ScreenLeft || normalizedPosition.Top != layout.ScreenTop)
             {
                 _log.Info(
@@ -264,6 +267,23 @@ public sealed class OverlayRuntimeController : IDisposable
         return (
             Math.Clamp(left, virtualLeft, maxLeft),
             Math.Clamp(top, virtualTop, maxTop));
+    }
+
+    internal static (double Left, double Top) NormalizeOverlayPosition(
+        double left, double top, double width, double height, IReadOnlyList<Rect> monitors)
+    {
+        var screens = monitors.Where(rect => !rect.IsEmpty && rect.Width > 0 && rect.Height > 0).ToArray();
+        if (screens.Length == 0) return (0, 0);
+        if (!double.IsFinite(left) || !double.IsFinite(top) ||
+            !double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0)
+            return (screens[0].Left, screens[0].Top);
+        var window = new Rect(left, top, width, height);
+        if (screens.Any(screen => Rect.Intersect(screen, window) is var overlap &&
+                                  !overlap.IsEmpty && overlap.Width > 0 && overlap.Height > 0))
+            return (left, top);
+        return screens.Select(screen => NormalizeOverlayPosition(left, top, width, height,
+                screen.Left, screen.Top, screen.Width, screen.Height))
+            .OrderBy(point => Math.Pow(point.Left - left, 2) + Math.Pow(point.Top - top, 2)).First();
     }
 
     public void Stop()

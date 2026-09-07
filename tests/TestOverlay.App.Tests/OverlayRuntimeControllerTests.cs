@@ -5,6 +5,16 @@ namespace TestOverlay.App.Tests;
 
 public sealed class OverlayRuntimeControllerTests
 {
+    [Fact]
+    public void NormalizeOverlayPosition_RecoversFromGapBetweenStaggeredMonitors()
+    {
+        System.Windows.Rect[] monitors = [new(0, 0, 1920, 1080), new(1920, 1080, 1920, 1080)];
+        var result = OverlayRuntimeController.NormalizeOverlayPosition(2200, 100, 200, 200, monitors);
+        var window = new System.Windows.Rect(result.Left, result.Top, 200, 200);
+        Assert.Contains(monitors, monitor => monitor.IntersectsWith(window));
+        Assert.NotEqual((2200d, 100d), result);
+    }
+
     [Theory]
     [InlineData(30, 33)]
     [InlineData(60, 17)]
