@@ -20,6 +20,7 @@ public sealed class CaptureSessionCoordinator
     private GraphicsCaptureItem? _subscribedCaptureItem;
     private Exception? _captureSourceException;
     private int _captureSourceGeneration;
+    private int _captureRequestGeneration;
     private readonly CaptureWorkQueue _desktopWork = new();
     private long _captureSamples;
     private double _captureMilliseconds;
@@ -107,15 +108,18 @@ public sealed class CaptureSessionCoordinator
     public async Task<BitmapSource?> CaptureCurrentFrameAsync(CaptureBackend backend, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var requestGeneration = Volatile.Read(ref _captureRequestGeneration);
+        var generation = Volatile.Read(ref _captureSourceGeneration);
         if (TestLabEnvironment.Fault("capture-fail")) throw new IOException("TEST LAB: simulated capture failure.");
         if (TestLabEnvironment.Fault("capture-pause")) return null;
         if (TestLabEnvironment.Fault("capture-delay")) await Task.Delay(1500, cancellationToken);
+        if (requestGeneration != Volatile.Read(ref _captureRequestGeneration) ||
+            generation != Volatile.Read(ref _captureSourceGeneration)) return null;
         if (LastLiveCaptureException is { } failure)
             throw new InvalidOperationException("The selected capture source is unavailable.", failure);
         if (backend == CaptureBackend.Wgc) return CaptureCurrentFrame(backend);
         var window = SelectedWindow;
         if (window is null) return null;
-        var generation = Volatile.Read(ref _captureSourceGeneration);
         var frame = await _desktopWork.RunAsync(() => backend == CaptureBackend.DxgiDesktopDuplication
             ? _dxgiCapture.CaptureClientArea(window)
             : _windowCapture.CaptureClientArea(window), (elapsed, allocated) =>
@@ -126,7 +130,8 @@ public sealed class CaptureSessionCoordinator
                     _log.Info($"Desktop capture metrics: backend={backend}, samples={_captureSamples}, " +
                         $"avgMs={_captureMilliseconds / _captureSamples:0.000}, managedBytesPerFrame={_captureAllocatedBytes / _captureSamples}, dxgiSessions={_dxgiCapture.SessionCreationCount}");
             }, cancellationToken);
-        return generation == Volatile.Read(ref _captureSourceGeneration) ? frame : null;
+        return generation == Volatile.Read(ref _captureSourceGeneration) &&
+            requestGeneration == Volatile.Read(ref _captureRequestGeneration) ? frame : null;
     }
 
     public BitmapSource? CaptureCurrentFrame(CaptureBackend backend)
@@ -161,13 +166,23 @@ public sealed class CaptureSessionCoordinator
 
     public void StopLiveWgcCapture()
     {
+        Interlocked.Increment(ref _captureRequestGeneration);
         _wgcCapture.StopLiveCapture();
         _ = ResetDesktopCaptureAsync();
     }
 
     private async Task ResetDesktopCaptureAsync()
     {
-        try { await _desktopWork.ResetAsync(_dxgiCapture.Reset); }
+        try
+        {
+            await _desktopWork.ResetAsync(() =>
+            {
+                _dxgiCapture.Reset();
+                _captureSamples = 0;
+                _captureMilliseconds = 0;
+                _captureAllocatedBytes = 0;
+            });
+        }
         catch (Exception exception) { _log.Error("Desktop capture cleanup failed.", exception); }
     }
 
@@ -178,8 +193,8 @@ public sealed class CaptureSessionCoordinator
         backend == CaptureBackend.Wgc ? WgcSelection is not null : SelectedWindow is not null;
 
     public static GameWindowInfo? SelectAutoWindow(IReadOnlyList<GameWindowInfo> windows) =>
-        windows.FirstOrDefault(TestLabEnvironment.IsTarget)
-        ?? windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
+        TestLabEnvironment.Enabled ? windows.FirstOrDefault(TestLabEnvironment.IsTarget)
+        : windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
         ?? windows.FirstOrDefault(item => item.IsExactClientExecutable && item.LooksLikeMabinogi)
         ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
 
@@ -188,7 +203,7 @@ public sealed class CaptureSessionCoordinator
         string displayName)
     {
         var testTarget = windows.FirstOrDefault(item => TestLabEnvironment.IsTarget(item) && item.Title == displayName);
-        if (testTarget is not null) return testTarget;
+        if (TestLabEnvironment.Enabled) return testTarget;
         var titleMatch = windows.FirstOrDefault(item =>
             item.IsPreferredMabinogiClient && MatchesDisplayName(item, displayName))
             ?? windows.FirstOrDefault(item =>

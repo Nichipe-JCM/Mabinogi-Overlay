@@ -35,6 +35,13 @@ internal static class Program
     private static void VerifySandbox(string root)
     {
         if (!TestLabEnvironment.Enabled || AppDataPaths.RootDirectory != root) throw new InvalidOperationException("Isolation not enabled.");
+        var game = new GameWindowInfo(1, "Mabinogi", "Client", "Client.exe", 800, 600);
+        var target = new GameWindowInfo(2, TestLabEnvironment.TargetTitle, "TestOverlay.TestLab", "TestOverlay.TestLab.exe", 800, 600);
+        if (CaptureSessionCoordinator.SelectAutoWindow([game]) is not null ||
+            CaptureSessionCoordinator.SelectAutoWindow([game, target]) != target ||
+            CaptureSessionCoordinator.MatchPickedWindow([game], game.Title) is not null ||
+            CaptureSessionCoordinator.MatchPickedWindow([game, target], target.Title) != target)
+            throw new InvalidOperationException("Test capture target isolation failed.");
         var store = new ProfileStore(Path.Combine(root, "Profiles"));
         var profile = store.Load("lab")!;
         var profileFault = Path.Combine(root, "faults", "profile-save");
@@ -74,7 +81,7 @@ internal static class Program
         using var secondary = Process.Start(Child())!;
         if (!secondary.WaitForExit(12000) || !primary.WaitForExit(12000) || primary.ExitCode != 0 || secondary.ExitCode != 0)
             throw new InvalidOperationException("Cross-process activation check failed.");
-        File.WriteAllText(Path.Combine(root, "verification.txt"), "PASS: isolated profile/Erin save faults and recovery; locked-primary backup recovery; two-process early activation. No game capture or app GUI was started.");
+        File.WriteAllText(Path.Combine(root, "verification.txt"), "PASS: test target isolation; isolated profile/Erin save faults and recovery; locked-primary backup recovery; two-process early activation. No game capture or app GUI was started.");
     }
 
     private static void Seed(string root)
