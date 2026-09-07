@@ -434,7 +434,8 @@ public sealed class OverlayRuntimeController : IDisposable
                 options.Slots,
                 (int)Math.Ceiling(options.Layout.CanvasWidth),
                 (int)Math.Ceiling(options.Layout.CanvasHeight),
-                options.Layout.Opacity);
+                options.Layout.Opacity,
+                reuseOutput: true);
             _overlayWindow!.RenderCompositedFrame(composited);
             return;
         }

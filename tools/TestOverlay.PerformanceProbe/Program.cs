@@ -25,14 +25,14 @@ internal static class Program
                 new SlotCandidate(i + 1, new Rect(i % 16 * 40, i / 16 * 40, 32, 32), 1),
                 new Rect(i % 16 * 40, i / 16 * 40, 32, 32), source)).ToArray();
             var renderer = new CpuCompositedOverlayRenderer();
-            for (var i = 0; i < 30; i++) renderer.Render(source, slots, 720, 320);
+            for (var i = 0; i < 30; i++) renderer.Render(source, slots, 720, 320, reuseOutput: true);
             const int iterations = 200;
             var times = new double[iterations];
             var allocated = GC.GetAllocatedBytesForCurrentThread();
             for (var i = 0; i < iterations; i++)
             {
                 var start = Stopwatch.GetTimestamp();
-                renderer.Render(source, slots, 720, 320);
+                renderer.Render(source, slots, 720, 320, reuseOutput: true);
                 times[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
             }
             allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
