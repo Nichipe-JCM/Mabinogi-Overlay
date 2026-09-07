@@ -217,6 +217,12 @@ public sealed class WgcCaptureService
             {
                 return;
             }
+            if (TestLabEnvironment.Fault("capture-pause"))
+            {
+                frame.Dispose();
+                frame = null;
+                return;
+            }
 
             if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
             {

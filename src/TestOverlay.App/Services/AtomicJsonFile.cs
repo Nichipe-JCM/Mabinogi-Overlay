@@ -13,6 +13,7 @@ internal static class AtomicJsonFile
 
     public static void Save<T>(string path, T value, JsonSerializerOptions options)
     {
+        TestLabEnvironment.CheckSave(path);
         var directory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory;
         Directory.CreateDirectory(directory);
 

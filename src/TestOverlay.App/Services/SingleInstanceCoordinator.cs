@@ -12,7 +12,7 @@ public sealed class SingleInstanceCoordinator : IDisposable
     private bool _ownsMutex;
     private int _disposed;
 
-    public SingleInstanceCoordinator() : this(@"Local\Nichipe.MabinogiOverlay") { }
+    public SingleInstanceCoordinator() : this(TestLabEnvironment.InstanceName) { }
 
     internal SingleInstanceCoordinator(string name)
     {

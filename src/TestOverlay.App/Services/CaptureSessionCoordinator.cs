@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
@@ -106,6 +107,9 @@ public sealed class CaptureSessionCoordinator
     public async Task<BitmapSource?> CaptureCurrentFrameAsync(CaptureBackend backend, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (TestLabEnvironment.Fault("capture-fail")) throw new IOException("TEST LAB: simulated capture failure.");
+        if (TestLabEnvironment.Fault("capture-pause")) return null;
+        if (TestLabEnvironment.Fault("capture-delay")) await Task.Delay(1500, cancellationToken);
         if (LastLiveCaptureException is { } failure)
             throw new InvalidOperationException("The selected capture source is unavailable.", failure);
         if (backend == CaptureBackend.Wgc) return CaptureCurrentFrame(backend);
@@ -174,7 +178,8 @@ public sealed class CaptureSessionCoordinator
         backend == CaptureBackend.Wgc ? WgcSelection is not null : SelectedWindow is not null;
 
     public static GameWindowInfo? SelectAutoWindow(IReadOnlyList<GameWindowInfo> windows) =>
-        windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
+        windows.FirstOrDefault(TestLabEnvironment.IsTarget)
+        ?? windows.FirstOrDefault(item => item.IsPreferredMabinogiClient)
         ?? windows.FirstOrDefault(item => item.IsExactClientExecutable && item.LooksLikeMabinogi)
         ?? windows.FirstOrDefault(item => item.LooksLikeMabinogi);
 
@@ -182,6 +187,8 @@ public sealed class CaptureSessionCoordinator
         IReadOnlyList<GameWindowInfo> windows,
         string displayName)
     {
+        var testTarget = windows.FirstOrDefault(item => TestLabEnvironment.IsTarget(item) && item.Title == displayName);
+        if (testTarget is not null) return testTarget;
         var titleMatch = windows.FirstOrDefault(item =>
             item.IsPreferredMabinogiClient && MatchesDisplayName(item, displayName))
             ?? windows.FirstOrDefault(item =>

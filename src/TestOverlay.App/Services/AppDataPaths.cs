@@ -7,7 +7,7 @@ public static class AppDataPaths
     private static readonly object MigrationSync = new();
     private static bool _migrationAttempted;
 
-    public static string RootDirectory { get; } = Path.Combine(
+    public static string RootDirectory { get; } = TestLabEnvironment.Root ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Mabinogi Overlay");
 
@@ -32,7 +32,13 @@ public static class AppDataPaths
             _migrationAttempted = true;
             try
             {
-                PortableDataMigration.Migrate(LegacyRootDirectory, RootDirectory);
+                if (TestLabEnvironment.Enabled)
+                {
+                    Directory.CreateDirectory(RootDirectory);
+                    Directory.CreateDirectory(ProfilesDirectory);
+                    Directory.CreateDirectory(LogDirectory);
+                }
+                else PortableDataMigration.Migrate(LegacyRootDirectory, RootDirectory);
             }
             catch (Exception exception)
             {

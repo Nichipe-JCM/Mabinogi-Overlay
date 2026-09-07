@@ -388,6 +388,8 @@ public sealed class OverlayRuntimeController : IDisposable
                     _captureSession.LastLiveCaptureException);
             }
 
+            if (TestLabEnvironment.Fault("capture-fail"))
+                throw new InvalidOperationException("TEST LAB: simulated capture failure.");
             if (_gpuRenderer is not null)
             {
                 if (_gpuRenderer.LastException is not null)
