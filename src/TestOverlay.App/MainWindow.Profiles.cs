@@ -435,7 +435,7 @@ public partial class MainWindow
                 candidate,
                 new Rect(savedSlot.OverlayX, savedSlot.OverlayY, savedSlot.OverlayWidth, savedSlot.OverlayHeight),
                 crop,
-                savedSlot.Opacity > 0 ? savedSlot.Opacity : 1,
+                savedSlot.Opacity,
                 savedSlot.Scale > 0 ? savedSlot.Scale : InferSlotScale(savedSlot),
                 hasOpacityOverride);
             _overlaySlots.Add(slot);
@@ -460,6 +460,11 @@ public partial class MainWindow
             SetStatus(_profileStore.LastLoadRecoveredFromBackup
                 ? L.F("profile.loaded.from.backup.arg", path, _candidates.Count, profile.Slots.Count)
                 : L.F("Profile loaded: {0} ({1} candidates, {2} slots).", path, _candidates.Count, profile.Slots.Count));
+            if (_profileStore.LastRestoreException is { } restoreError)
+            {
+                _log.Error("Profile backup loaded, but primary repair failed.", restoreError);
+                ShowInAppNotice(L.T("profile.backup.repair.failed"));
+            }
             PersistActiveProfileName(profileName);
         }
         catch (Exception exception)

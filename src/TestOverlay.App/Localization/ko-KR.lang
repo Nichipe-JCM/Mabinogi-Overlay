@@ -648,3 +648,5 @@ profile.name.invalid.arg = 올바르지 않은 프로필 이름입니다: {0}
 profile.save.failure.dialog.title = 프로필 저장 실패
 profile.save.failure.dialog.description = 현재 프로필을 저장하지 못했습니다. 다시 시도하거나, 저장하지 않고 종료하거나, 종료를 취소할 수 있습니다.
 profile.save.failure.dialog.discard = 저장하지 않고 종료
+
+profile.backup.repair.failed=백업을 불러왔지만 원본 파일을 복구하지 못했습니다. 프로필 폴더의 쓰기 권한을 확인해 주세요.

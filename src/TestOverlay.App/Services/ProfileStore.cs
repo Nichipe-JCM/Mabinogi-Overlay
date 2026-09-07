@@ -26,6 +26,8 @@ public sealed class ProfileStore
 
     public bool LastLoadRecoveredFromBackup { get; private set; }
 
+    public Exception? LastRestoreException { get; private set; }
+
     public void SetProfileDirectory(string profileDirectory)
     {
         ProfileDirectory = profileDirectory;
@@ -47,6 +49,7 @@ public sealed class ProfileStore
     public OverlayProfile? Load(string? profileName)
     {
         LastLoadRecoveredFromBackup = false;
+        LastRestoreException = null;
         var path = GetProfilePath(profileName);
         var result = AtomicJsonFile.Load<OverlayProfile>(path, Options, OverlayProfileValidator.Validate);
         if (result is null)
@@ -56,6 +59,7 @@ public sealed class ProfileStore
         }
 
         LastLoadRecoveredFromBackup = result.RecoveredFromBackup;
+        LastRestoreException = result.RestoreException;
         return result.Value;
     }
 

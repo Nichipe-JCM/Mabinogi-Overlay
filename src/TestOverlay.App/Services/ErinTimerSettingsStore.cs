@@ -27,7 +27,7 @@ public sealed class ErinTimerSettingsStore
             var settings = result?.Value ?? new ErinTimerSettings();
             Normalize(settings);
             LastLoadRecoveredFromBackup = result?.RecoveredFromBackup == true;
-            LastLoadException = result?.PrimaryException;
+            LastLoadException = result?.RestoreException ?? result?.PrimaryException;
             return settings;
         }
         catch (Exception exception)

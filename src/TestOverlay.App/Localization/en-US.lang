@@ -648,3 +648,5 @@ profile.name.invalid.arg = Invalid profile name: {0}
 profile.save.failure.dialog.title = Profile save failed
 profile.save.failure.dialog.description = The current profile could not be saved. Retry, exit without saving, or cancel closing.
 profile.save.failure.dialog.discard = Exit without saving
+
+profile.backup.repair.failed=Loaded the backup, but could not repair the original file. Check the profile folder permissions.
