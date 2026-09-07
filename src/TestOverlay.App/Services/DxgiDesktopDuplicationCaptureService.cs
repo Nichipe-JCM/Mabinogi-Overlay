@@ -13,7 +13,7 @@ using D3DFeatureLevel = Vortice.Direct3D.FeatureLevel;
 
 namespace TestOverlay.App.Services;
 
-public sealed class DxgiDesktopDuplicationCaptureService
+public sealed class DxgiDesktopDuplicationCaptureService : IDisposable
 {
     private static readonly D3DFeatureLevel[] FeatureLevels =
     [
@@ -39,90 +39,129 @@ public sealed class DxgiDesktopDuplicationCaptureService
             resources.OutputDescription.DesktopCoordinates.Bottom - resources.OutputDescription.DesktopCoordinates.Top);
     }
 
+    private readonly object _sync = new();
+    private DxgiResources? _resources;
+    private IDXGIOutputDuplication? _duplication;
+    private ID3D11Texture2D? _staging;
+    private nint _monitor;
+    private int _stagingWidth, _stagingHeight;
+    private byte[] _pixels = [];
+    private BitmapSource? _lastFrame;
+    private CaptureGeometry? _lastGeometry;
+    public int SessionCreationCount { get; private set; }
+
     public BitmapSource CaptureClientArea(GameWindowInfo window, int timeoutMilliseconds = 500)
     {
-        var geometry = ResolveGeometry(window);
-        using var resources = CreateResources(geometry.MonitorHandle);
-        using var duplication = resources.Output.DuplicateOutput(resources.Device);
-
-        IDXGIResource? desktopResource = null;
-        var frameAcquired = false;
-        try
+        lock (_sync)
         {
+            var geometry = ResolveGeometry(window);
             for (var attempt = 0; attempt < 3; attempt++)
             {
-                var result = duplication.AcquireNextFrame((uint)timeoutMilliseconds, out _, out desktopResource);
-                if (result.Code == Vortice.DXGI.ResultCode.WaitTimeout)
+                EnsureSession(geometry.MonitorHandle);
+                IDXGIResource? desktopResource = null;
+                var acquired = false;
+                var lost = false;
+                try
                 {
-                    continue;
+                    var result = _duplication!.AcquireNextFrame((uint)Math.Clamp(timeoutMilliseconds, 0, 500), out _, out desktopResource);
+                    if (result.Code == Vortice.DXGI.ResultCode.WaitTimeout)
+                    {
+                        if (_lastGeometry == geometry && _lastFrame is not null) return _lastFrame;
+                        continue;
+                    }
+                    if (result.Code == Vortice.DXGI.ResultCode.AccessLost)
+                    {
+                        lost = true;
+                        continue;
+                    }
+                    result.CheckError();
+                    acquired = true;
+                    using var texture = desktopResource.QueryInterface<ID3D11Texture2D>();
+                    _lastFrame = CopyClientAreaToBitmap(texture, geometry);
+                    _lastGeometry = geometry;
+                    return _lastFrame;
                 }
-
-                result.CheckError();
-                frameAcquired = true;
-                using var desktopTexture = desktopResource.QueryInterface<ID3D11Texture2D>();
-                return CopyClientAreaToBitmap(resources.Device, resources.Context, desktopTexture, resources.OutputDescription, geometry);
+                catch
+                {
+                    lost = true;
+                    throw;
+                }
+                finally
+                {
+                    desktopResource?.Dispose();
+                    try { if (acquired) _duplication!.ReleaseFrame(); }
+                    finally { if (lost) ResetCore(); }
+                }
             }
-
             throw new TimeoutException("DXGI desktop duplication did not produce a frame before the timeout.");
-        }
-        finally
-        {
-            desktopResource?.Dispose();
-            if (frameAcquired)
-            {
-                duplication.ReleaseFrame();
-            }
         }
     }
 
-    private static BitmapSource CopyClientAreaToBitmap(
-        ID3D11Device device,
-        ID3D11DeviceContext context,
-        ID3D11Texture2D desktopTexture,
-        OutputDescription outputDescription,
-        CaptureGeometry geometry)
+    private void EnsureSession(nint monitor)
     {
-        var outputLeft = outputDescription.DesktopCoordinates.Left;
-        var outputTop = outputDescription.DesktopCoordinates.Top;
-        var sourceLeft = Math.Clamp(geometry.ClientScreenX - outputLeft, 0, Math.Max(0, outputDescription.DesktopCoordinates.Right - outputLeft - 1));
-        var sourceTop = Math.Clamp(geometry.ClientScreenY - outputTop, 0, Math.Max(0, outputDescription.DesktopCoordinates.Bottom - outputTop - 1));
-        var width = Math.Clamp(geometry.ClientWidth, 1, outputDescription.DesktopCoordinates.Right - outputLeft - sourceLeft);
-        var height = Math.Clamp(geometry.ClientHeight, 1, outputDescription.DesktopCoordinates.Bottom - outputTop - sourceTop);
-
-        using var staging = device.CreateTexture2D(new Texture2DDescription
+        if (_resources is not null && _monitor == monitor) return;
+        ResetCore();
+        try
         {
-            Width = (uint)width,
-            Height = (uint)height,
-            MipLevels = 1,
-            ArraySize = 1,
-            Format = Format.B8G8R8A8_UNorm,
-            SampleDescription = new SampleDescription(1, 0),
-            Usage = ResourceUsage.Staging,
-            BindFlags = BindFlags.None,
-            CPUAccessFlags = CpuAccessFlags.Read,
-            MiscFlags = ResourceOptionFlags.None
-        });
+            _resources = CreateResources(monitor);
+            _duplication = _resources.Output.DuplicateOutput(_resources.Device);
+            _monitor = monitor;
+            SessionCreationCount++;
+        }
+        catch { ResetCore(); throw; }
+    }
 
-        var sourceBox = new Box(sourceLeft, sourceTop, 0, sourceLeft + width, sourceTop + height, 1);
-        context.CopySubresourceRegion(staging, 0, 0, 0, 0, desktopTexture, 0, sourceBox);
-        context.Map(staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None, out var mapped).CheckError();
+    public void Reset() { lock (_sync) ResetCore(); }
+    public void Dispose() => Reset();
+
+    private void ResetCore()
+    {
+        _staging?.Dispose(); _staging = null;
+        _duplication?.Dispose(); _duplication = null;
+        _resources?.Dispose(); _resources = null;
+        _monitor = 0;
+        _stagingWidth = _stagingHeight = 0;
+        _lastFrame = null;
+        _lastGeometry = null;
+        _pixels = [];
+    }
+
+    private BitmapSource CopyClientAreaToBitmap(ID3D11Texture2D texture, CaptureGeometry geometry)
+    {
+        var resources = _resources!;
+        var output = resources.OutputDescription.DesktopCoordinates;
+        var sourceLeft = Math.Clamp(geometry.ClientScreenX - output.Left, 0, Math.Max(0, output.Right - output.Left - 1));
+        var sourceTop = Math.Clamp(geometry.ClientScreenY - output.Top, 0, Math.Max(0, output.Bottom - output.Top - 1));
+        var width = Math.Clamp(geometry.ClientWidth, 1, output.Right - output.Left - sourceLeft);
+        var height = Math.Clamp(geometry.ClientHeight, 1, output.Bottom - output.Top - sourceTop);
+        if (_staging is null || width != _stagingWidth || height != _stagingHeight)
+        {
+            _staging?.Dispose();
+            _staging = null;
+            _staging = resources.Device.CreateTexture2D(new Texture2DDescription
+            {
+                Width = (uint)width, Height = (uint)height, MipLevels = 1, ArraySize = 1,
+                Format = Format.B8G8R8A8_UNorm, SampleDescription = new SampleDescription(1, 0),
+                Usage = ResourceUsage.Staging, BindFlags = BindFlags.None,
+                CPUAccessFlags = CpuAccessFlags.Read, MiscFlags = ResourceOptionFlags.None
+            });
+            _stagingWidth = width; _stagingHeight = height;
+            _pixels = new byte[checked(width * height * 4)];
+        }
+        var context = resources.Context;
+        context.CopySubresourceRegion(_staging, 0, 0, 0, 0, texture, 0,
+            new Box(sourceLeft, sourceTop, 0, sourceLeft + width, sourceTop + height, 1));
+        context.Map(_staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None, out var mapped).CheckError();
         try
         {
             var stride = width * 4;
-            var pixels = new byte[stride * height];
             for (var y = 0; y < height; y++)
-            {
-                Marshal.Copy(nint.Add(mapped.DataPointer, y * (int)mapped.RowPitch), pixels, y * stride, stride);
-            }
-
-            var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+                Marshal.Copy(nint.Add(mapped.DataPointer, y * (int)mapped.RowPitch), _pixels, y * stride, stride);
+            var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, _pixels, stride);
             bitmap.Freeze();
             return bitmap;
         }
-        finally
-        {
-            context.Unmap(staging, 0);
-        }
+        finally { context.Unmap(_staging, 0); }
     }
 
     private static DxgiResources CreateResources(nint monitorHandle)

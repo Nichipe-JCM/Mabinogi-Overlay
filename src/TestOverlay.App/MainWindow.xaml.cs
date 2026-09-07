@@ -24,6 +24,8 @@ public partial class MainWindow : Window
     private const int MonitorRecognitionIntervalSeconds = 2;
     private const int TuairimNormalChargeSecondsPerPercent = 6;
     private const int TuairimFullEffectSeconds = 20;
+    private static readonly TimeSpan ProfileAutoSaveDelay = TimeSpan.FromMilliseconds(400);
+    private static readonly TimeSpan ProfileAutoSaveRetryDelay = TimeSpan.FromSeconds(5);
     private static readonly Color ProjectAccentColor = Color.FromRgb(0x89, 0xDE, 0xD4);
     private static readonly int[] RefreshFpsOptions = [30, 60, 120, 144];
 
@@ -44,10 +46,10 @@ public partial class MainWindow : Window
     private readonly object _detectLogSync = new();
     private readonly string _detectSessionLogFileName;
     private string DetectSessionLogPath => System.IO.Path.Combine(_log.LogDirectory, _detectSessionLogFileName);
-    private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly DispatcherTimer _profileAutoSaveTimer = new() { Interval = ProfileAutoSaveDelay };
     private readonly DispatcherTimer _internalTimerDebugTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _inAppNoticeTimer = new() { Interval = TimeSpan.FromSeconds(3) };
-    private CancellationTokenSource _monitorRecognitionCancellation = new();
+    private readonly MonitorRecognitionSession _monitorRecognitionSession = new();
     private readonly OverlayWorkspaceState _workspace = new();
     private readonly CandidateWorkspace _candidateWorkspace;
     private ObservableCollection<SlotCandidate> _candidates => _workspace.Candidates;
@@ -98,8 +100,6 @@ public partial class MainWindow : Window
     private MonitorDetectionMode _monitorDetectionMode;
     private bool _isSelectingMonitorDetectionRoi;
     private bool _isMonitorDetectionBusy;
-    private bool _isMonitorValueRecognitionBusy;
-    private int _monitorValueRecognitionGeneration;
     private DebugDetectionExpectation _debugDetectionExpectation = DebugDetectionExpectation.TopGrouped1();
     private CandidateEditSnapshot? _candidateDragSnapshotBefore;
     private QuickslotSection? _selectedSection
@@ -225,6 +225,7 @@ public partial class MainWindow : Window
         _profileSession.SelectedProfileName = _appSettings.ActiveProfileName;
         _detectSessionLogFileName = $"detect-session-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log";
         InitializeComponent();
+        HeaderVersionText.Text = $"v{AppVersion.DisplayVersion}";
         InitializeTrayBehavior();
         InitializeCustomTimerFeature();
         BuffIconsOnlyCheckBox.IsChecked = _appSettings.BuffIconsOnly;
@@ -285,7 +286,7 @@ public partial class MainWindow : Window
             CloseGuideWindow();
             CloseCompactControlWindow();
             StopOverlay(setStatus: false);
-            _monitorRecognitionCancellation.Dispose();
+            _monitorRecognitionSession.Dispose();
             _overlayRuntime.Dispose();
             DisposeTrayBehavior();
             if (_ownsLog)
@@ -1075,7 +1076,8 @@ public partial class MainWindow : Window
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         CloseManualSectionPopup();
-        FlushProfileAutoSave();
+        var profileSavedBeforeSettings = FlushProfileAutoSave();
+
         var dialog = new SettingsWindow(
             _profileStore.ProfileDirectory,
             _settingsStore.DefaultProfileDirectory,
@@ -1085,6 +1087,8 @@ public partial class MainWindow : Window
             _appSettings.CaptureBackend,
             _appSettings.Language,
             _appSettings.CloseBehavior,
+            _appSettings.SaveOcrDiagnosticImages,
+            !profileSavedBeforeSettings,
             ReadSelectedProfileName(),
             _log.LogPath,
             _log.SessionStartedAt)
@@ -1117,9 +1121,31 @@ public partial class MainWindow : Window
 
         try
         {
-            FlushProfileAutoSave();
             var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
+            var previousDirectory = _profileStore.ProfileDirectory;
+            var directoryChanged = !string.Equals(
+                System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(previousDirectory)),
+                System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(directory)),
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!directoryChanged && !FlushProfileAutoSave())
+            {
+                SetStatus(L.T("profile.settings.recovery.same.folder.failed"));
+                return;
+            }
+
             System.IO.Directory.CreateDirectory(directory);
+            if (directoryChanged)
+            {
+                _profileStore.SetProfileDirectory(directory);
+                if (_isProfileDirty && !SaveActiveProfile(showStatus: false))
+                {
+                    _profileStore.SetProfileDirectory(previousDirectory);
+                    SetStatus(L.T("profile.settings.recovery.new.folder.failed"));
+                    return;
+                }
+            }
+
             _appSettings.ProfileDirectory = directory;
             _appSettings.OverlayRenderMode = dialog.SelectedRenderMode;
             _appSettings.AutomaticRendererSelection = dialog.AutomaticRendererSelection;
@@ -1127,6 +1153,7 @@ public partial class MainWindow : Window
             _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
             _appSettings.Language = LocalizationService.NormalizeLanguage(dialog.SelectedLanguage);
             _appSettings.CloseBehavior = dialog.SelectedCloseBehavior;
+            _appSettings.SaveOcrDiagnosticImages = dialog.SaveOcrDiagnosticImages;
             LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
             _profileStore.SetProfileDirectory(directory);
@@ -1136,7 +1163,10 @@ public partial class MainWindow : Window
             if (!dialog.ProfileApplyRequested && !_profileStore.Exists(targetProfileName))
             {
                 _selectedProfileName = ProfileStore.NormalizeProfileName(targetProfileName);
-                SaveActiveProfile(showStatus: false);
+                if (!SaveActiveProfile(showStatus: false))
+                {
+                    return;
+                }
             }
             RefreshProfileList(targetProfileName);
             if ((dialog.ProfileApplyRequested || dialog.ActiveProfileDeleted) &&
@@ -1226,6 +1256,13 @@ public partial class MainWindow : Window
         try
         {
             CommitCustomTimerEditor();
+            if (!_monitorTestMode && ((_buffMonitorEnabled && _selectedBuffNameKeys.Count > 0) || _tuairimMonitorEnabled)
+                && !_monitorValueRecognition.IsAvailable)
+            {
+                ShowInAppNotice(L.T("monitor.ocr.unavailable"));
+                SetStatus(L.T("monitor.ocr.unavailable"));
+                return;
+            }
             var result = await _overlayRuntime.StartAsync(
                 this,
                 new OverlayRuntimeOptions(

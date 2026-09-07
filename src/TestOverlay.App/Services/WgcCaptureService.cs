@@ -26,8 +26,11 @@ public sealed class WgcCaptureService
     private GraphicsCaptureSession? _liveSession;
     private TypedEventHandler<Direct3D11CaptureFramePool, object>? _liveFrameArrivedHandler;
     private BitmapSource? _latestFrame;
+    private long _latestFrameTicks;
     private int _processingLiveGeneration;
     private int _liveGeneration;
+    private int _liveFrameWidth;
+    private int _liveFrameHeight;
     private long _minimumLiveFrameIntervalTicks;
     private long _lastConvertedLiveFrameTicks;
 
@@ -138,6 +141,8 @@ public sealed class WgcCaptureService
             DirectXPixelFormat.B8G8R8A8UIntNormalized,
             2,
             item.Size);
+        _liveFrameWidth = item.Size.Width;
+        _liveFrameHeight = item.Size.Height;
         _liveSession = _liveFramePool.CreateCaptureSession(item);
         _liveSession.IsCursorCaptureEnabled = false;
         TryDisableCaptureBorder(_liveSession);
@@ -171,6 +176,8 @@ public sealed class WgcCaptureService
         _liveFrameArrivedHandler = null;
         _minimumLiveFrameIntervalTicks = 0;
         _lastConvertedLiveFrameTicks = 0;
+        _liveFrameWidth = 0;
+        _liveFrameHeight = 0;
         LastLiveCaptureException = null;
         lock (_sync)
         {
@@ -182,10 +189,14 @@ public sealed class WgcCaptureService
     {
         lock (_sync)
         {
-            frame = _latestFrame;
+            frame = IsFrameFresh(_latestFrameTicks, Stopwatch.GetTimestamp(), Stopwatch.Frequency) ? _latestFrame : null;
             return frame is not null;
         }
     }
+
+    internal static bool IsFrameFresh(long capturedTicks, long nowTicks, long frequency) =>
+        capturedTicks > 0 && frequency > 0 && nowTicks >= capturedTicks &&
+        (nowTicks - capturedTicks) / (double)frequency <= 5;
 
     private void LiveFramePool_FrameArrived(
         Direct3D11CaptureFramePool sender,
@@ -193,6 +204,7 @@ public sealed class WgcCaptureService
         int generation)
     {
         Direct3D11CaptureFrame? frame = null;
+        var processingClaimed = false;
         try
         {
             if (generation != Volatile.Read(ref _liveGeneration))
@@ -206,6 +218,41 @@ public sealed class WgcCaptureService
                 return;
             }
 
+            if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
+            {
+                frame.Dispose();
+                return;
+            }
+            processingClaimed = true;
+
+            var contentSize = frame.ContentSize;
+            if (FrameSizeChanged(_liveFrameWidth, _liveFrameHeight, contentSize.Width, contentSize.Height))
+            {
+                frame.Dispose();
+                frame = null;
+                var liveDevice = _liveDevice;
+                if (liveDevice is null)
+                {
+                    return;
+                }
+
+                sender.Recreate(
+                    liveDevice,
+                    DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                    2,
+                    contentSize);
+                _liveFrameWidth = contentSize.Width;
+                _liveFrameHeight = contentSize.Height;
+                lock (_sync)
+                {
+                    _latestFrame = null;
+                }
+                _log.Info($"Live WGC frame pool resized: width={contentSize.Width}, height={contentSize.Height}.");
+                Interlocked.CompareExchange(ref _processingLiveGeneration, 0, generation);
+                processingClaimed = false;
+                return;
+            }
+
             var now = Stopwatch.GetTimestamp();
             var minimumInterval = Volatile.Read(ref _minimumLiveFrameIntervalTicks);
             var lastConverted = Volatile.Read(ref _lastConvertedLiveFrameTicks);
@@ -215,14 +262,9 @@ public sealed class WgcCaptureService
                 return;
             }
 
-            if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
-            {
-                frame.Dispose();
-                return;
-            }
-
             _ = ProcessLiveFrameAsync(frame, generation, now);
             frame = null;
+            processingClaimed = false;
         }
         catch (ObjectDisposedException)
         {
@@ -236,7 +278,19 @@ public sealed class WgcCaptureService
                 LastLiveCaptureException = exception;
             }
         }
+        finally
+        {
+            if (processingClaimed)
+            {
+                Interlocked.CompareExchange(ref _processingLiveGeneration, 0, generation);
+            }
+        }
     }
+
+    internal static bool FrameSizeChanged(int currentWidth, int currentHeight, int nextWidth, int nextHeight) =>
+        nextWidth > 0 &&
+        nextHeight > 0 &&
+        (currentWidth != nextWidth || currentHeight != nextHeight);
 
     private async Task ProcessLiveFrameAsync(
         Direct3D11CaptureFrame frame,
@@ -263,6 +317,7 @@ public sealed class WgcCaptureService
                     if (generation == Volatile.Read(ref _liveGeneration))
                     {
                         _latestFrame = bitmap;
+                        _latestFrameTicks = captureTicks;
                     }
                 }
             }

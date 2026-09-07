@@ -11,11 +11,13 @@ public sealed class OverlayRuntimeController : IDisposable
 {
     private const int StopHotkeyId = 0x3141;
     private const int CustomTimerHotkeyBaseId = 0x3200;
+    private const double ProvisionalUiStallThresholdMs = 250;
     private readonly CaptureSessionCoordinator _captureSession;
     private readonly CpuCompositedOverlayRenderer _cpuRenderer = new();
     private readonly AppLog _log;
     private readonly DispatcherTimer _refreshTimer = new();
     private readonly Stopwatch _cpuRenderClock = new();
+    private readonly SingleFlightGate _startGate = new();
     private OverlayRuntimeOptions? _options;
     private OverlayWindow? _overlayWindow;
     private GpuLiveOverlayService? _gpuRenderer;
@@ -27,6 +29,7 @@ public sealed class OverlayRuntimeController : IDisposable
     private int _cpuStatsFrames;
     private int _cpuStatsSkippedBusy;
     private int _cpuStatsErrors;
+    private int _cpuStatsStalls;
     private bool _isRefreshing;
     private bool _isDisposed;
 
@@ -47,7 +50,26 @@ public sealed class OverlayRuntimeController : IDisposable
 
     public bool IsRunning => _overlayWindow is not null;
 
+    public Point? ActivePosition => _overlayWindow is null ? null : new Point(_overlayWindow.Left, _overlayWindow.Top);
+
     public async Task<OverlayRuntimeStartResult> StartAsync(Window owner, OverlayRuntimeOptions options)
+    {
+        if (!_startGate.TryEnter())
+        {
+            return OverlayRuntimeStartResult.AlreadyRunning;
+        }
+
+        try
+        {
+            return await StartCoreAsync(owner, options);
+        }
+        finally
+        {
+            _startGate.Exit();
+        }
+    }
+
+    private async Task<OverlayRuntimeStartResult> StartCoreAsync(Window owner, OverlayRuntimeOptions options)
     {
         ThrowIfDisposed();
         if (IsRunning)
@@ -114,15 +136,16 @@ public sealed class OverlayRuntimeController : IDisposable
 
             _log.Info($"Stop hotkey registered: {hotkeyDefinition.DisplayText}");
             var layout = options.Layout;
+            var fromDevice = PresentationSource.FromVisual(owner)?.CompositionTarget?.TransformFromDevice
+                             ?? System.Windows.Media.Matrix.Identity;
+            var monitors = System.Windows.Forms.Screen.AllScreens.Select(screen =>
+            {
+                var bounds = screen.Bounds;
+                return new Rect(fromDevice.Transform(new Point(bounds.Left, bounds.Top)),
+                                fromDevice.Transform(new Point(bounds.Right, bounds.Bottom)));
+            }).ToArray();
             var normalizedPosition = NormalizeOverlayPosition(
-                layout.ScreenLeft,
-                layout.ScreenTop,
-                layout.CanvasWidth,
-                layout.CanvasHeight,
-                SystemParameters.VirtualScreenLeft,
-                SystemParameters.VirtualScreenTop,
-                SystemParameters.VirtualScreenWidth,
-                SystemParameters.VirtualScreenHeight);
+                layout.ScreenLeft, layout.ScreenTop, layout.CanvasWidth, layout.CanvasHeight, monitors);
             if (normalizedPosition.Left != layout.ScreenLeft || normalizedPosition.Top != layout.ScreenTop)
             {
                 _log.Info(
@@ -246,6 +269,23 @@ public sealed class OverlayRuntimeController : IDisposable
             Math.Clamp(top, virtualTop, maxTop));
     }
 
+    internal static (double Left, double Top) NormalizeOverlayPosition(
+        double left, double top, double width, double height, IReadOnlyList<Rect> monitors)
+    {
+        var screens = monitors.Where(rect => !rect.IsEmpty && rect.Width > 0 && rect.Height > 0).ToArray();
+        if (screens.Length == 0) return (0, 0);
+        if (!double.IsFinite(left) || !double.IsFinite(top) ||
+            !double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0)
+            return (screens[0].Left, screens[0].Top);
+        var window = new Rect(left, top, width, height);
+        if (screens.Any(screen => Rect.Intersect(screen, window) is var overlap &&
+                                  !overlap.IsEmpty && overlap.Width > 0 && overlap.Height > 0))
+            return (left, top);
+        return screens.Select(screen => NormalizeOverlayPosition(left, top, width, height,
+                screen.Left, screen.Top, screen.Width, screen.Height))
+            .OrderBy(point => Math.Pow(point.Left - left, 2) + Math.Pow(point.Top - top, 2)).First();
+    }
+
     public void Stop()
     {
         _refreshTimer.Stop();
@@ -319,11 +359,12 @@ public sealed class OverlayRuntimeController : IDisposable
         }
     }
 
-    private void RefreshTimer_Tick(object? sender, EventArgs e)
+    private async void RefreshTimer_Tick(object? sender, EventArgs e)
     {
         var options = _options;
         if (options is null ||
-            !_captureSession.HasLiveCaptureSource(options.CaptureBackend) ||
+            (!_captureSession.HasLiveCaptureSource(options.CaptureBackend) &&
+             _captureSession.LastLiveCaptureException is null) ||
             _overlayWindow is null ||
             options.Slots.Count == 0 ||
             _isRefreshing)
@@ -340,6 +381,13 @@ public sealed class OverlayRuntimeController : IDisposable
         {
             _isRefreshing = true;
             _cpuRenderClock.Restart();
+            if (_captureSession.LastLiveCaptureException is not null)
+            {
+                throw new InvalidOperationException(
+                    "The selected live capture source is no longer available.",
+                    _captureSession.LastLiveCaptureException);
+            }
+
             if (_gpuRenderer is not null)
             {
                 if (_gpuRenderer.LastException is not null)
@@ -352,17 +400,20 @@ public sealed class OverlayRuntimeController : IDisposable
                 return;
             }
 
-            var frame = GetLiveFrame(options.CaptureBackend);
+            var frame = await _captureSession.CaptureCurrentFrameAsync(options.CaptureBackend);
+            if (!ReferenceEquals(options, _options)) return;
             if (frame is null)
             {
                 return;
             }
 
+            _cpuRenderClock.Restart();
             RenderCpuFrame(options, frame);
             RecordCpuRenderFrame(_cpuRenderClock.ElapsedTicks);
         }
         catch (Exception exception)
         {
+            if (!ReferenceEquals(options, _options)) return;
             _cpuStatsErrors++;
             _log.Error("Live overlay refresh failed.", exception);
             Stop();
@@ -370,26 +421,8 @@ public sealed class OverlayRuntimeController : IDisposable
         }
         finally
         {
-            _isRefreshing = false;
+            if (ReferenceEquals(options, _options)) _isRefreshing = false;
         }
-    }
-
-    private BitmapSource? GetLiveFrame(CaptureBackend backend)
-    {
-        if (backend != CaptureBackend.Wgc)
-        {
-            return _captureSession.CaptureCurrentFrame(backend)
-                   ?? throw new InvalidOperationException("The selected capture source is unavailable.");
-        }
-
-        if (_captureSession.LastLiveCaptureException is not null)
-        {
-            throw new InvalidOperationException(
-                "Live WGC capture failed.",
-                _captureSession.LastLiveCaptureException);
-        }
-
-        return _captureSession.TryGetLatestWgcFrame(out var frame) ? frame : null;
     }
 
     private void RenderCpuFrame(OverlayRuntimeOptions options, BitmapSource frame)
@@ -401,7 +434,8 @@ public sealed class OverlayRuntimeController : IDisposable
                 options.Slots,
                 (int)Math.Ceiling(options.Layout.CanvasWidth),
                 (int)Math.Ceiling(options.Layout.CanvasHeight),
-                options.Layout.Opacity);
+                options.Layout.Opacity,
+                reuseOutput: true);
             _overlayWindow!.RenderCompositedFrame(composited);
             return;
         }
@@ -491,6 +525,7 @@ public sealed class OverlayRuntimeController : IDisposable
         _cpuStatsFrames = 0;
         _cpuStatsSkippedBusy = 0;
         _cpuStatsErrors = 0;
+        _cpuStatsStalls = 0;
     }
 
     private void RecordCpuRenderFrame(long elapsedTicks)
@@ -503,6 +538,10 @@ public sealed class OverlayRuntimeController : IDisposable
         _cpuStatsFrames++;
         _cpuStatsTicks += elapsedTicks;
         _cpuStatsMaxTicks = Math.Max(_cpuStatsMaxTicks, elapsedTicks);
+        if (_options is not null)
+        {
+            LogCpuStallIfNeeded(_options, elapsedTicks, failed: false);
+        }
         var now = Stopwatch.GetTimestamp();
         if ((now - _cpuStatsLastLogTicks) / (double)Stopwatch.Frequency >= 5)
         {
@@ -524,8 +563,23 @@ public sealed class OverlayRuntimeController : IDisposable
             $"CPU renderer stats{(final ? " final" : string.Empty)}: " +
             $"mode={RenderModeLabel(_activeRenderMode)}, frames={_cpuStatsFrames}, " +
             $"avgMs={averageMs:0.00}, maxMs={maxMs:0.00}, " +
-            $"skippedBusy={_cpuStatsSkippedBusy}, errors={_cpuStatsErrors}, " +
+            $"skippedBusy={_cpuStatsSkippedBusy}, errors={_cpuStatsErrors}, stalls={_cpuStatsStalls}, " +
             $"slots={_options?.Slots.Count ?? 0}");
+    }
+
+    private void LogCpuStallIfNeeded(OverlayRuntimeOptions options, long elapsedTicks, bool failed)
+    {
+        var elapsedMs = elapsedTicks * 1000.0 / Stopwatch.Frequency;
+        if (elapsedMs < ProvisionalUiStallThresholdMs)
+        {
+            return;
+        }
+
+        _cpuStatsStalls++;
+        _log.Info(
+            $"CPU renderer UI stall detected: elapsedMs={elapsedMs:0.00}, " +
+            $"thresholdMs={ProvisionalUiStallThresholdMs:0}, captureBackend={options.CaptureBackend}, " +
+            $"mode={RenderModeLabel(_activeRenderMode)}, failed={failed}.");
     }
 
     private void LogStarted(OverlayRuntimeOptions options, string rendererMode)

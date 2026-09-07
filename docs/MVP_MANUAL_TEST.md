@@ -2,6 +2,27 @@
 
 Run this checklist on the target Windows machine with Mabinogi in windowed or borderless-windowed mode. The user performs runtime verification; automated build verification alone does not confirm capture accuracy or click-through behavior.
 
+## 0.0.5-beta release gate
+
+Record the Windows version, display scale, resolution, monitor count, game display mode, capture backend, and privilege level for every run.
+
+- [ ] Windows 10 22H2 at 100% scale, 1920x1080
+- [ ] Windows 11 at 125% or 150% scale, 1920x1080
+- [ ] Windows 11 at 150% or 200% scale, 4K
+- [ ] Mixed-DPI dual monitors; move the main, compact, layout, and overlay windows between monitors
+- [ ] Windowed and borderless-windowed game modes
+- [ ] WGC, DXGI, and GDI capture backends
+- [ ] Resize, minimize, close, and reopen the selected game window while the overlay is active
+- [ ] Put Windows to sleep and resume with the app open
+- [ ] Start the app twice and verify that the existing window is activated without a second tray icon
+- [ ] Make the profile folder read-only, verify the persistent save warning, then recover by choosing a writable folder
+- [ ] Verify that no `monitor-*.png` files are created while OCR diagnostics are disabled
+- [ ] Enable OCR diagnostics, force one OCR failure, verify the local privacy notice, then disable the option again
+- [ ] Test with Windows OCR language support unavailable and verify that the failure is understandable
+- [ ] Verify GPU startup failure falls back to the CPU renderer without leaving a dead overlay window
+
+Do not approve the beta candidate until every applicable row has a recorded result. Attach only redacted logs; diagnostic images can contain visible game information.
+
 ## Build
 
 ```powershell
@@ -126,4 +147,17 @@ When a failure occurs, use Settings > Log and collect `%LocalAppData%\Mabinogi O
 1. Run WGC + automatic GPU rendering with buff monitoring enabled.
 2. Compare overlay smoothness and CPU usage with one and four selected buffs. With successful batch OCR, verify that additional selected buffs do not multiply OCR passes.
 3. Verify buff activation and expiration still update within the expected recognition delay.
-4. Check the log for OCR failures and confirm diagnostic images are written only once per failure kind.
+4. With OCR diagnostics disabled, verify no diagnostic images are written. When explicitly enabled, verify diagnostic images are limited to once per failure kind.
+
+## September 7 regression checks (not yet run)
+
+- [ ] Start only buff/Tuairim monitoring, close the capture target, and verify monitoring stops with an understandable error. Capture again and restart successfully.
+- [ ] Delay DXGI frame acquisition, verify the UI remains responsive, then stop/restart during acquisition and verify an old result cannot update or stop the new session.
+- [ ] Remove a saved secondary monitor and verify quickslots, buff timers, Tuairim and visual alerts all recover to the same visible position.
+- [ ] Test staggered and mixed-DPI monitors, including a saved position in the gap between their rectangles.
+- [ ] Keep a valid profile backup, corrupt and write-lock the primary, and verify backup data loads with a repair warning.
+- [ ] Make Erin settings unwritable, change an alarm, verify the persistent warning and retry; restore access and verify the warning clears. Test cancel/discard on exit while failure persists.
+- [ ] Launch a second instance while the first window is still starting, and verify activation. Repeat with tray/compact mode and differing elevation levels.
+- [ ] Switch UI languages and maximize/restore a window; verify title bar tooltips and accessibility names update.
+
+Automated baseline on September 7: Release build, zero warnings/errors; 151 unit tests passed. This does not replace the unchecked runtime rows above.

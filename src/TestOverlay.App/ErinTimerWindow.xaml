@@ -193,7 +193,10 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </Border>
-                <TextBlock x:Name="AlarmStatusText" Grid.Row="3" Margin="12,8,12,10" Style="{StaticResource MutedTextStyle}"/>
+                <StackPanel Grid.Row="3" Margin="12,8,12,10">
+                    <TextBlock x:Name="AlarmStatusText" Style="{StaticResource MutedTextStyle}"/>
+                    <TextBlock x:Name="SaveWarningText" Visibility="Collapsed" TextWrapping="Wrap"/>
+                </StackPanel>
             </Grid>
         </Border>
 

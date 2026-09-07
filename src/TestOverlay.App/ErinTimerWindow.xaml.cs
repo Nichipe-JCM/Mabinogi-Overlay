@@ -31,6 +31,8 @@ public partial class ErinTimerWindow : UserControl, IDisposable
     private readonly MediaPlayer _mediaPlayer = new();
     private readonly ErinTimerSettings _settings;
     private bool _initializing = true;
+    private readonly PendingSettingsSave _pendingSave = new();
+    private readonly DispatcherTimer _saveRetryTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private long? _previousAbsoluteGameSeconds;
 
     public ErinTimerWindow()
@@ -53,6 +55,7 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         UpdateClock(checkAlarms: false);
         _initializing = false;
 
+        _saveRetryTimer.Tick += (_, _) => TryFlushSettings();
         _clockTimer.Tick += ClockTimer_Tick;
         _clockTimer.Start();
         LocalizationService.Instance.LanguageChanged += LocalizationService_LanguageChanged;
@@ -109,7 +112,7 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         _mediaPlayer.Stop();
         _mediaPlayer.Close();
         LocalizationService.Instance.LanguageChanged -= LocalizationService_LanguageChanged;
-        SaveSettings();
+        _saveRetryTimer.Stop();
         _log?.Info("Erin timer disposed.");
     }
 
@@ -219,6 +222,18 @@ public partial class ErinTimerWindow : UserControl, IDisposable
         var soundPath = usesDefaultSound
             ? DefaultAlertSound.ResolvePath(_log)
             : audioFile;
+        if (!usesDefaultSound)
+        {
+            try
+            {
+                soundPath = AudioFilePolicy.Validate(soundPath!);
+            }
+            catch (Exception exception)
+            {
+                _log?.Error($"Erin timer sound rejected: path={audioFile}", exception);
+                return;
+            }
+        }
         if (string.IsNullOrWhiteSpace(soundPath) || !File.Exists(soundPath))
         {
             if (usesDefaultSound && !_settings.IsMuted)
@@ -464,7 +479,26 @@ public partial class ErinTimerWindow : UserControl, IDisposable
             CheckFileExists = true,
             Multiselect = false
         };
-        return dialog.ShowDialog(Window.GetWindow(this)) == true ? dialog.FileName : null;
+        var owner = Window.GetWindow(this);
+        if (dialog.ShowDialog(owner) != true)
+        {
+            return null;
+        }
+
+        try
+        {
+            return AudioFilePolicy.Validate(dialog.FileName);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                owner,
+                L.F("audio.file.invalid.arg", exception.Message),
+                L.T("erin.choose.audio.file"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return null;
+        }
     }
 
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -620,14 +654,35 @@ public partial class ErinTimerWindow : UserControl, IDisposable
 
     private void SaveSettings()
     {
-        try
+        _pendingSave.MarkDirty();
+        TryFlushSettings();
+    }
+
+    public bool TryFlushSettings()
+    {
+        var previousError = _pendingSave.LastError?.Message;
+        if (_pendingSave.TryFlush(() => _store.Save(_settings)))
         {
-            _store.Save(_settings);
+            _saveRetryTimer.Stop();
+            SaveWarningText.Visibility = Visibility.Collapsed;
+            return true;
         }
-        catch (Exception exception)
+        SaveWarningText.Text = L.T("erin.save.failed");
+        SaveWarningText.Visibility = Visibility.Visible;
+        if (previousError != _pendingSave.LastError?.Message)
         {
-            _log?.Error("Failed to save Erin timer settings.", exception);
+            _log?.Error("Failed to save Erin timer settings.", _pendingSave.LastError!);
+            NoticeRequested?.Invoke(L.T("erin.save.failed"));
         }
+        _saveRetryTimer.Start();
+        return false;
+    }
+
+    public bool ConfirmExitWithUnsavedSettings(Window owner)
+    {
+        if (TryFlushSettings()) return true;
+        return MessageBox.Show(owner, L.T("erin.save.exit.confirm"), L.T("erin.save.failed.title"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
     }
 
     private void MediaPlayer_MediaFailed(object? sender, ExceptionEventArgs e) =>

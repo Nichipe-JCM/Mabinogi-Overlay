@@ -55,7 +55,8 @@ internal static class AtomicJsonFile
     public static AtomicJsonLoadResult<T>? Load<T>(
         string path,
         JsonSerializerOptions options,
-        Action<T>? validate = null)
+        Action<T>? validate = null,
+        long maximumBytes = 10 * 1024 * 1024)
         where T : class
     {
         var backupPath = GetBackupPath(path);
@@ -71,9 +72,8 @@ internal static class AtomicJsonFile
         {
             try
             {
-                var newerBackup = Read(backupPath, options, validate);
-                RestorePrimaryFromBackup(path, backupPath);
-                return new AtomicJsonLoadResult<T>(newerBackup, true, null);
+                var newerBackup = Read(backupPath, options, validate, maximumBytes);
+                return Recovered(path, backupPath, newerBackup, null);
             }
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
@@ -86,7 +86,7 @@ internal static class AtomicJsonFile
         {
             try
             {
-                return new AtomicJsonLoadResult<T>(Read(path, options, validate), false, null);
+                return new AtomicJsonLoadResult<T>(Read(path, options, validate, maximumBytes), false, null);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
             {
@@ -101,9 +101,8 @@ internal static class AtomicJsonFile
 
         try
         {
-            var recovered = Read(backupPath, options, validate);
-            RestorePrimaryFromBackup(path, backupPath);
-            return new AtomicJsonLoadResult<T>(recovered, true, primaryException);
+            var recovered = Read(backupPath, options, validate, maximumBytes);
+            return Recovered(path, backupPath, recovered, primaryException);
         }
         catch (Exception backupException) when (backupException is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
         {
@@ -113,10 +112,26 @@ internal static class AtomicJsonFile
         }
     }
 
-    private static T Read<T>(string path, JsonSerializerOptions options, Action<T>? validate)
+    private static AtomicJsonLoadResult<T> Recovered<T>(string path, string backupPath, T value, Exception? primaryException) where T : class
+    {
+        Exception? restoreException = null;
+        try { RestorePrimaryFromBackup(path, backupPath); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            restoreException = exception;
+        }
+        return new(value, true, primaryException, restoreException);
+    }
+
+    private static T Read<T>(string path, JsonSerializerOptions options, Action<T>? validate, long maximumBytes)
         where T : class
     {
-        var value = JsonSerializer.Deserialize<T>(File.ReadAllText(path, Encoding.UTF8), options)
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (stream.Length > maximumBytes)
+        {
+            throw new InvalidDataException($"JSON file exceeds the size limit of {maximumBytes} bytes: {path}");
+        }
+        var value = JsonSerializer.Deserialize<T>(stream, options)
                     ?? throw new InvalidDataException($"The JSON document contains no data: {path}");
         validate?.Invoke(value);
         return value;
@@ -150,5 +165,6 @@ internal static class AtomicJsonFile
 internal sealed record AtomicJsonLoadResult<T>(
     T Value,
     bool RecoveredFromBackup,
-    Exception? PrimaryException)
+    Exception? PrimaryException,
+    Exception? RestoreException = null)
     where T : class;

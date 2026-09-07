@@ -1,6 +1,8 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using TestOverlay.App.Models;
+using Windows.Graphics.Capture;
 
 namespace TestOverlay.App.Services;
 
@@ -14,6 +16,15 @@ public sealed class CaptureSessionCoordinator
     private readonly WgcWindowSelectionService _wgcWindowSelection = new();
     private readonly WgcCaptureService _wgcCapture;
     private readonly AppLog _log;
+    private Windows.Foundation.TypedEventHandler<GraphicsCaptureItem, object>? _captureItemClosedHandler;
+    private GraphicsCaptureItem? _subscribedCaptureItem;
+    private Exception? _captureSourceException;
+    private int _captureSourceGeneration;
+    private int _captureRequestGeneration;
+    private readonly CaptureWorkQueue _desktopWork = new();
+    private long _captureSamples;
+    private double _captureMilliseconds;
+    private long _captureAllocatedBytes;
 
     public CaptureSessionCoordinator(AppLog log)
     {
@@ -31,7 +42,7 @@ public sealed class CaptureSessionCoordinator
 
     public bool IsBorderlessCaptureAllowed => _wgcCapture.IsBorderlessCaptureAllowed;
 
-    public Exception? LastLiveCaptureException => _wgcCapture.LastLiveCaptureException;
+    public Exception? LastLiveCaptureException => _captureSourceException ?? _wgcCapture.LastLiveCaptureException;
 
     public IReadOnlyList<GameWindowInfo> GetVisibleWindows() => _windowDiscovery.GetVisibleWindows();
 
@@ -55,9 +66,7 @@ public sealed class CaptureSessionCoordinator
         }
 
         var image = await _wgcCapture.CapturePreparedItemOnceAsync(selection.Item, SingleCaptureTimeout);
-        SelectedWindow = window;
-        WgcSelection = selection;
-        CapturedImage = image;
+        SetWgcCaptureSource(window, selection, image);
         return new CaptureOperationResult(CaptureOperationStatus.Success, windows, window, selection);
     }
 
@@ -90,13 +99,37 @@ public sealed class CaptureSessionCoordinator
         }
 
         var image = await _wgcCapture.CapturePreparedItemOnceAsync(selection.Item, SingleCaptureTimeout);
-        SelectedWindow = window;
-        WgcSelection = selection;
-        CapturedImage = image;
+        SetWgcCaptureSource(window, selection, image);
         return new CaptureOperationResult(CaptureOperationStatus.Success, windows, window, selection);
     }
 
     public BitmapSource Crop(BitmapSource source, Rect rect) => _windowCapture.Crop(source, rect);
+
+    public async Task<BitmapSource?> CaptureCurrentFrameAsync(CaptureBackend backend, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var requestGeneration = Volatile.Read(ref _captureRequestGeneration);
+        var generation = Volatile.Read(ref _captureSourceGeneration);
+        if (requestGeneration != Volatile.Read(ref _captureRequestGeneration) ||
+            generation != Volatile.Read(ref _captureSourceGeneration)) return null;
+        if (LastLiveCaptureException is { } failure)
+            throw new InvalidOperationException("The selected capture source is unavailable.", failure);
+        if (backend == CaptureBackend.Wgc) return CaptureCurrentFrame(backend);
+        var window = SelectedWindow;
+        if (window is null) return null;
+        var frame = await _desktopWork.RunAsync(() => backend == CaptureBackend.DxgiDesktopDuplication
+            ? _dxgiCapture.CaptureClientArea(window)
+            : _windowCapture.CaptureClientArea(window), (elapsed, allocated) =>
+            {
+                _captureMilliseconds += elapsed;
+                _captureAllocatedBytes += allocated;
+                if (++_captureSamples % 120 == 0)
+                    _log.Info($"Desktop capture metrics: backend={backend}, samples={_captureSamples}, " +
+                        $"avgMs={_captureMilliseconds / _captureSamples:0.000}, managedBytesPerFrame={_captureAllocatedBytes / _captureSamples}, dxgiSessions={_dxgiCapture.SessionCreationCount}");
+            }, cancellationToken);
+        return generation == Volatile.Read(ref _captureSourceGeneration) &&
+            requestGeneration == Volatile.Read(ref _captureRequestGeneration) ? frame : null;
+    }
 
     public BitmapSource? CaptureCurrentFrame(CaptureBackend backend)
     {
@@ -128,7 +161,27 @@ public sealed class CaptureSessionCoordinator
         _wgcCapture.StartLiveCapture(WgcSelection.Item, maxFps);
     }
 
-    public void StopLiveWgcCapture() => _wgcCapture.StopLiveCapture();
+    public void StopLiveWgcCapture()
+    {
+        Interlocked.Increment(ref _captureRequestGeneration);
+        _wgcCapture.StopLiveCapture();
+        _ = ResetDesktopCaptureAsync();
+    }
+
+    private async Task ResetDesktopCaptureAsync()
+    {
+        try
+        {
+            await _desktopWork.ResetAsync(() =>
+            {
+                _dxgiCapture.Reset();
+                _captureSamples = 0;
+                _captureMilliseconds = 0;
+                _captureAllocatedBytes = 0;
+            });
+        }
+        catch (Exception exception) { _log.Error("Desktop capture cleanup failed.", exception); }
+    }
 
     public bool TryGetLatestWgcFrame(out BitmapSource? frame) =>
         _wgcCapture.TryGetLatestFrame(out frame);
@@ -182,6 +235,56 @@ public sealed class CaptureSessionCoordinator
         string.Equals(window.Title, displayName, StringComparison.OrdinalIgnoreCase)
         || displayName.Contains(window.Title, StringComparison.OrdinalIgnoreCase)
         || window.Title.Contains(displayName, StringComparison.OrdinalIgnoreCase);
+
+    private void SetWgcCaptureSource(
+        GameWindowInfo window,
+        WgcSelectionResult selection,
+        BitmapSource image)
+    {
+        UnsubscribeCaptureItemClosed();
+        SelectedWindow = window;
+        WgcSelection = selection;
+        CapturedImage = image;
+        _captureSourceException = null;
+        var generation = Interlocked.Increment(ref _captureSourceGeneration);
+        _captureItemClosedHandler = (item, _) =>
+        {
+            if (generation != Volatile.Read(ref _captureSourceGeneration))
+            {
+                return;
+            }
+
+            _captureSourceException = new InvalidOperationException(
+                "The selected game capture source was closed.");
+            WgcSelection = null;
+            SelectedWindow = null;
+            CapturedImage = null;
+            _log.Info("The selected WGC capture source was closed. Runtime reselection is required.");
+        };
+        _subscribedCaptureItem = selection.Item;
+        selection.Item.Closed += _captureItemClosedHandler;
+    }
+
+    private void UnsubscribeCaptureItemClosed()
+    {
+        Interlocked.Increment(ref _captureSourceGeneration);
+        if (_subscribedCaptureItem is null || _captureItemClosedHandler is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _subscribedCaptureItem.Closed -= _captureItemClosedHandler;
+        }
+        catch (ObjectDisposedException)
+        {
+            // The capture item may already be closed while a new source is being selected.
+        }
+
+        _captureItemClosedHandler = null;
+        _subscribedCaptureItem = null;
+    }
 }
 
 public enum CaptureOperationStatus

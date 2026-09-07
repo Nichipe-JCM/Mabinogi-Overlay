@@ -36,7 +36,7 @@ public sealed class AppSettingsStore
             AppSettingsMigration.Apply(settings);
             Normalize(settings);
             LastLoadRecoveredFromBackup = result?.RecoveredFromBackup == true;
-            LastLoadException = result?.PrimaryException;
+            LastLoadException = result?.RestoreException ?? result?.PrimaryException;
             return settings;
         }
         catch (Exception exception)

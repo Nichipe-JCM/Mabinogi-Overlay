@@ -6,7 +6,7 @@ public static class GuideCatalog
 {
     public const string DefaultTopicId = "quick-start";
     public const string TroubleshootingTopicId = "troubleshooting";
-    public const string GitHubIssuesUrl = "https://github.com/Nichipe-JCM/testoverlayproj/issues";
+    public const string GitHubIssuesUrl = "https://github.com/Nichipe-JCM/Mabinogi-Overlay/issues";
 
     public static IReadOnlyList<GuideTopicDefinition> Topics { get; } =
     [

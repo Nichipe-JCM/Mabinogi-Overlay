@@ -7,10 +7,10 @@
         Title="Settings"
         loc:Localize.TitleKey="Settings"
         Icon="/Image/AppIcon.ico"
-        Width="920"
-        Height="760"
-        MinWidth="760"
-        MinHeight="620"
+        Width="880"
+        Height="700"
+        MinWidth="600"
+        MinHeight="460"
         Background="{StaticResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
     <shell:WindowChrome.WindowChrome>
@@ -88,7 +88,15 @@
                                 <TextBlock Margin="0,7,0,18" Text="Manage profiles and their storage location."
                                            loc:Localize.TextKey="settings.profile.description" Style="{StaticResource MutedTextStyle}"/>
 
-                                <Border Style="{StaticResource InsetPanelStyle}">
+                                <Border x:Name="ProfileRecoveryNotice" Margin="0,0,0,12"
+                                        Padding="12" Background="#33FFB4AB"
+                                        BorderBrush="{StaticResource OverlayDangerBrush}" BorderThickness="1"
+                                        CornerRadius="7" Visibility="Collapsed">
+                                    <TextBlock TextWrapping="Wrap" Text="The current profile could not be saved. Choose a writable profile folder, then apply settings."
+                                               loc:Localize.TextKey="profile.settings.recovery.description"/>
+                                </Border>
+
+                                <Border x:Name="ProfileManagementPanel" Style="{StaticResource InsetPanelStyle}">
                                     <StackPanel>
                                         <TextBlock Text="profile.manage.heading" loc:Localize.TextKey="profile.manage.heading" Style="{StaticResource PanelTitleStyle}"/>
                                         <TextBlock x:Name="ActiveProfileText" Margin="0,6,0,0" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"/>
@@ -160,6 +168,14 @@
                                         <TextBlock Text="Log" loc:Localize.TextKey="Log" Style="{StaticResource PanelTitleStyle}"/>
                                         <TextBlock Margin="0,6,0,10" Text="Open the current session log for troubleshooting."
                                                    loc:Localize.TextKey="settings.log.description" Style="{StaticResource MutedTextStyle}"/>
+                                        <CheckBox x:Name="SaveOcrDiagnosticImagesCheckBox"
+                                                  Margin="0,0,0,6"
+                                                  Content="Save cropped OCR diagnostic images"
+                                                  loc:Localize.ContentKey="settings.ocr.diagnostics.enabled"/>
+                                        <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
+                                                   Text="When enabled, failed OCR areas from the game window are saved locally in the log folder. They may contain visible game information."
+                                                   loc:Localize.TextKey="settings.ocr.diagnostics.description"
+                                                   Style="{StaticResource MutedTextStyle}"/>
                                         <Button MinWidth="70" Height="34" Padding="12,0" HorizontalAlignment="Left" Content="Log"
                                                 loc:Localize.ContentKey="Log" Click="LogButton_Click"/>
                                     </StackPanel>

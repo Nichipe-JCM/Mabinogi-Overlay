@@ -13,10 +13,11 @@ The project must remain within this safety boundary:
 
 - Repository: `G:\gpt\git\testoverlayproj`
 - Stable integration branch: `develop`
-- Active release branch at the time of this document: `version/0.0.4.3`
-- Current app version in the project file: `0.0.4.3`
+- Active stabilization branch: `codex/msr-stabilization`
+- Next planned release branch: `version/0.0.5-beta`
+- Current app version in the project file: `0.0.5-beta`
 - Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
-- Do not push unless the user explicitly requests it.
+- Follow the repository-root `AGENTS.md` for working rules. Commit verified changes by feature and push the working branch by default unless the user requests a hold.
 
 Before editing, always run:
 
@@ -103,9 +104,9 @@ The Buff/Tuairim tab is feature work on the current branch.
 
 - `MonitorTemplateDetectionService` locates known buff icons and the Tuairim UI using bundled image templates.
 - `MonitorValueRecognitionService` uses Windows OCR on source, light-mask, and dark-mask crops.
-- Buff durations and Tuairim percent are reconciled by state guards in `MainWindow` instead of trusting one OCR result directly.
+- Buff durations and Tuairim percent are reconciled by `StatusObservationController` instead of trusting one OCR result directly.
 - Normal monitoring runs on a nominal two-second interval. Fast retries can occur while a value needs confirmation.
-- Buff expiry needs five consecutive zero/inactive confirmations.
+- Buff expiration and timer corrections use buff-specific rules in `StatusObservationController`; music and status buffs do not share a single confirmation count.
 - Large downward buff-time changes need sustained confirmation.
 - Tuairim accepts only 0-100, validates resets, rejects decreases other than a confirmed reset, and rejects implausibly large increases.
 - Alert configuration, sound paths, volumes, enabled buff choices, and monitor anchors are saved in the active profile.
@@ -118,15 +119,21 @@ The Buff/Tuairim tab is feature work on the current branch.
 - `Profiles/<profile>.json` stores candidates, sections, layout, monitor settings, and monitor anchors.
 - `Logs/app.log` contains the current session log, and `erin-timer.json` stores Erin timer settings separately from overlay profiles.
 - On first launch, portable data beside the executable is copied into LocalAppData without overwriting existing destination files or deleting the originals.
-- Missing or invalid settings fall back to defaults. Profile and settings files are directly rewritten; they are not yet atomically replaced.
+- Missing or invalid settings fall back to defaults.
+- `AtomicJsonFile` writes settings and profiles through a same-directory temporary file, flushes it to disk, replaces the primary file, and maintains a `.bak` recovery copy.
+- Profile loading can recover from an invalid primary file or a newer valid backup. Save failures must remain visible to callers so profile switches and process shutdown cannot silently discard dirty state.
 
 ## Recent Fixes
 
-The most recent commits on the active branch repaired Erin alarm state persistence and added settings reset behavior.
+The current `develop` baseline includes the profile, tray, guide, runtime, alert-sound, layout, and monitor improvements from `feature/settings-tray-exit`.
 
-- Erin alarm rows now use two-way bindings.
-- Alarm normalization preserves object identity instead of recreating models during every save.
-- Settings includes a two-step reset confirmation for the values in that dialog. Profiles and layouts are not deleted by this reset.
+- Settings and profiles use atomic primary/backup persistence.
+- Portable profile packages copy owned audio assets into the package.
+- The close button can exit, minimize to the tray, or ask the user.
+- The current stabilization branch propagates profile save failures so profile switching and actual process exit cannot silently discard dirty state.
+- Overlay startup serialization, WGC resize handling, and WGC target-close handling are the current runtime stabilization focus.
+- OCR diagnostic image capture is opt-in, profile save failures retry automatically, and a failed save can be recovered by choosing a new profile folder.
+- Normal launches are single-instance; a second launch activates the existing window.
 
 ## Known Technical Risks
 
@@ -139,8 +146,20 @@ The most recent commits on the active branch repaired Erin alarm state persisten
 
 ## Recommended Next Work Order
 
-1. Obtain user runtime feedback for the current status monitor branch.
-2. Stabilize capture performance before increasing default FPS or adding more continuously scanned UI.
-3. Separate monitor orchestration and overlay session lifecycle from `MainWindow` when touching those areas again.
-4. Add atomic profile/settings writes before broader distribution.
-5. Merge the status-monitor branch into `develop` only after the user approves the runtime behavior.
+1. Run and record every applicable row in the 0.0.5-beta manual release matrix, especially WGC resize/close, mixed DPI, profile-folder recovery, and second-instance activation.
+2. Keep Release build and unit regression results separate from user-run Windows/game runtime verification.
+3. Review accessibility names and keyboard behavior for the custom title bar and high-priority dialogs.
+4. Measure DXGI resource churn, full-frame managed copies, high-FPS CPU rendering, and OCR fallback cadence before starting broad performance refactors.
+5. Merge the verified stabilization work into `develop`, create `version/0.0.5-beta`, and perform signing/checksum/release work only from the reviewed release commit.
+
+## September 7 defect fixes
+
+- Desktop DXGI/GDI capture waits now run outside the UI thread, serialized by the capture coordinator. Results from superseded runtime options or capture sources are discarded. DXGI resource creation per capture and CPU compositing costs remain performance work.
+- Monitor-only sessions surface capture/recognition failures and stop instead of silently retrying a failed source. WGC frames older than five seconds are no longer supplied to consumers. OCR availability is checked before monitoring starts.
+- Both overlay windows share the recovered runtime position. Placement considers individual monitor rectangles, including gaps in staggered monitor arrangements. The saved position is not rewritten automatically.
+- Valid backup data remains usable when repairing the original file fails. Profile UI reports the repair failure. JSON reads enforce a size limit, null collection entries trigger backup recovery, and explicit zero opacity survives profile application.
+- Erin alarm changes remain pending after save failure, show a persistent warning, retry every five seconds, and require an explicit discard decision before normal process exit.
+- Second-instance activation uses a named event, retaining requests sent before the first window is ready.
+- Title bar actions have localized tooltips and accessibility names, including maximize/restore state.
+
+Verification: Release build of the app and test project passed with zero warnings/errors; all 151 unit tests passed. No app GUI, game capture, screenshot probes, packaging, signing, or push was performed. Mixed-DPI placement, game-target lifecycle, cross-elevation activation and storage-permission UI behavior still require user runtime verification.

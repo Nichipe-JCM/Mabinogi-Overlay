@@ -9,8 +9,10 @@ public sealed class ProfileStore
 {
     public const string ProfilePackageExtension = ".moverlayprofile";
     private const string PackageProfileEntryName = "profile.json";
-    private const long MaximumPackagedAudioBytes = 50 * 1024 * 1024;
+    private const long MaximumProfileJsonBytes = 10 * 1024 * 1024;
+    private const long MaximumPackagedAudioBytes = AudioFilePolicy.MaximumAudioBytes;
     private const long MaximumPackageAudioBytes = 200 * 1024 * 1024;
+    private const int MaximumPackageEntries = 128;
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
     public ProfileStore(string profileDirectory)
@@ -23,6 +25,8 @@ public sealed class ProfileStore
     public string DefaultProfilePath => Path.Combine(ProfileDirectory, "default.json");
 
     public bool LastLoadRecoveredFromBackup { get; private set; }
+
+    public Exception? LastRestoreException { get; private set; }
 
     public void SetProfileDirectory(string profileDirectory)
     {
@@ -45,6 +49,7 @@ public sealed class ProfileStore
     public OverlayProfile? Load(string? profileName)
     {
         LastLoadRecoveredFromBackup = false;
+        LastRestoreException = null;
         var path = GetProfilePath(profileName);
         var result = AtomicJsonFile.Load<OverlayProfile>(path, Options, OverlayProfileValidator.Validate);
         if (result is null)
@@ -54,6 +59,7 @@ public sealed class ProfileStore
         }
 
         LastLoadRecoveredFromBackup = result.RecoveredFromBackup;
+        LastRestoreException = result.RestoreException;
         return result.Value;
     }
 
@@ -118,9 +124,20 @@ public sealed class ProfileStore
             ? Path.GetFileNameWithoutExtension(sourcePath)
             : profileName);
         var packageImport = IsZipPackage(sourcePath);
-        var profile = packageImport
-            ? ImportPackage(sourcePath, importedName)
-            : DeserializeProfile(File.ReadAllText(sourcePath));
+        OverlayProfile profile;
+        if (packageImport)
+        {
+            profile = ImportPackage(sourcePath, importedName);
+        }
+        else
+        {
+            var info = new FileInfo(sourcePath);
+            if (info.Length > MaximumProfileJsonBytes)
+            {
+                throw new InvalidDataException("The profile data is too large.");
+            }
+            profile = DeserializeProfile(File.ReadAllText(sourcePath));
+        }
         var saved = false;
         try
         {
@@ -226,7 +243,49 @@ public sealed class ProfileStore
             name = name.Replace(invalid, '_');
         }
 
+        name = name.TrimEnd(' ', '.');
+        if (name.Length > 80)
+        {
+            name = name[..80].TrimEnd(' ', '.');
+        }
+        if (IsReservedWindowsName(name))
+        {
+            name = $"_{name}";
+        }
+
         return string.IsNullOrWhiteSpace(name) ? "default" : name;
+    }
+
+    public static void ValidateUserProfileName(string? profileName)
+    {
+        var name = profileName?.Trim() ?? string.Empty;
+        if (name.Length == 0)
+        {
+            throw new InvalidDataException("Enter a profile name.");
+        }
+        if (name.Length > 80)
+        {
+            throw new InvalidDataException("Profile names can contain at most 80 characters.");
+        }
+        if (name.EndsWith(' ') || name.EndsWith('.') ||
+            name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            IsReservedWindowsName(name))
+        {
+            throw new InvalidDataException("The profile name is not valid on Windows.");
+        }
+    }
+
+    private static bool IsReservedWindowsName(string name)
+    {
+        var stem = name.Split('.')[0];
+        return stem.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+               stem.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+               stem.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+               stem.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
+               (stem.Length == 4 &&
+                (stem.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
+                 stem.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)) &&
+                stem[3] is >= '1' and <= '9');
     }
 
     private void ExportPackage(OverlayProfile profile, string destinationPath)
@@ -250,16 +309,17 @@ public sealed class ProfileStore
                     }
                     if (!File.Exists(path))
                     {
-                        // Do not put machine-specific dead paths into a portable package.
-                        // An empty path deliberately selects the built-in default sound.
+                        // Keep package export usable when an optional custom
+                        // sound was removed after the profile was saved.
                         return string.Empty;
                     }
-                    if (packagedPaths.TryGetValue(path, out var existing))
+                    var validatedPath = AudioFilePolicy.Validate(path);
+                    if (packagedPaths.TryGetValue(validatedPath, out var existing))
                     {
                         return existing;
                     }
 
-                    var info = new FileInfo(path);
+                    var info = new FileInfo(validatedPath);
                     if (info.Length > MaximumPackagedAudioBytes ||
                         totalAudioBytes + info.Length > MaximumPackageAudioBytes)
                     {
@@ -269,12 +329,12 @@ public sealed class ProfileStore
                     totalAudioBytes += info.Length;
                     var safeLabel = string.Concat(label.Select(character =>
                         char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '_'));
-                    var entryName = $"audio/{++audioIndex:D2}-{safeLabel}{Path.GetExtension(path)}";
+                    var entryName = $"audio/{++audioIndex:D2}-{safeLabel}{Path.GetExtension(validatedPath)}";
                     var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
-                    using var source = File.OpenRead(path);
+                    using var source = File.OpenRead(validatedPath);
                     using var destination = entry.Open();
-                    source.CopyTo(destination);
-                    packagedPaths[path] = entryName;
+                    CopyWithLimit(source, destination, MaximumPackagedAudioBytes);
+                    packagedPaths[validatedPath] = entryName;
                     return entryName;
                 }
 
@@ -308,9 +368,13 @@ public sealed class ProfileStore
     private OverlayProfile ImportPackage(string sourcePath, string importedName)
     {
         using var archive = ZipFile.OpenRead(sourcePath);
+        if (archive.Entries.Count > MaximumPackageEntries)
+        {
+            throw new InvalidDataException("The profile package contains too many entries.");
+        }
         var profileEntry = archive.GetEntry(PackageProfileEntryName)
             ?? throw new InvalidDataException("The profile package does not contain profile.json.");
-        if (profileEntry.Length > 10 * 1024 * 1024)
+        if (profileEntry.Length > MaximumProfileJsonBytes)
         {
             throw new InvalidDataException("The packaged profile data is too large.");
         }
@@ -342,6 +406,11 @@ public sealed class ProfileStore
             {
                 throw new InvalidDataException($"The profile package contains an invalid audio path: '{path}'.");
             }
+            if (!AudioFilePolicy.IsSupportedExtension(normalizedEntryName))
+            {
+                throw new InvalidDataException(
+                    $"The profile package contains an unsupported audio format: '{path}'.");
+            }
             if (extractedPaths.TryGetValue(normalizedEntryName, out var existingPath))
             {
                 return existingPath;
@@ -355,15 +424,22 @@ public sealed class ProfileStore
             }
 
             Directory.CreateDirectory(assetDirectory);
-            totalAudioBytes += entry.Length;
             var destinationPath = Path.Combine(assetDirectory, Path.GetFileName(normalizedEntryName));
-            using var source = entry.Open();
-            using var destination = new FileStream(
-                destinationPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None);
-            source.CopyTo(destination);
+            long copied;
+            using (var source = entry.Open())
+            using (var destination = new FileStream(
+                       destinationPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            {
+                copied = CopyWithLimit(
+                    source,
+                    destination,
+                    Math.Min(MaximumPackagedAudioBytes, MaximumPackageAudioBytes - totalAudioBytes));
+            }
+            AudioFilePolicy.Validate(destinationPath);
+            totalAudioBytes += copied;
             extractedAny = true;
             extractedPaths[normalizedEntryName] = destinationPath;
             return destinationPath;
@@ -455,6 +531,23 @@ public sealed class ProfileStore
         return stream.Read(signature) == signature.Length &&
                signature[0] == (byte)'P' &&
                signature[1] == (byte)'K';
+    }
+
+    private static long CopyWithLimit(Stream source, Stream destination, long maximumBytes)
+    {
+        var buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            total += read;
+            if (total > maximumBytes)
+            {
+                throw new InvalidDataException("Profile audio files exceed the supported package size.");
+            }
+            destination.Write(buffer, 0, read);
+        }
+        return total;
     }
 
 }

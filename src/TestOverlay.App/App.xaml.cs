@@ -7,6 +7,7 @@ namespace TestOverlay.App;
 public partial class App : Application
 {
     private readonly AppLog _log = new();
+    private readonly SingleInstanceCoordinator _singleInstance = new();
     private int _fatalErrorHandling;
 
     public App()
@@ -75,7 +76,16 @@ public partial class App : Application
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(Window_Loaded));
         base.OnStartup(e);
-        if (BenchmarkWindow.HasAutomationArgs(e.Args))
+        var benchmarkAutomation = BenchmarkWindow.HasAutomationArgs(e.Args);
+        if (!benchmarkAutomation && !_singleInstance.TryAcquirePrimary())
+        {
+            _log.Info("A second application instance requested activation of the primary instance.");
+            _singleInstance.SignalPrimaryInstance();
+            Shutdown();
+            return;
+        }
+
+        if (benchmarkAutomation)
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             var benchmarkWindow = new BenchmarkWindow();
@@ -99,6 +109,7 @@ public partial class App : Application
             var mainWindow = new MainWindow(_log);
             MainWindow = mainWindow;
             mainWindow.Show();
+            _singleInstance.Attach(mainWindow, mainWindow.ActivateFromSecondInstance);
         }
         catch (Exception exception)
         {
@@ -118,6 +129,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _log.Info("Application exiting.");
+        _singleInstance.Dispose();
         _log.Dispose();
         base.OnExit(e);
     }

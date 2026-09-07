@@ -138,8 +138,8 @@ public partial class MainWindow
                 _internalBuffTimers,
                 _selectedBuffNameKeys)
             {
-                Left = _overlayLeft,
-                Top = _overlayTop
+                Left = _overlayRuntime.ActivePosition?.X ?? _overlayLeft,
+                Top = _overlayRuntime.ActivePosition?.Y ?? _overlayTop
             };
             _internalTimerOverlayWindow.Show();
             _internalTimerOverlayWindow.UpdateLayout();
@@ -173,7 +173,7 @@ public partial class MainWindow
 
     private async Task SynchronizeMonitorValuesAsync(string reason)
     {
-        if (_monitorTestMode || _isMonitorValueRecognitionBusy || !_overlayRuntime.IsRunning)
+        if (_monitorTestMode || _monitorRecognitionSession.IsBusy || !_overlayRuntime.IsRunning)
         {
             return;
         }
@@ -188,31 +188,15 @@ public partial class MainWindow
             return;
         }
 
-        BitmapSource? frame;
+        using var attempt = _monitorRecognitionSession.TryBegin();
+        if (attempt is null) return;
+        var generation = attempt.Generation;
+        var cancellationToken = attempt.Token;
         try
         {
-            frame = CaptureMonitorFrame();
-        }
-        catch (Exception exception)
-        {
-            _log.Error("Monitor value capture failed.", exception);
-            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
-            return;
-        }
-
-        if (frame is null)
-        {
-            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
-            return;
-        }
-        var frameCapturedAt = DateTimeOffset.UtcNow;
-
-        _isMonitorValueRecognitionBusy = true;
-        var generation = _monitorValueRecognitionGeneration;
-        var cancellation = _monitorRecognitionCancellation;
-        var cancellationToken = cancellation.Token;
-        try
-        {
+            var frame = await _captureSession.CaptureCurrentFrameAsync(CurrentCaptureBackend, cancellationToken);
+            if (!attempt.IsCurrent || !_overlayRuntime.IsRunning || frame is null) return;
+            var frameCapturedAt = DateTimeOffset.UtcNow;
             var visibilityRoi = MonitorVisibilityRoi(shouldReadBuffs, shouldReadTuairim);
             if (visibilityRoi is Rect roi)
             {
@@ -239,7 +223,7 @@ public partial class MainWindow
                 var evaluatedMatches = await Task.Run(
                     () => _monitorTemplateDetection.EvaluateBuffAnchors(frame, _buffIconMatches.Values.ToArray()),
                     cancellationToken);
-                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -305,7 +289,7 @@ public partial class MainWindow
                     activeMatches,
                     cancellationToken);
                 var batchElapsed = Stopwatch.GetElapsedTime(batchStartedAt);
-                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -327,7 +311,7 @@ public partial class MainWindow
                             buffRoi,
                             activeMatch.Bounds,
                             cancellationToken);
-                        if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                        if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                         {
                             return;
                         }
@@ -360,7 +344,7 @@ public partial class MainWindow
                     frame,
                     tuairimAnchor,
                     cancellationToken);
-                if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning)
+                if (!attempt.IsCurrent || !_overlayRuntime.IsRunning)
                 {
                     return;
                 }
@@ -388,15 +372,16 @@ public partial class MainWindow
         catch (Exception exception)
         {
             _log.Error("Monitor value recognition failed.", exception);
+            if (attempt.IsCurrent)
+            {
+                StopOverlay(setStatus: false);
+                ShowInAppNotice(L.F("monitor.runtime.failed", exception.Message));
+                SetStatus(L.F("monitor.runtime.failed", exception.Message));
+            }
         }
         finally
         {
-            _isMonitorValueRecognitionBusy = false;
-            if (!ReferenceEquals(cancellation, _monitorRecognitionCancellation))
-            {
-                cancellation.Dispose();
-            }
-            if (generation == _monitorValueRecognitionGeneration)
+            if (attempt.IsCurrent)
             {
                 var needsVerification = _statusObservations.NeedsVerification;
                 var retryDelay = _monitorRecognitionRetryPolicy.CompleteAttempt(needsVerification);
@@ -405,17 +390,7 @@ public partial class MainWindow
         }
     }
 
-    private void AdvanceMonitorRecognitionGeneration()
-    {
-        var previous = _monitorRecognitionCancellation;
-        _monitorRecognitionCancellation = new CancellationTokenSource();
-        _monitorValueRecognitionGeneration++;
-        previous.Cancel();
-        if (!_isMonitorValueRecognitionBusy)
-        {
-            previous.Dispose();
-        }
-    }
+    private void AdvanceMonitorRecognitionGeneration() => _monitorRecognitionSession.Reset();
 
     private void ApplyTuairimPercentObservation(int observedPercent, string reason)
     {
@@ -452,9 +427,6 @@ public partial class MainWindow
             TryFireBuffAlert(result.Timer, previousSeconds, result.Timer.RemainingSeconds);
         }
     }
-    private BitmapSource? CaptureMonitorFrame()
-        => _captureSession.CaptureCurrentFrame(CurrentCaptureBackend);
-
     private static int CompensateCapturedTimerValue(int capturedSeconds, DateTimeOffset capturedAt)
     {
         if (capturedSeconds <= 0)
@@ -522,6 +494,11 @@ public partial class MainWindow
 
     private void SaveMonitorDiagnosticOnce(BitmapSource source, Rect bounds, string kind)
     {
+        if (!_appSettings.SaveOcrDiagnosticImages)
+        {
+            return;
+        }
+
         if (!_monitorDiagnosticKindsSaved.Add(kind))
         {
             return;

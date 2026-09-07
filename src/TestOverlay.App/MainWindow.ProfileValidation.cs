@@ -15,7 +15,12 @@ public partial class MainWindow
             return;
         }
 
-        FlushProfileAutoSave();
+        if (!FlushProfileAutoSave())
+        {
+            ShowInAppNotice(L.T("profile.validation.blocked.save.failed"));
+            SetStatus("profile.validation.blocked.save.failed");
+            return;
+        }
         var profileName = ReadSelectedProfileName();
         var profile = _profileStore.Load(profileName);
         if (profile is null)

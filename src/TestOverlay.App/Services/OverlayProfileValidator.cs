@@ -191,7 +191,7 @@ internal static class OverlayProfileValidator
 
     private static void RequireCollection<T>(ICollection<T>? collection, string name)
     {
-        if (collection is null)
+        if (collection is null || collection.Any(item => item is null))
         {
             throw Invalid($"{name} is missing.");
         }

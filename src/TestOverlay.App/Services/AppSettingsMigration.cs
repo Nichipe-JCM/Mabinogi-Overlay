@@ -4,7 +4,7 @@ namespace TestOverlay.App.Services;
 
 public static class AppSettingsMigration
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     public static void Apply(AppSettings settings)
     {
@@ -41,6 +41,13 @@ public static class AppSettingsMigration
             {
                 settings.CloseBehavior = AppCloseBehavior.Ask;
             }
+        }
+
+        // OCR diagnostic images are privacy-sensitive and remain disabled when
+        // upgrading every previous settings schema.
+        if (settings.SchemaVersion < 5)
+        {
+            settings.SaveOcrDiagnosticImages = false;
         }
 
         settings.SchemaVersion = CurrentSchemaVersion;

@@ -93,6 +93,20 @@ public sealed class AppSettingsMigrationTests
         Assert.True(settings.CompactModeEnabled);
     }
 
+    [Fact]
+    public void CurrentSchema_PreservesExplicitOcrDiagnosticConsent()
+    {
+        var settings = new AppSettings
+        {
+            SchemaVersion = AppSettingsMigration.CurrentSchemaVersion,
+            SaveOcrDiagnosticImages = true
+        };
+
+        AppSettingsMigration.Apply(settings);
+
+        Assert.True(settings.SaveOcrDiagnosticImages);
+    }
+
     [Theory]
     [InlineData(CaptureBackend.Wgc, true)]
     [InlineData(CaptureBackend.DxgiDesktopDuplication, false)]
@@ -125,5 +139,20 @@ public sealed class AppSettingsMigrationTests
         AppSettingsMigration.Apply(settings);
 
         Assert.Equal(AppCloseBehavior.Ask, settings.CloseBehavior);
+    }
+
+    [Fact]
+    public void PreviousSchema_DisablesPrivacySensitiveOcrDiagnostics()
+    {
+        var settings = new AppSettings
+        {
+            SchemaVersion = 4,
+            SaveOcrDiagnosticImages = true
+        };
+
+        AppSettingsMigration.Apply(settings);
+
+        Assert.False(settings.SaveOcrDiagnosticImages);
+        Assert.Equal(AppSettingsMigration.CurrentSchemaVersion, settings.SchemaVersion);
     }
 }

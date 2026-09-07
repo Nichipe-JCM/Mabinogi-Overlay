@@ -1,0 +1,59 @@
+<Window x:Class="TestOverlay.App.ProfileSaveFailureDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:TestOverlay.App.Controls"
+        xmlns:loc="clr-namespace:TestOverlay.App.Services"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Profile save failed"
+        loc:Localize.TitleKey="profile.save.failure.dialog.title"
+        Icon="/Image/AppIcon.ico"
+        Width="620"
+        Height="330"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource OverlayBgBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" CornerRadius="8" GlassFrameThickness="0"
+                            ResizeBorderThickness="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+    <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <controls:AppTitleBar/>
+        <Border Grid.Row="1" Padding="20" Style="{StaticResource GlassCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Profile save failed"
+                           loc:Localize.TextKey="profile.save.failure.dialog.title"
+                           Style="{StaticResource SectionTitleStyle}"/>
+                <TextBlock Grid.Row="1" Margin="0,9,0,0" TextWrapping="Wrap"
+                           Text="The current profile could not be saved. Retry, exit without saving, or cancel closing."
+                           loc:Localize.TextKey="profile.save.failure.dialog.description"
+                           Style="{StaticResource MutedTextStyle}"/>
+                <TextBlock x:Name="ErrorDetailText" Grid.Row="2" Margin="0,16,0,12"
+                           TextWrapping="Wrap" Foreground="{StaticResource OverlayDangerBrush}"/>
+                <WrapPanel Grid.Row="3" HorizontalAlignment="Right">
+                    <Button MinWidth="100" Height="38" Padding="14,0"
+                            Content="Cancel" loc:Localize.ContentKey="common.cancel"
+                            IsCancel="True"
+                            Click="CancelButton_Click"/>
+                    <Button MinWidth="112" Height="38" Padding="14,0" Margin="8,0,0,0"
+                            Content="Retry" loc:Localize.ContentKey="common.retry"
+                            IsDefault="True"
+                            Click="RetryButton_Click"/>
+                    <Button MinWidth="160" Height="38" Padding="14,0" Margin="8,0,0,0"
+                            Content="Exit without saving"
+                            loc:Localize.ContentKey="profile.save.failure.dialog.discard"
+                            Click="DiscardButton_Click"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -36,6 +36,7 @@ internal static partial class Win32Methods
     public const uint ProcessQueryLimitedInformation = 0x1000;
     public const uint TokenQuery = 0x0008;
     public const int TokenElevationInformationClass = 20;
+    public static readonly nint HwndBroadcast = new(0xFFFF);
 
     public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
 
@@ -164,6 +165,13 @@ internal static partial class Win32Methods
 
     [LibraryImport("user32.dll")]
     public static partial short GetAsyncKeyState(int vKey);
+
+    [LibraryImport("user32.dll", EntryPoint = "RegisterWindowMessageW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial uint RegisterWindowMessage(string lpString);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool PostMessage(nint hWnd, uint msg, nint wParam, nint lParam);
 
     public static void TryEnablePerMonitorDpiAwareness()
     {

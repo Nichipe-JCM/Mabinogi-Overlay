@@ -391,7 +391,20 @@ public partial class MainWindow
             CheckFileExists = true,
             Multiselect = false
         };
-        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+        if (dialog.ShowDialog(this) != true)
+        {
+            return null;
+        }
+
+        try
+        {
+            return AudioFilePolicy.Validate(dialog.FileName);
+        }
+        catch (Exception exception)
+        {
+            ShowInAppNotice(L.F("audio.file.invalid.arg", exception.Message));
+            return null;
+        }
     }
 
     private static bool TryReadSoundSlotIndex(object sender, out int index)

@@ -6,6 +6,25 @@ namespace TestOverlay.App.Tests;
 public sealed class OverlayRuntimeControllerTests
 {
     [Theory]
+    [InlineData(0, 1000, false)]
+    [InlineData(1000, 5999, true)]
+    [InlineData(1000, 6001, false)]
+    public void CapturedFramesAreNotReusedIndefinitely(long captured, long now, bool expected)
+    {
+        Assert.Equal(expected, WgcCaptureService.IsFrameFresh(captured, now, 1000));
+    }
+
+    [Fact]
+    public void NormalizeOverlayPosition_RecoversFromGapBetweenStaggeredMonitors()
+    {
+        System.Windows.Rect[] monitors = [new(0, 0, 1920, 1080), new(1920, 1080, 1920, 1080)];
+        var result = OverlayRuntimeController.NormalizeOverlayPosition(2200, 100, 200, 200, monitors);
+        var window = new System.Windows.Rect(result.Left, result.Top, 200, 200);
+        Assert.Contains(monitors, monitor => monitor.IntersectsWith(window));
+        Assert.NotEqual((2200d, 100d), result);
+    }
+
+    [Theory]
     [InlineData(30, 33)]
     [InlineData(60, 17)]
     [InlineData(119, 8)]
@@ -47,5 +66,21 @@ public sealed class OverlayRuntimeControllerTests
 
         Assert.Equal(1200, result.Left);
         Assert.Equal(0, result.Top);
+    }
+
+    [Theory]
+    [InlineData(1920, 1080, 1920, 1080, false)]
+    [InlineData(1920, 1080, 2560, 1440, true)]
+    [InlineData(1920, 1080, 0, 1440, false)]
+    public void FrameSizeChanged_RequiresPositiveDifferentDimensions(
+        int currentWidth,
+        int currentHeight,
+        int nextWidth,
+        int nextHeight,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            WgcCaptureService.FrameSizeChanged(currentWidth, currentHeight, nextWidth, nextHeight));
     }
 }
