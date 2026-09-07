@@ -104,9 +104,9 @@ The Buff/Tuairim tab is feature work on the current branch.
 
 - `MonitorTemplateDetectionService` locates known buff icons and the Tuairim UI using bundled image templates.
 - `MonitorValueRecognitionService` uses Windows OCR on source, light-mask, and dark-mask crops.
-- Buff durations and Tuairim percent are reconciled by state guards in `MainWindow` instead of trusting one OCR result directly.
+- Buff durations and Tuairim percent are reconciled by `StatusObservationController` instead of trusting one OCR result directly.
 - Normal monitoring runs on a nominal two-second interval. Fast retries can occur while a value needs confirmation.
-- Buff expiry needs five consecutive zero/inactive confirmations.
+- Buff expiration and timer corrections use buff-specific rules in `StatusObservationController`; music and status buffs do not share a single confirmation count.
 - Large downward buff-time changes need sustained confirmation.
 - Tuairim accepts only 0-100, validates resets, rejects decreases other than a confirmed reset, and rejects implausibly large increases.
 - Alert configuration, sound paths, volumes, enabled buff choices, and monitor anchors are saved in the active profile.
@@ -151,3 +151,15 @@ The current `develop` baseline includes the profile, tray, guide, runtime, alert
 3. Review accessibility names and keyboard behavior for the custom title bar and high-priority dialogs.
 4. Measure DXGI resource churn, full-frame managed copies, high-FPS CPU rendering, and OCR fallback cadence before starting broad performance refactors.
 5. Merge the verified stabilization work into `develop`, create `version/0.0.5-beta`, and perform signing/checksum/release work only from the reviewed release commit.
+
+## September 7 defect fixes
+
+- Desktop DXGI/GDI capture waits now run outside the UI thread, serialized by the capture coordinator. Results from superseded runtime options or capture sources are discarded. DXGI resource creation per capture and CPU compositing costs remain performance work.
+- Monitor-only sessions surface capture/recognition failures and stop instead of silently retrying a failed source. WGC frames older than five seconds are no longer supplied to consumers. OCR availability is checked before monitoring starts.
+- Both overlay windows share the recovered runtime position. Placement considers individual monitor rectangles, including gaps in staggered monitor arrangements. The saved position is not rewritten automatically.
+- Valid backup data remains usable when repairing the original file fails. Profile UI reports the repair failure. JSON reads enforce a size limit, null collection entries trigger backup recovery, and explicit zero opacity survives profile application.
+- Erin alarm changes remain pending after save failure, show a persistent warning, retry every five seconds, and require an explicit discard decision before normal process exit.
+- Second-instance activation uses a named event, retaining requests sent before the first window is ready.
+- Title bar actions have localized tooltips and accessibility names, including maximize/restore state.
+
+Verification: Release build of the app and test project passed with zero warnings/errors; all 151 unit tests passed. No app GUI, game capture, screenshot probes, packaging, signing, or push was performed. Mixed-DPI placement, game-target lifecycle, cross-elevation activation and storage-permission UI behavior still require user runtime verification.

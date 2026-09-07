@@ -147,4 +147,17 @@ When a failure occurs, use Settings > Log and collect `%LocalAppData%\Mabinogi O
 1. Run WGC + automatic GPU rendering with buff monitoring enabled.
 2. Compare overlay smoothness and CPU usage with one and four selected buffs. With successful batch OCR, verify that additional selected buffs do not multiply OCR passes.
 3. Verify buff activation and expiration still update within the expected recognition delay.
-4. Check the log for OCR failures and confirm diagnostic images are written only once per failure kind.
+4. With OCR diagnostics disabled, verify no diagnostic images are written. When explicitly enabled, verify diagnostic images are limited to once per failure kind.
+
+## September 7 regression checks (not yet run)
+
+- [ ] Start only buff/Tuairim monitoring, close the capture target, and verify monitoring stops with an understandable error. Capture again and restart successfully.
+- [ ] Delay DXGI frame acquisition, verify the UI remains responsive, then stop/restart during acquisition and verify an old result cannot update or stop the new session.
+- [ ] Remove a saved secondary monitor and verify quickslots, buff timers, Tuairim and visual alerts all recover to the same visible position.
+- [ ] Test staggered and mixed-DPI monitors, including a saved position in the gap between their rectangles.
+- [ ] Keep a valid profile backup, corrupt and write-lock the primary, and verify backup data loads with a repair warning.
+- [ ] Make Erin settings unwritable, change an alarm, verify the persistent warning and retry; restore access and verify the warning clears. Test cancel/discard on exit while failure persists.
+- [ ] Launch a second instance while the first window is still starting, and verify activation. Repeat with tray/compact mode and differing elevation levels.
+- [ ] Switch UI languages and maximize/restore a window; verify title bar tooltips and accessibility names update.
+
+Automated baseline on September 7: Release build, zero warnings/errors; 151 unit tests passed. This does not replace the unchecked runtime rows above.
