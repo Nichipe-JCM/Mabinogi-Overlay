@@ -20,7 +20,6 @@ publish/
 run-dev.ps1
 run-dev.cmd
 Image/icon-build/
-docs/AGENTS.md
 docs/NEXT_SESSION_HANDOFF.md
 
 # Code-signing private material

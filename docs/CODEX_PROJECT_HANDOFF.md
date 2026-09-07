@@ -17,7 +17,7 @@ The project must remain within this safety boundary:
 - Next planned release branch: `version/0.0.5-beta`
 - Current app version in the project file: `0.0.5-beta`
 - Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
-- Do not push unless the user explicitly requests it.
+- Follow the repository-root `AGENTS.md` for working rules. Commit verified changes by feature and push the working branch by default unless the user requests a hold.
 
 Before editing, always run:
 
