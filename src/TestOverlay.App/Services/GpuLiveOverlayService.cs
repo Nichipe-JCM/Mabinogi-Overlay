@@ -25,6 +25,7 @@ public sealed class GpuLiveOverlayService : IDisposable
     private readonly int _surfaceWidth;
     private readonly int _surfaceHeight;
     private readonly double _defaultSlotOpacity;
+    private readonly bool _borderlessCaptureAllowed;
     private readonly long _minFrameTicks;
     private readonly long _statsIntervalTicks = Stopwatch.Frequency * 5;
     private readonly Stopwatch _frameClock = Stopwatch.StartNew();
@@ -51,6 +52,8 @@ public sealed class GpuLiveOverlayService : IDisposable
     private int _framesDroppedByBusyRenderer;
     private int _framesNull;
     private int _isRendering;
+    private int _captureFrameWidth;
+    private int _captureFrameHeight;
     private bool _firstFrameLogged;
     private bool _isDisposed;
 
@@ -62,6 +65,7 @@ public sealed class GpuLiveOverlayService : IDisposable
         IReadOnlyList<OverlaySlot> slots,
         double defaultSlotOpacity,
         int maxFps,
+        bool borderlessCaptureAllowed,
         AppLog log)
     {
         if (overlayHandle == nint.Zero)
@@ -74,6 +78,7 @@ public sealed class GpuLiveOverlayService : IDisposable
         _surfaceHeight = Math.Max(1, surfaceHeight);
         _slots = slots;
         _defaultSlotOpacity = Math.Clamp(defaultSlotOpacity, 0, 1);
+        _borderlessCaptureAllowed = borderlessCaptureAllowed;
         _minFrameTicks = Stopwatch.Frequency / Math.Clamp(maxFps, 1, 240);
 
         _log.Info(
@@ -111,35 +116,38 @@ public sealed class GpuLiveOverlayService : IDisposable
             _framePool.FrameArrived -= FramePool_FrameArrived;
         }
 
-        _session?.Dispose();
-        _framePool?.Dispose();
-        _winRtDevice?.Dispose();
-        _targetBitmap?.Dispose();
-        _compositionVisual?.Dispose();
-        _compositionTarget?.Dispose();
-        _compositionDevice?.Dispose();
-        _swapChain?.Dispose();
-        _d2dContext?.Dispose();
-        _d2dDevice?.Dispose();
-        _dxgiFactory?.Dispose();
-        _dxgiDevice?.Dispose();
-        _d3dContext?.Dispose();
-        _d3dDevice?.Dispose();
+        lock (_renderLock)
+        {
+            _session?.Dispose();
+            _framePool?.Dispose();
+            _winRtDevice?.Dispose();
+            _targetBitmap?.Dispose();
+            _compositionVisual?.Dispose();
+            _compositionTarget?.Dispose();
+            _compositionDevice?.Dispose();
+            _swapChain?.Dispose();
+            _d2dContext?.Dispose();
+            _d2dDevice?.Dispose();
+            _dxgiFactory?.Dispose();
+            _dxgiDevice?.Dispose();
+            _d3dContext?.Dispose();
+            _d3dDevice?.Dispose();
 
-        _session = null;
-        _framePool = null;
-        _winRtDevice = null;
-        _targetBitmap = null;
-        _compositionVisual = null;
-        _compositionTarget = null;
-        _compositionDevice = null;
-        _swapChain = null;
-        _d2dContext = null;
-        _d2dDevice = null;
-        _dxgiFactory = null;
-        _dxgiDevice = null;
-        _d3dContext = null;
-        _d3dDevice = null;
+            _session = null;
+            _framePool = null;
+            _winRtDevice = null;
+            _targetBitmap = null;
+            _compositionVisual = null;
+            _compositionTarget = null;
+            _compositionDevice = null;
+            _swapChain = null;
+            _d2dContext = null;
+            _d2dDevice = null;
+            _dxgiFactory = null;
+            _dxgiDevice = null;
+            _d3dContext = null;
+            _d3dDevice = null;
+        }
 
         _log.Info(
             $"GPU renderer disposed: presented={_framesPresented}, " +
@@ -213,9 +221,18 @@ public sealed class GpuLiveOverlayService : IDisposable
             DirectXPixelFormat.B8G8R8A8UIntNormalized,
             2,
             captureItem.Size);
+        _captureFrameWidth = captureItem.Size.Width;
+        _captureFrameHeight = captureItem.Size.Height;
         _session = _framePool.CreateCaptureSession(captureItem);
         _session.IsCursorCaptureEnabled = false;
-        TrySetSessionProperty(_session, "IsBorderRequired", false);
+        if (_borderlessCaptureAllowed)
+        {
+            TrySetSessionProperty(_session, "IsBorderRequired", false);
+        }
+        else
+        {
+            _log.Info("GPU renderer WGC session is using the system capture border because borderless access was not allowed.");
+        }
         TrySetSessionProperty(_session, "MinUpdateInterval", TimeSpan.FromMilliseconds(1000.0 / Math.Clamp(maxFps, 1, 240)));
         _framePool.FrameArrived += FramePool_FrameArrived;
         _log.Info("GPU renderer WGC initialization completed: frame pool and session ready.");
@@ -248,7 +265,7 @@ public sealed class GpuLiveOverlayService : IDisposable
 
         try
         {
-            using var frame = sender.TryGetNextFrame();
+            var frame = sender.TryGetNextFrame();
             if (frame is null)
             {
                 Interlocked.Increment(ref _framesNull);
@@ -256,19 +273,52 @@ public sealed class GpuLiveOverlayService : IDisposable
                 return;
             }
 
-            RenderFrame(frame);
-            var presented = Interlocked.Increment(ref _framesPresented);
-            Interlocked.Exchange(ref _lastPresentedTicks, _frameClock.ElapsedTicks);
-            if (!_firstFrameLogged)
+            var contentSize = frame.ContentSize;
+            if (WgcCaptureService.FrameSizeChanged(
+                    _captureFrameWidth,
+                    _captureFrameHeight,
+                    contentSize.Width,
+                    contentSize.Height))
             {
-                _firstFrameLogged = true;
+                frame.Dispose();
+                lock (_renderLock)
+                {
+                    if (_isDisposed || _winRtDevice is null)
+                    {
+                        return;
+                    }
+
+                    sender.Recreate(
+                        _winRtDevice,
+                        DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                        2,
+                        contentSize);
+                    _captureFrameWidth = contentSize.Width;
+                    _captureFrameHeight = contentSize.Height;
+                }
+
                 _log.Info(
-                    $"GPU renderer first frame presented: frame={frame.ContentSize.Width}x{frame.ContentSize.Height}, " +
-                    $"slots={_slots.Count}, presented={presented}");
+                    $"GPU renderer WGC frame pool resized: width={contentSize.Width}, height={contentSize.Height}.");
+                LastException = null;
+                return;
             }
 
-            MaybeLogStats(_frameClock.ElapsedTicks);
-            LastException = null;
+            using (frame)
+            {
+                RenderFrame(frame);
+                var presented = Interlocked.Increment(ref _framesPresented);
+                Interlocked.Exchange(ref _lastPresentedTicks, _frameClock.ElapsedTicks);
+                if (!_firstFrameLogged)
+                {
+                    _firstFrameLogged = true;
+                    _log.Info(
+                        $"GPU renderer first frame presented: frame={frame.ContentSize.Width}x{frame.ContentSize.Height}, " +
+                        $"slots={_slots.Count}, presented={presented}");
+                }
+
+                MaybeLogStats(_frameClock.ElapsedTicks);
+                LastException = null;
+            }
         }
         catch (ObjectDisposedException)
         {
@@ -326,13 +376,13 @@ public sealed class GpuLiveOverlayService : IDisposable
 
     private void RenderFrame(Direct3D11CaptureFrame frame)
     {
-        if (_d2dContext is null || _swapChain is null)
-        {
-            return;
-        }
-
         lock (_renderLock)
         {
+            if (_isDisposed || _d2dContext is null || _swapChain is null)
+            {
+                return;
+            }
+
             var texturePointer = Direct3DSurfaceInterop.GetD3D11Texture2DPointer(frame.Surface);
             using var texture = new ID3D11Texture2D(texturePointer);
             using var frameSurface = texture.QueryInterface<IDXGISurface>();
@@ -358,7 +408,7 @@ public sealed class GpuLiveOverlayService : IDisposable
 
     private void DrawSlot(ID2D1Bitmap1 frameBitmap, OverlaySlot slot)
     {
-        if (_d2dContext is null)
+        if (_d2dContext is null || slot.Kind != OverlayElementKind.Quickslot)
         {
             return;
         }
@@ -397,16 +447,28 @@ public sealed class GpuLiveOverlayService : IDisposable
             (float)(rect.X + rect.Width),
             (float)(rect.Y + rect.Height));
 
-    private static void TrySetSessionProperty(GraphicsCaptureSession session, string propertyName, object value)
+    private bool TrySetSessionProperty(GraphicsCaptureSession session, string propertyName, object value)
     {
         try
         {
             var property = typeof(GraphicsCaptureSession).GetProperty(propertyName);
-            property?.SetValue(session, value);
+            if (property is null)
+            {
+                _log.Info($"GPU renderer WGC session property is unavailable: {propertyName}.");
+                return false;
+            }
+
+            property.SetValue(session, value);
+            var effectiveValue = property.CanRead ? property.GetValue(session) : null;
+            _log.Info(
+                $"GPU renderer WGC session property applied: {propertyName}={value}, " +
+                $"effectiveValue={effectiveValue?.ToString() ?? "unavailable"}.");
+            return true;
         }
-        catch
+        catch (Exception exception)
         {
-            // Windows build or user consent can make some WGC properties unavailable.
+            _log.Error($"GPU renderer failed to apply WGC session property: {propertyName}={value}.", exception);
+            return false;
         }
     }
 

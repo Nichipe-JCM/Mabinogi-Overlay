@@ -1,11 +1,15 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TestOverlay.App.Native;
+using Windows.Foundation;
+using Windows.Foundation.Metadata;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Graphics.Imaging;
+using Windows.Security.Authorization.AppCapabilityAccess;
 using Windows.Storage.Streams;
 
 namespace TestOverlay.App.Services;
@@ -13,16 +17,34 @@ namespace TestOverlay.App.Services;
 public sealed class WgcCaptureService
 {
     private readonly object _sync = new();
+    private readonly object _borderlessAccessSync = new();
+    private readonly AppLog _log;
+    private Task<WgcBorderlessAccessState>? _borderlessAccessTask;
+    private WgcBorderlessAccessState _borderlessAccessState = WgcBorderlessAccessState.Unknown;
     private IDirect3DDevice? _liveDevice;
     private Direct3D11CaptureFramePool? _liveFramePool;
     private GraphicsCaptureSession? _liveSession;
+    private TypedEventHandler<Direct3D11CaptureFramePool, object>? _liveFrameArrivedHandler;
     private BitmapSource? _latestFrame;
-    private int _isProcessingLiveFrame;
+    private long _latestFrameTicks;
+    private int _processingLiveGeneration;
     private int _liveGeneration;
+    private int _liveFrameWidth;
+    private int _liveFrameHeight;
+    private long _minimumLiveFrameIntervalTicks;
+    private long _lastConvertedLiveFrameTicks;
+
+    public WgcCaptureService(AppLog log)
+    {
+        _log = log;
+    }
 
     public Exception? LastLiveCaptureException { get; private set; }
 
-    public async Task<BitmapSource> CaptureOnceAsync(GraphicsCaptureItem item, TimeSpan timeout)
+    public bool IsBorderlessCaptureAllowed =>
+        _borderlessAccessState == WgcBorderlessAccessState.Allowed;
+
+    public async Task<BitmapSource> CapturePreparedItemOnceAsync(GraphicsCaptureItem item, TimeSpan timeout)
     {
         using var cancellation = new CancellationTokenSource(timeout);
         var device = Direct3D11Interop.CreateDevice();
@@ -32,31 +54,86 @@ public sealed class WgcCaptureService
             1,
             item.Size);
         using var session = framePool.CreateCaptureSession(item);
-        var frameTask = new TaskCompletionSource<Direct3D11CaptureFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bitmapTask = new TaskCompletionSource<BitmapSource>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var frameClaimed = 0;
 
-        using var registration = cancellation.Token.Register(() => frameTask.TrySetCanceled(cancellation.Token));
-        framePool.FrameArrived += (_, _) =>
+        using var registration = cancellation.Token.Register(() => bitmapTask.TrySetCanceled(cancellation.Token));
+        TypedEventHandler<Direct3D11CaptureFramePool, object> frameArrivedHandler = (sender, _) =>
         {
-            var frame = framePool.TryGetNextFrame();
-            if (frame is not null)
+            Direct3D11CaptureFrame? frame = null;
+            try
             {
-                frameTask.TrySetResult(frame);
+                frame = sender.TryGetNextFrame();
+                if (frame is null)
+                {
+                    return;
+                }
+
+                if (Interlocked.Exchange(ref frameClaimed, 1) != 0)
+                {
+                    frame.Dispose();
+                    return;
+                }
+
+                _ = CompleteSingleFrameAsync(frame, bitmapTask, cancellation.Token);
+                frame = null;
+            }
+            catch (Exception exception)
+            {
+                frame?.Dispose();
+                bitmapTask.TrySetException(exception);
             }
         };
+        framePool.FrameArrived += frameArrivedHandler;
 
-        session.IsCursorCaptureEnabled = false;
-        TryDisableCaptureBorder(session);
-        session.StartCapture();
-
-        using var capturedFrame = await frameTask.Task.ConfigureAwait(false);
-        using var softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(capturedFrame.Surface).AsTask(cancellation.Token).ConfigureAwait(false);
-        return ToBitmapSource(softwareBitmap);
+        try
+        {
+            session.IsCursorCaptureEnabled = false;
+            TryDisableCaptureBorder(session);
+            session.StartCapture();
+            // The frame pool, event registration, and capture session were created on the
+            // WPF UI apartment. Resume there so the finally block and using disposals do not
+            // release their WinRT interfaces from the frame callback/thread-pool apartment.
+            return await bitmapTask.Task;
+        }
+        finally
+        {
+            framePool.FrameArrived -= frameArrivedHandler;
+        }
     }
 
-    public void StartLiveCapture(GraphicsCaptureItem item)
+    private static async Task CompleteSingleFrameAsync(
+        Direct3D11CaptureFrame frame,
+        TaskCompletionSource<BitmapSource> completion,
+        CancellationToken cancellationToken)
+    {
+        using (frame)
+        {
+            try
+            {
+                var copyOperation = SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface);
+                using var softwareBitmap = await copyOperation.AsTask(cancellationToken).ConfigureAwait(false);
+                completion.TrySetResult(ToBitmapSource(softwareBitmap));
+            }
+            catch (OperationCanceledException)
+            {
+                completion.TrySetCanceled(cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                completion.TrySetException(exception);
+            }
+        }
+    }
+
+    public void StartLiveCapture(GraphicsCaptureItem item, int maxFps = 0)
     {
         StopLiveCapture();
-        Interlocked.Increment(ref _liveGeneration);
+        var generation = Interlocked.Increment(ref _liveGeneration);
+        _minimumLiveFrameIntervalTicks = maxFps > 0
+            ? Math.Max(1, Stopwatch.Frequency / maxFps)
+            : 0;
+        _lastConvertedLiveFrameTicks = 0;
 
         _liveDevice = Direct3D11Interop.CreateDevice();
         _liveFramePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
@@ -64,19 +141,30 @@ public sealed class WgcCaptureService
             DirectXPixelFormat.B8G8R8A8UIntNormalized,
             2,
             item.Size);
+        _liveFrameWidth = item.Size.Width;
+        _liveFrameHeight = item.Size.Height;
         _liveSession = _liveFramePool.CreateCaptureSession(item);
         _liveSession.IsCursorCaptureEnabled = false;
         TryDisableCaptureBorder(_liveSession);
-        _liveFramePool.FrameArrived += LiveFramePool_FrameArrived;
+        _liveFrameArrivedHandler = (sender, args) => LiveFramePool_FrameArrived(sender, args, generation);
+        _liveFramePool.FrameArrived += _liveFrameArrivedHandler;
         _liveSession.StartCapture();
+    }
+
+    public Task<WgcBorderlessAccessState> EnsureBorderlessAccessAsync()
+    {
+        lock (_borderlessAccessSync)
+        {
+            return _borderlessAccessTask ??= RequestBorderlessAccessAsync();
+        }
     }
 
     public void StopLiveCapture()
     {
         Interlocked.Increment(ref _liveGeneration);
-        if (_liveFramePool is not null)
+        if (_liveFramePool is not null && _liveFrameArrivedHandler is not null)
         {
-            _liveFramePool.FrameArrived -= LiveFramePool_FrameArrived;
+            _liveFramePool.FrameArrived -= _liveFrameArrivedHandler;
         }
 
         _liveSession?.Dispose();
@@ -85,8 +173,12 @@ public sealed class WgcCaptureService
         _liveSession = null;
         _liveFramePool = null;
         _liveDevice = null;
+        _liveFrameArrivedHandler = null;
+        _minimumLiveFrameIntervalTicks = 0;
+        _lastConvertedLiveFrameTicks = 0;
+        _liveFrameWidth = 0;
+        _liveFrameHeight = 0;
         LastLiveCaptureException = null;
-        Interlocked.Exchange(ref _isProcessingLiveFrame, 0);
         lock (_sync)
         {
             _latestFrame = null;
@@ -97,38 +189,142 @@ public sealed class WgcCaptureService
     {
         lock (_sync)
         {
-            frame = _latestFrame;
+            frame = IsFrameFresh(_latestFrameTicks, Stopwatch.GetTimestamp(), Stopwatch.Frequency) ? _latestFrame : null;
             return frame is not null;
         }
     }
 
-    private async void LiveFramePool_FrameArrived(Direct3D11CaptureFramePool sender, object args)
-    {
-        var generation = Volatile.Read(ref _liveGeneration);
-        if (Interlocked.Exchange(ref _isProcessingLiveFrame, 1) == 1)
-        {
-            using var droppedFrame = sender.TryGetNextFrame();
-            return;
-        }
+    internal static bool IsFrameFresh(long capturedTicks, long nowTicks, long frequency) =>
+        capturedTicks > 0 && frequency > 0 && nowTicks >= capturedTicks &&
+        (nowTicks - capturedTicks) / (double)frequency <= 5;
 
+    private void LiveFramePool_FrameArrived(
+        Direct3D11CaptureFramePool sender,
+        object args,
+        int generation)
+    {
+        Direct3D11CaptureFrame? frame = null;
+        var processingClaimed = false;
         try
         {
-            using var frame = sender.TryGetNextFrame();
-            if (frame is null)
-            {
-                return;
-            }
-
-            using var softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface).AsTask().ConfigureAwait(false);
             if (generation != Volatile.Read(ref _liveGeneration))
             {
                 return;
             }
 
-            var bitmap = ToBitmapSource(softwareBitmap);
-            lock (_sync)
+            frame = sender.TryGetNextFrame();
+            if (frame is null)
             {
-                _latestFrame = bitmap;
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref _processingLiveGeneration, generation, 0) != 0)
+            {
+                frame.Dispose();
+                return;
+            }
+            processingClaimed = true;
+
+            var contentSize = frame.ContentSize;
+            if (FrameSizeChanged(_liveFrameWidth, _liveFrameHeight, contentSize.Width, contentSize.Height))
+            {
+                frame.Dispose();
+                frame = null;
+                var liveDevice = _liveDevice;
+                if (liveDevice is null)
+                {
+                    return;
+                }
+
+                sender.Recreate(
+                    liveDevice,
+                    DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                    2,
+                    contentSize);
+                _liveFrameWidth = contentSize.Width;
+                _liveFrameHeight = contentSize.Height;
+                lock (_sync)
+                {
+                    _latestFrame = null;
+                }
+                _log.Info($"Live WGC frame pool resized: width={contentSize.Width}, height={contentSize.Height}.");
+                Interlocked.CompareExchange(ref _processingLiveGeneration, 0, generation);
+                processingClaimed = false;
+                return;
+            }
+
+            var now = Stopwatch.GetTimestamp();
+            var minimumInterval = Volatile.Read(ref _minimumLiveFrameIntervalTicks);
+            var lastConverted = Volatile.Read(ref _lastConvertedLiveFrameTicks);
+            if (minimumInterval > 0 && lastConverted > 0 && now - lastConverted < minimumInterval)
+            {
+                frame.Dispose();
+                return;
+            }
+
+            _ = ProcessLiveFrameAsync(frame, generation, now);
+            frame = null;
+            processingClaimed = false;
+        }
+        catch (ObjectDisposedException)
+        {
+            frame?.Dispose();
+        }
+        catch (Exception exception)
+        {
+            frame?.Dispose();
+            if (generation == Volatile.Read(ref _liveGeneration))
+            {
+                LastLiveCaptureException = exception;
+            }
+        }
+        finally
+        {
+            if (processingClaimed)
+            {
+                Interlocked.CompareExchange(ref _processingLiveGeneration, 0, generation);
+            }
+        }
+    }
+
+    internal static bool FrameSizeChanged(int currentWidth, int currentHeight, int nextWidth, int nextHeight) =>
+        nextWidth > 0 &&
+        nextHeight > 0 &&
+        (currentWidth != nextWidth || currentHeight != nextHeight);
+
+    private async Task ProcessLiveFrameAsync(
+        Direct3D11CaptureFrame frame,
+        int generation,
+        long captureTicks)
+    {
+        try
+        {
+            using (frame)
+            {
+                Interlocked.Exchange(ref _lastConvertedLiveFrameTicks, captureTicks);
+                using var softwareBitmap = await SoftwareBitmap
+                    .CreateCopyFromSurfaceAsync(frame.Surface)
+                    .AsTask()
+                    .ConfigureAwait(false);
+                if (generation != Volatile.Read(ref _liveGeneration))
+                {
+                    return;
+                }
+
+                var bitmap = ToBitmapSource(softwareBitmap);
+                lock (_sync)
+                {
+                    if (generation == Volatile.Read(ref _liveGeneration))
+                    {
+                        _latestFrame = bitmap;
+                        _latestFrameTicks = captureTicks;
+                    }
+                }
+            }
+
+            if (generation != Volatile.Read(ref _liveGeneration))
+            {
+                return;
             }
 
             LastLiveCaptureException = null;
@@ -139,11 +335,14 @@ public sealed class WgcCaptureService
         }
         catch (Exception ex)
         {
-            LastLiveCaptureException = ex;
+            if (generation == Volatile.Read(ref _liveGeneration))
+            {
+                LastLiveCaptureException = ex;
+            }
         }
         finally
         {
-            Interlocked.Exchange(ref _isProcessingLiveFrame, 0);
+            Interlocked.CompareExchange(ref _processingLiveGeneration, 0, generation);
         }
     }
 
@@ -177,16 +376,73 @@ public sealed class WgcCaptureService
         return bitmap;
     }
 
-    private static void TryDisableCaptureBorder(GraphicsCaptureSession session)
+    private async Task<WgcBorderlessAccessState> RequestBorderlessAccessAsync()
     {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348) ||
+            !ApiInformation.IsTypePresent("Windows.Graphics.Capture.GraphicsCaptureAccess") ||
+            !ApiInformation.IsPropertyPresent(
+                "Windows.Graphics.Capture.GraphicsCaptureSession",
+                "IsBorderRequired"))
+        {
+            _borderlessAccessState = WgcBorderlessAccessState.Unsupported;
+            _log.Info("WGC borderless capture is unavailable on this Windows build. Capture will continue with the system border.");
+            return _borderlessAccessState;
+        }
+
+        try
+        {
+            _log.Info("Requesting user consent for WGC borderless capture.");
+            var accessStatus = await GraphicsCaptureAccess.RequestAccessAsync(GraphicsCaptureAccessKind.Borderless);
+            _borderlessAccessState = accessStatus == AppCapabilityAccessStatus.Allowed
+                ? WgcBorderlessAccessState.Allowed
+                : WgcBorderlessAccessState.Denied;
+            _log.Info($"WGC borderless capture access result: {accessStatus}.");
+        }
+        catch (Exception exception)
+        {
+            _borderlessAccessState = WgcBorderlessAccessState.Failed;
+            _log.Error(
+                "WGC borderless capture access request failed. Capture will continue with the system border.",
+                exception);
+        }
+
+        return _borderlessAccessState;
+    }
+
+    private bool TryDisableCaptureBorder(GraphicsCaptureSession session)
+    {
+        if (!IsBorderlessCaptureAllowed)
+        {
+            return false;
+        }
+
         try
         {
             var property = typeof(GraphicsCaptureSession).GetProperty("IsBorderRequired");
-            property?.SetValue(session, false);
+            if (property is null)
+            {
+                _log.Info("WGC borderless capture was allowed, but IsBorderRequired is not available on the session.");
+                return false;
+            }
+
+            property.SetValue(session, false);
+            var borderRequired = property.GetValue(session) as bool?;
+            _log.Info($"WGC capture border disabled for session: effectiveValue={borderRequired?.ToString() ?? "unknown"}.");
+            return borderRequired == false;
         }
-        catch
+        catch (Exception exception)
         {
-            // Best effort only. Older Windows builds or missing borderless consent may ignore this.
+            _log.Error("Failed to disable the WGC capture border for the session.", exception);
+            return false;
         }
     }
+}
+
+public enum WgcBorderlessAccessState
+{
+    Unknown,
+    Unsupported,
+    Allowed,
+    Denied,
+    Failed
 }

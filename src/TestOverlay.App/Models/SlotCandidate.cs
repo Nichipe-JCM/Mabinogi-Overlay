@@ -10,11 +10,20 @@ public sealed class SlotCandidate : INotifyPropertyChanged
     private bool _isInOverlay;
     private string _sectionMembership = string.Empty;
 
-    public SlotCandidate(int id, Rect sourceRect, double score)
+    public SlotCandidate(
+        int id,
+        Rect sourceRect,
+        double score,
+        OverlayElementKind kind = OverlayElementKind.Quickslot,
+        string? displayNameKey = null,
+        bool isBuiltIn = false)
     {
         Id = id;
         SourceRect = sourceRect;
         Score = score;
+        Kind = kind;
+        DisplayNameKey = displayNameKey;
+        IsBuiltIn = isBuiltIn;
         _isSelected = false;
     }
 
@@ -23,6 +32,12 @@ public sealed class SlotCandidate : INotifyPropertyChanged
     public Rect SourceRect { get; private set; }
 
     public double Score { get; }
+
+    public OverlayElementKind Kind { get; }
+
+    public string? DisplayNameKey { get; }
+
+    public bool IsBuiltIn { get; }
 
     public bool IsSelected
     {
@@ -71,10 +86,11 @@ public sealed class SlotCandidate : INotifyPropertyChanged
         }
     }
 
-    public string Label =>
-        $"{(IsInOverlay ? "[overlay] " : string.Empty)}#{Id:000}  " +
-        $"{(string.IsNullOrWhiteSpace(SectionMembership) ? string.Empty : $"{SectionMembership}  ")}" +
-        $"x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}";
+    public string Label => Kind != OverlayElementKind.Quickslot
+        ? $"{(IsInOverlay ? "[overlay] " : string.Empty)}{TestOverlay.App.Services.L.T(DisplayNameKey ?? "monitor.timer.element")}"
+        : $"{(IsInOverlay ? "[overlay] " : string.Empty)}#{Id:000}  " +
+          $"{(string.IsNullOrWhiteSpace(SectionMembership) ? string.Empty : $"{SectionMembership}  ")}" +
+          $"x={SourceRect.X:0}, y={SourceRect.Y:0}, {SourceRect.Width:0}x{SourceRect.Height:0}";
 
     public void MoveTo(double x, double y)
     {
@@ -89,6 +105,8 @@ public sealed class SlotCandidate : INotifyPropertyChanged
         OnPropertyChanged(nameof(SourceRect));
         OnPropertyChanged(nameof(Label));
     }
+
+    public void RefreshLabel() => OnPropertyChanged(nameof(Label));
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

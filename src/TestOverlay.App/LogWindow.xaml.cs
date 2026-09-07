@@ -51,23 +51,61 @@ public partial class LogWindow : Window
     private List<string> ReadSessionLines()
     {
         var lines = new List<string>();
-        using var stream = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         var includeContinuation = false;
-        while (reader.ReadLine() is { } line)
+        foreach (var path in EnumerateLogPathsOldestFirst())
         {
-            if (TryReadTimestamp(line, out var timestamp))
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            while (reader.ReadLine() is { } line)
             {
-                includeContinuation = timestamp >= _sessionStartedAt;
-            }
+                if (TryReadTimestamp(line, out var timestamp))
+                {
+                    includeContinuation = timestamp >= _sessionStartedAt;
+                }
 
-            if (includeContinuation)
-            {
-                lines.Add(line);
+                if (includeContinuation)
+                {
+                    lines.Add(line);
+                }
             }
         }
 
         return lines;
+    }
+
+    private IEnumerable<string> EnumerateLogPathsOldestFirst()
+    {
+        var directory = Path.GetDirectoryName(_logPath);
+        var stem = Path.GetFileNameWithoutExtension(_logPath);
+        var extension = Path.GetExtension(_logPath);
+        if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+        {
+            foreach (var path in Directory
+                         .EnumerateFiles(directory, $"{stem}.*{extension}")
+                         .Select(path => (Path: path, Index: ReadRotationIndex(path, stem, extension)))
+                         .Where(item => item.Index > 0)
+                         .OrderByDescending(item => item.Index)
+                         .Select(item => item.Path))
+            {
+                yield return path;
+            }
+        }
+
+        if (File.Exists(_logPath))
+        {
+            yield return _logPath;
+        }
+    }
+
+    private static int ReadRotationIndex(string path, string stem, string extension)
+    {
+        var fileName = Path.GetFileName(path);
+        var prefix = $"{stem}.";
+        return fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+               fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase) &&
+               int.TryParse(fileName[prefix.Length..^extension.Length], out var index)
+            ? index
+            : -1;
     }
 
     private static bool TryReadTimestamp(string line, out DateTimeOffset timestamp)

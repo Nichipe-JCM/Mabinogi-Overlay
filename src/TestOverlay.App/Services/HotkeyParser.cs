@@ -14,9 +14,19 @@ public static class HotkeyParser
             return false;
         }
 
+        var parts = text.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 1 && TryParseStandaloneKey(parts[0], out var standaloneKey))
+        {
+            hotkey = new HotkeyDefinition(
+                0,
+                (uint)KeyInterop.VirtualKeyFromKey(standaloneKey),
+                text);
+            return hotkey.VirtualKey != 0;
+        }
+
         uint modifiers = 0;
         Key? key = null;
-        foreach (var rawPart in text.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var rawPart in parts)
         {
             var part = rawPart.ToUpperInvariant();
             switch (part)
@@ -36,7 +46,12 @@ public static class HotkeyParser
                     modifiers |= Win32Methods.ModWin;
                     break;
                 default:
-                    if (!Enum.TryParse<Key>(part, true, out var parsed))
+                    if (!TryParseKeyName(part, out var parsed))
+                    {
+                        return false;
+                    }
+
+                    if (key is not null)
                     {
                         return false;
                     }
@@ -46,12 +61,37 @@ public static class HotkeyParser
             }
         }
 
-        if (key is null || modifiers == 0)
+        if (key is null)
         {
             return false;
         }
 
         hotkey = new HotkeyDefinition(modifiers, (uint)KeyInterop.VirtualKeyFromKey(key.Value), text);
         return true;
+    }
+
+    private static bool TryParseStandaloneKey(string text, out Key key)
+    {
+        key = text.Trim().ToUpperInvariant() switch
+        {
+            "CTRL" or "CONTROL" => Key.LeftCtrl,
+            "SHIFT" => Key.LeftShift,
+            "ALT" => Key.LeftAlt,
+            "WIN" or "WINDOWS" => Key.LWin,
+            _ => Key.None
+        };
+        return key != Key.None || TryParseKeyName(text, out key);
+    }
+
+    private static bool TryParseKeyName(string text, out Key key)
+    {
+        var normalized = text.Trim();
+        if (normalized.Length == 1 && char.IsDigit(normalized[0]))
+        {
+            key = (Key)((int)Key.D0 + (normalized[0] - '0'));
+            return true;
+        }
+
+        return Enum.TryParse(normalized, true, out key) && key != Key.None;
     }
 }

@@ -1,0 +1,69 @@
+<Window x:Class="TestOverlay.App.InternalTimerOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Internal Timer Overlay"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        Focusable="False"
+        FontFamily="Noto Sans KR, Malgun Gothic">
+    <Canvas Background="Transparent" Focusable="False" IsHitTestVisible="False">
+        <Border x:Name="TimerPanel"
+                Padding="10,8"
+                Background="#E6111315"
+                BorderBrush="{StaticResource OverlayAccentBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                IsHitTestVisible="False">
+            <StackPanel x:Name="TimerRows"/>
+        </Border>
+        <Border x:Name="TuairimPanel"
+                Padding="10,8"
+                Background="#E6111315"
+                BorderBrush="{StaticResource OverlayAccentBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                IsHitTestVisible="False">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TuairimLabel"
+                           Foreground="{StaticResource OverlayTextBrush}"
+                           FontSize="11"/>
+                <TextBlock x:Name="TuairimPercentText"
+                           Grid.Column="1"
+                           Margin="6,0,0,0"
+                           Text="0%"
+                           Foreground="{StaticResource OverlayAccentBrush}"
+                           FontFamily="Noto Sans KR, Malgun Gothic"
+                           FontWeight="SemiBold"
+                           FontSize="11"/>
+            </Grid>
+        </Border>
+        <Border x:Name="AlertPanel"
+                Padding="10,4"
+                Background="#F0111315"
+                BorderBrush="{StaticResource OverlayDangerBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Visibility="Collapsed"
+                IsHitTestVisible="False">
+            <StackPanel x:Name="AlertRows"/>
+        </Border>
+        <Border x:Name="CustomTimerPanel"
+                Padding="10,8"
+                Background="#E6111315"
+                BorderBrush="{StaticResource OverlayAccentBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                IsHitTestVisible="False">
+            <StackPanel x:Name="CustomTimerRows"/>
+        </Border>
+    </Canvas>
+</Window>

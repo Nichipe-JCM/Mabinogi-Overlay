@@ -1,12 +1,14 @@
+using System.Text.Json.Serialization;
+
 namespace TestOverlay.App.Models;
 
 public sealed class OverlayProfile
 {
     public string Name { get; set; } = "default";
 
-    public double CanvasWidth { get; set; } = 360;
+    public double CanvasWidth { get; set; } = 720;
 
-    public double CanvasHeight { get; set; } = 160;
+    public double CanvasHeight { get; set; } = 320;
 
     public double ScreenLeft { get; set; } = 120;
 
@@ -23,6 +25,64 @@ public sealed class OverlayProfile
     public double LayoutSlotScale { get; set; } = 1.5;
 
     public double GridSnapSize { get; set; } = 10;
+
+    public int AlertPreviewRows { get; set; } = 2;
+
+    public bool BuffMonitorEnabled { get; set; }
+
+    public bool TuairimMonitorEnabled { get; set; }
+
+    public bool BuffAlertsEnabled { get; set; } = true;
+
+    public bool TuairimAlertsEnabled { get; set; } = true;
+
+    public bool ShowInternalBuffTimer { get; set; } = true;
+
+    public bool ShowAlertNotification { get; set; } = true;
+
+    public bool ShowTuairimGauge { get; set; } = true;
+
+    public bool ShowCustomTimer { get; set; } = true;
+
+    [JsonPropertyName("TuarimMonitorEnabled")]
+    public bool LegacyTuarimMonitorEnabled
+    {
+        set => TuairimMonitorEnabled = value;
+    }
+
+    public int BuffAlertSeconds { get; set; } = 30;
+
+    public string BuffAlertSoundPath { get; set; } = string.Empty;
+
+    public int BuffAlertVolume { get; set; } = 100;
+
+    public string BuffAlertSoundMode { get; set; } = "global";
+
+    public Dictionary<string, string> BuffAlertSoundPaths { get; set; } = [];
+
+    public Dictionary<string, int> BuffAlertVolumes { get; set; } = [];
+
+    public int TuairimAlertPercent { get; set; } = 95;
+
+    public string TuairimAlertSoundPath { get; set; } = string.Empty;
+
+    public int TuairimAlertVolume { get; set; } = 100;
+
+    public string TuairimAlertFrequency { get; set; } = "once";
+
+    public List<string> RecognizedBuffNameKeys { get; set; } = [];
+
+    public List<string> SelectedBuffNameKeys { get; set; } = [];
+
+    public OverlayProfileRect? BuffMonitorRoi { get; set; }
+
+    public List<OverlayProfileBuffAnchor> BuffAnchors { get; set; } = [];
+
+    public OverlayProfileRect? TuairimMonitorRoi { get; set; }
+
+    public OverlayProfileRect? TuairimAnchor { get; set; }
+
+    public List<CustomTimerDefinition> CustomTimers { get; set; } = [];
 
     public int SlotInnerSize { get; set; } = 29;
 
@@ -96,6 +156,38 @@ public sealed class OverlayProfileCandidate
     public double Score { get; set; }
 
     public bool IsSelected { get; set; }
+
+    public OverlayElementKind Kind { get; set; }
+
+    public string? DisplayNameKey { get; set; }
+
+    public bool IsBuiltIn { get; set; }
+}
+
+public sealed class OverlayProfileRect
+{
+    public double X { get; set; }
+
+    public double Y { get; set; }
+
+    public double Width { get; set; }
+
+    public double Height { get; set; }
+}
+
+public sealed class OverlayProfileBuffAnchor
+{
+    public string NameKey { get; set; } = string.Empty;
+
+    public string TemplateId { get; set; } = string.Empty;
+
+    public OverlayProfileRect Bounds { get; set; } = new();
+
+    public double StructureScore { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public double StateConfidence { get; set; }
 }
 
 public sealed class OverlayProfileSection

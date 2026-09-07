@@ -1,4 +1,4 @@
-﻿<Window x:Class="TestOverlay.App.SettingsWindow"
+<Window x:Class="TestOverlay.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:TestOverlay.App.Services"
@@ -7,22 +7,19 @@
         Title="Settings"
         loc:Localize.TitleKey="Settings"
         Icon="/Image/AppIcon.ico"
-        Width="1260"
-        Height="810"
-        MinWidth="960"
-        MinHeight="720"
+        Width="880"
+        Height="700"
+        MinWidth="600"
+        MinHeight="460"
         Background="{StaticResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
     <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="0"
-                            CornerRadius="0"
-                            GlassFrameThickness="0"
-                            ResizeBorderThickness="7"
-                            UseAeroCaptionButtons="False"/>
+        <shell:WindowChrome CaptionHeight="0" CornerRadius="8" GlassFrameThickness="0"
+                            ResizeBorderThickness="7" UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
+
     <Grid Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -30,115 +27,224 @@
 
         <controls:AppTitleBar Grid.Row="0"/>
 
-
-        <StackPanel Grid.Row="1" Margin="0,0,0,14">
-            <TextBlock Text="Settings" loc:Localize.TextKey="Settings" FontSize="22" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
-            <TextBlock Text="Profiles, storage path, capture method, renderer mode, and benchmark tools." loc:Localize.TextKey="Profiles, storage path, capture method, renderer mode, and benchmark tools." Style="{StaticResource MutedTextStyle}"/>
-        </StackPanel>
-
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.1*"/>
-                <ColumnDefinition Width="14"/>
-                <ColumnDefinition Width="0.9*"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource GlassCardStyle}">
-                <Grid>
+                <Grid Margin="10">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-
-                    <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Profile" loc:Localize.TextKey="Profile" Style="{StaticResource SectionTitleStyle}"/>
-                    </Border>
-
-                    <Border Grid.Row="1" Margin="14" MinHeight="118" Style="{StaticResource InsetPanelStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Profile save folder" loc:Localize.TextKey="Profile save folder" Style="{StaticResource PanelTitleStyle}"/>
-                            <Grid Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="ProfileDirectoryBox" Grid.Column="0" Height="40"/>
-                                <Button Grid.Column="1" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Browse" loc:Localize.ContentKey="Browse" Click="BrowseButton_Click"/>
-                                <Button Grid.Column="2" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Default" loc:Localize.ContentKey="Default" Click="DefaultButton_Click"/>
-                            </Grid>
-                            <TextBlock Margin="0,8,0,0"
-                                       Text="Portable builds default to a save folder next to the executable."
-                                       loc:Localize.TextKey="Portable builds default to a save folder next to the executable."
-                                       Style="{StaticResource MutedTextStyle}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="104" Style="{StaticResource InsetPanelStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Language" loc:Localize.TextKey="Language" Style="{StaticResource PanelTitleStyle}"/>
-                            <ComboBox x:Name="LanguageCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
-                        </StackPanel>
-                    </Border>
+                    <StackPanel Margin="4,2,4,10">
+                        <TextBlock Text="Settings" loc:Localize.TextKey="Settings" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Margin="0,5,0,0" Text="Choose a settings section."
+                                   loc:Localize.TextKey="settings.sections.description" Style="{StaticResource MutedTextStyle}"/>
+                    </StackPanel>
+                    <ListBox x:Name="SettingsSectionList" Grid.Row="1" Background="Transparent" BorderThickness="0"
+                             SelectionChanged="SettingsSectionList_SelectionChanged">
+                        <ListBoxItem Tag="General" Content="General" loc:Localize.ContentKey="settings.section.general"/>
+                        <ListBoxItem Tag="Profile" Content="Profile" loc:Localize.ContentKey="Profile"/>
+                        <ListBoxItem Tag="Runtime" Content="Runtime" loc:Localize.ContentKey="Runtime"/>
+                        <ListBoxItem Tag="About" Content="About" loc:Localize.ContentKey="settings.section.about"/>
+                    </ListBox>
                 </Grid>
             </Border>
 
             <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <Grid Margin="18,16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid Margin="2,0,10,4">
+                            <StackPanel x:Name="GeneralSectionPanel">
+                                <TextBlock Text="General" loc:Localize.TextKey="settings.section.general"
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                <TextBlock Margin="0,7,0,18" Text="Language and application behavior."
+                                           loc:Localize.TextKey="settings.general.description" Style="{StaticResource MutedTextStyle}"/>
 
-                    <Border Grid.Row="0" Style="{StaticResource CardHeaderStyle}">
-                        <TextBlock Text="Runtime" loc:Localize.TextKey="Runtime" Style="{StaticResource SectionTitleStyle}"/>
-                    </Border>
+                                <Border Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Language" loc:Localize.TextKey="Language" Style="{StaticResource PanelTitleStyle}"/>
+                                        <ComboBox x:Name="LanguageCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
+                                    </StackPanel>
+                                </Border>
 
-                    <Border Grid.Row="1" Margin="14" MinHeight="126" Style="{StaticResource InsetPanelStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Overlay renderer" loc:Localize.TextKey="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
-                            <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
-                            <TextBlock Margin="0,8,0,0"
-                                       Text="Renderer mode is saved in settings.json and applies when the overlay starts."
-                                       loc:Localize.TextKey="Renderer mode is saved in settings.json and applies when the overlay starts."
-                                       Style="{StaticResource MutedTextStyle}"/>
-                        </StackPanel>
-                    </Border>
+                                <Border Margin="0,12,0,0" Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Close behavior" loc:Localize.TextKey="settings.close.behavior" Style="{StaticResource PanelTitleStyle}"/>
+                                        <ComboBox x:Name="CloseBehaviorCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
+                                        <TextBlock Margin="0,8,0,0" Text="Choose whether closing the main window exits the app or minimizes it to the tray."
+                                                   loc:Localize.TextKey="settings.close.behavior.description" Style="{StaticResource MutedTextStyle}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
 
-                    <Border Grid.Row="2" Margin="14,0,14,14" MinHeight="126" Style="{StaticResource InsetPanelStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Capture method" loc:Localize.TextKey="Capture method" Style="{StaticResource PanelTitleStyle}"/>
-                            <ComboBox x:Name="CaptureBackendCombo" Height="40" Margin="0,8,0,0" DisplayMemberPath="Label"/>
-                            <TextBlock Margin="0,8,0,0"
-                                       Text="Choose how the running overlay refreshes its slot images. DXGI captures the monitor and is the default low-friction option. GDI is a compatibility fallback. WGC captures the selected game window more directly, but Windows may show a yellow capture border while it is active."
-                                       loc:Localize.TextKey="capture.method.description"
-                                       Style="{StaticResource MutedTextStyle}"/>
-                        </StackPanel>
-                    </Border>
+                            <StackPanel x:Name="ProfileSectionPanel" Visibility="Collapsed">
+                                <TextBlock Text="Profile" loc:Localize.TextKey="Profile"
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                <TextBlock Margin="0,7,0,18" Text="Manage profiles and their storage location."
+                                           loc:Localize.TextKey="settings.profile.description" Style="{StaticResource MutedTextStyle}"/>
 
-                    <Border Grid.Row="3" Margin="14,0,14,14" MinHeight="150" Style="{StaticResource InsetPanelStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Benchmark" loc:Localize.TextKey="Benchmark" Style="{StaticResource PanelTitleStyle}"/>
-                            <TextBlock Margin="0,6,0,10"
-                                       Text="Open a controlled stress test window to compare renderer cost."
-                                       loc:Localize.TextKey="Open a controlled stress test window to compare renderer cost."
-                                       Style="{StaticResource MutedTextStyle}"/>
-                            <Button MinWidth="120" Height="34" Padding="12,0" HorizontalAlignment="Left" Content="Open benchmark" loc:Localize.ContentKey="Open benchmark" Click="BenchmarkButton_Click"/>
-                            <Button MinWidth="70" Height="34" Padding="12,0" HorizontalAlignment="Left" Margin="0,8,0,0" Content="Log" loc:Localize.ContentKey="Log" Click="LogButton_Click"/>
-                        </StackPanel>
-                    </Border>
+                                <Border x:Name="ProfileRecoveryNotice" Margin="0,0,0,12"
+                                        Padding="12" Background="#33FFB4AB"
+                                        BorderBrush="{StaticResource OverlayDangerBrush}" BorderThickness="1"
+                                        CornerRadius="7" Visibility="Collapsed">
+                                    <TextBlock TextWrapping="Wrap" Text="The current profile could not be saved. Choose a writable profile folder, then apply settings."
+                                               loc:Localize.TextKey="profile.settings.recovery.description"/>
+                                </Border>
+
+                                <Border x:Name="ProfileManagementPanel" Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="profile.manage.heading" loc:Localize.TextKey="profile.manage.heading" Style="{StaticResource PanelTitleStyle}"/>
+                                        <TextBlock x:Name="ActiveProfileText" Margin="0,6,0,0" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"/>
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <ComboBox x:Name="ManagedProfileCombo" Height="40"/>
+                                            <Button Grid.Column="1" MinWidth="92" Height="40" Padding="14,0" Margin="8,0,0,0"
+                                                    Content="Apply" loc:Localize.ContentKey="Apply" Click="ApplyProfileButton_Click"/>
+                                        </Grid>
+                                        <WrapPanel Margin="0,8,0,0">
+                                            <Button MinWidth="92" Height="34" Padding="12,0" Content="Rename" loc:Localize.ContentKey="profile.rename" Click="RenameProfileButton_Click"/>
+                                            <Button MinWidth="122" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Load from File" loc:Localize.ContentKey="profile.import" Click="ImportProfileButton_Click"/>
+                                            <Button MinWidth="122" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Save to File" loc:Localize.ContentKey="profile.export" Click="ExportProfileButton_Click"/>
+                                            <Button MinWidth="92" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Delete"
+                                                    loc:Localize.ContentKey="profile.delete" Foreground="{StaticResource OverlayDangerBrush}" Click="DeleteProfileButton_Click"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Margin="0,12,0,0" Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Profile save folder" loc:Localize.TextKey="Profile save folder" Style="{StaticResource PanelTitleStyle}"/>
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBox x:Name="ProfileDirectoryBox" Height="40" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                                     LostFocus="ProfileDirectoryBox_LostFocus"/>
+                                            <Button Grid.Column="1" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Browse"
+                                                    loc:Localize.ContentKey="Browse" Click="BrowseButton_Click"/>
+                                            <Button Grid.Column="2" MinWidth="86" Height="40" Padding="12,0" Margin="8,0,0,0" Content="Default"
+                                                    loc:Localize.ContentKey="Default" Click="DefaultButton_Click"/>
+                                        </Grid>
+                                        <TextBlock Margin="0,8,0,0" Text="Settings, profiles, and logs are stored under the current user's LocalAppData folder. A custom profile folder can still be selected."
+                                                   loc:Localize.TextKey="profile.storage.localappdata.description" Style="{StaticResource MutedTextStyle}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel x:Name="RuntimeSectionPanel" Visibility="Collapsed">
+                                <TextBlock Text="Runtime" loc:Localize.TextKey="Runtime"
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                <TextBlock Margin="0,7,0,18" Text="Keep automatic selection enabled unless manual troubleshooting is necessary."
+                                           loc:Localize.TextKey="settings.runtime.description" Style="{StaticResource MutedTextStyle}"/>
+
+                                <Border Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Capture method" loc:Localize.TextKey="Capture method" Style="{StaticResource PanelTitleStyle}"/>
+                                        <CheckBox x:Name="AutomaticCaptureCheckBox" Margin="0,10,0,0" Content="Automatic capture selection (recommended)"
+                                                  loc:Localize.ContentKey="capture.automatic.recommended"/>
+                                        <ComboBox x:Name="CaptureBackendCombo" Height="40" Margin="0,10,0,0" DisplayMemberPath="Label"/>
+                                        <TextBlock Margin="0,8,0,0" Text="Use manual selection only when automatic capture does not work correctly."
+                                                   loc:Localize.TextKey="capture.manual.only.when.needed" Style="{StaticResource MutedTextStyle}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Margin="0,12,0,0" Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Overlay renderer" loc:Localize.TextKey="Overlay renderer" Style="{StaticResource PanelTitleStyle}"/>
+                                        <CheckBox x:Name="AutomaticRendererCheckBox" Margin="0,10,0,0" Content="Automatic renderer selection (recommended)"
+                                                  loc:Localize.ContentKey="renderer.automatic.recommended"/>
+                                        <TextBlock x:Name="RendererSelectionSummaryText" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}"/>
+                                        <ComboBox x:Name="RenderModeCombo" Height="40" Margin="0,10,0,0" DisplayMemberPath="Label"/>
+                                        <TextBlock Margin="0,8,0,0" Text="Use manual selection only when automatic rendering does not work correctly."
+                                                   loc:Localize.TextKey="renderer.manual.only.when.needed" Style="{StaticResource MutedTextStyle}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Margin="0,12,0,0" Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Log" loc:Localize.TextKey="Log" Style="{StaticResource PanelTitleStyle}"/>
+                                        <TextBlock Margin="0,6,0,10" Text="Open the current session log for troubleshooting."
+                                                   loc:Localize.TextKey="settings.log.description" Style="{StaticResource MutedTextStyle}"/>
+                                        <CheckBox x:Name="SaveOcrDiagnosticImagesCheckBox"
+                                                  Margin="0,0,0,6"
+                                                  Content="Save cropped OCR diagnostic images"
+                                                  loc:Localize.ContentKey="settings.ocr.diagnostics.enabled"/>
+                                        <TextBlock Margin="0,0,0,10" TextWrapping="Wrap"
+                                                   Text="When enabled, failed OCR areas from the game window are saved locally in the log folder. They may contain visible game information."
+                                                   loc:Localize.TextKey="settings.ocr.diagnostics.description"
+                                                   Style="{StaticResource MutedTextStyle}"/>
+                                        <Button MinWidth="70" Height="34" Padding="12,0" HorizontalAlignment="Left" Content="Log"
+                                                loc:Localize.ContentKey="Log" Click="LogButton_Click"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel x:Name="AboutSectionPanel" Visibility="Collapsed">
+                                <TextBlock Text="About" loc:Localize.TextKey="settings.section.about"
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                <Border Margin="0,18,0,0" Style="{StaticResource InsetPanelStyle}">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Image Width="72" Height="72" Source="/Image/Logo.png" Stretch="Uniform"/>
+                                        <TextBlock Margin="0,12,0,0" Text="Mabinogi Overlay" FontSize="20" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource OverlayTextBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock x:Name="AboutVersionText" Margin="0,5,0,0" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center"/>
+                                        <TextBlock Margin="0,18,0,0" Text="Developer and project information will be added here."
+                                                   loc:Localize.TextKey="settings.about.placeholder" Style="{StaticResource MutedTextStyle}"
+                                                   HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
                 </Grid>
             </Border>
         </Grid>
 
-        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button MinWidth="88" Height="34" Padding="14,0" Content="OK" loc:Localize.ContentKey="OK" Click="OkButton_Click"/>
-            <Button MinWidth="88" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" IsCancel="True"/>
-        </WrapPanel>
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Button MinWidth="132" Height="34" Padding="14,0" HorizontalAlignment="Left" Content="Reset settings"
+                    loc:Localize.ContentKey="Reset settings" Click="ResetSettingsButton_Click"/>
+            <WrapPanel HorizontalAlignment="Right">
+                <Button x:Name="OkButton" MinWidth="88" Height="34" Padding="14,0" Content="OK" loc:Localize.ContentKey="OK" Click="OkButton_Click"/>
+                <Button MinWidth="88" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" IsCancel="True"/>
+            </WrapPanel>
+        </Grid>
+
+        <Grid x:Name="ProfileApplyConfirmationOverlay" Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="20" Background="#B8000000" Visibility="Collapsed">
+            <Border Width="460" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource GlassCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="profile.apply.confirm.title" loc:Localize.TextKey="profile.apply.confirm.title" Style="{StaticResource SectionTitleStyle}"/>
+                    <TextBlock x:Name="ProfileApplyConfirmationText" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                    <TextBlock Margin="0,8,0,0" Text="profile.apply.confirm.warning" loc:Localize.TextKey="profile.apply.confirm.warning" Style="{StaticResource MutedTextStyle}"/>
+                    <WrapPanel Margin="0,18,0,0" HorizontalAlignment="Right">
+                        <Button MinWidth="88" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelProfileApplyButton_Click"/>
+                        <Button MinWidth="88" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Apply" loc:Localize.ContentKey="Apply" Click="ConfirmProfileApplyButton_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="ProfileDeleteConfirmationOverlay" Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="21" Background="#D8000000" Visibility="Collapsed">
+            <Border Width="500" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#F21B1D20"
+                    BorderBrush="{StaticResource OverlayDangerBrush}" BorderThickness="2" CornerRadius="9">
+                <StackPanel>
+                    <TextBlock x:Name="ProfileDeleteConfirmationTitle" Text="profile.delete.confirm.first.title"
+                               loc:Localize.TextKey="profile.delete.confirm.first.title" FontSize="19" FontWeight="Bold"
+                               Foreground="{StaticResource OverlayDangerBrush}"/>
+                    <TextBlock x:Name="ProfileDeleteConfirmationText" Margin="0,12,0,0" FontSize="14" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ProfileDeleteWarningText" Margin="0,12,0,0" Text="profile.delete.irreversible"
+                               loc:Localize.TextKey="profile.delete.irreversible" FontSize="15" FontWeight="Bold"
+                               Foreground="{StaticResource OverlayDangerBrush}" TextWrapping="Wrap"/>
+                    <WrapPanel Margin="0,22,0,0" HorizontalAlignment="Right">
+                        <Button MinWidth="96" Height="36" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelProfileDeleteButton_Click"/>
+                        <Button x:Name="ConfirmProfileDeleteButton" MinWidth="132" Height="36" Padding="14,0" Margin="8,0,0,0"
+                                Content="Continue" loc:Localize.ContentKey="profile.delete.continue" Foreground="{StaticResource OverlayDangerBrush}"
+                                Click="ConfirmProfileDeleteButton_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
-

@@ -2,12 +2,28 @@
 
 public sealed class AppSettings
 {
+    public int SchemaVersion { get; set; }
+
     public string ProfileDirectory { get; set; } = string.Empty;
+
+    public string ActiveProfileName { get; set; } = "default";
 
     public OverlayRenderMode OverlayRenderMode { get; set; } = OverlayRenderMode.GpuDxgi;
 
-    public CaptureBackend CaptureBackend { get; set; } = CaptureBackend.DxgiDesktopDuplication;
+    public bool AutomaticRendererSelection { get; set; } = true;
 
-    public string Language { get; set; } = TestOverlay.App.Services.LocalizationService.English;
+    public bool AutomaticCaptureSelection { get; set; } = true;
+
+    public CaptureBackend CaptureBackend { get; set; } = CaptureBackend.Wgc;
+
+    public string Language { get; set; } = TestOverlay.App.Services.LocalizationService.Korean;
+
+    public bool CompactModeEnabled { get; set; }
+
+    public bool BuffIconsOnly { get; set; }
+
+    public bool SaveOcrDiagnosticImages { get; set; }
+
+    public AppCloseBehavior CloseBehavior { get; set; } = AppCloseBehavior.Ask;
 }
 

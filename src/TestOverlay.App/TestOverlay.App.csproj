@@ -2,18 +2,20 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <AssemblyName>Mabinogi Overlay</AssemblyName>
     <Title>Mabinogi Overlay</Title>
     <Product>Mabinogi Overlay</Product>
-    <Version>0.0.3-beta</Version>
-    <AssemblyVersion>0.0.3.0</AssemblyVersion>
-    <FileVersion>0.0.3.0</FileVersion>
-    <InformationalVersion>0.0.3-beta</InformationalVersion>
+    <Version>0.0.6-beta</Version>
+    <AssemblyVersion>0.0.6.0</AssemblyVersion>
+    <FileVersion>0.0.6.0</FileVersion>
+    <InformationalVersion>0.0.6-beta</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>..\..\Image\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
@@ -27,12 +29,41 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="..\..\Image\Logo.png" Link="Image\Logo.png" />
     <Resource Include="..\..\Image\AppIcon.ico" Link="Image\AppIcon.ico" />
+    <Resource Include="..\..\Image\BattlefieldOff.png" Link="Image\BattlefieldOff.png" />
+    <Resource Include="..\..\Image\BattlefieldOn.png" Link="Image\BattlefieldOn.png" />
+    <Resource Include="..\..\Image\MarchOff.png" Link="Image\MarchOff.png" />
+    <Resource Include="..\..\Image\MarchOn.png" Link="Image\MarchOn.png" />
+    <Resource Include="..\..\Image\RichyearOff.png" Link="Image\RichyearOff.png" />
+    <Resource Include="..\..\Image\RichyearOn.png" Link="Image\RichyearOn.png" />
+    <Resource Include="..\..\Image\DivineLinkOff.png" Link="Image\DivineLinkOff.png" />
+    <Resource Include="..\..\Image\DivineLinkOn.png" Link="Image\DivineLinkOn.png" />
+    <Resource Include="..\..\Image\ConditionSupportOff.png" Link="Image\ConditionSupportOff.png" />
+    <Resource Include="..\..\Image\ConditionSupportOn.png" Link="Image\ConditionSupportOn.png" />
+    <Resource Include="..\..\Image\PurificationWaveOff.png" Link="Image\PurificationWaveOff.png" />
+    <Resource Include="..\..\Image\PurificationWaveOn.png" Link="Image\PurificationWaveOn.png" />
+    <Resource Include="..\..\Image\HamjjiOff.png" Link="Image\HamjjiOff.png" />
+    <Resource Include="..\..\Image\HamjjiOn.png" Link="Image\HamjjiOn.png" />
+    <Resource Include="..\..\Image\HamAdrenalineOff.png" Link="Image\HamAdrenalineOff.png" />
+    <Resource Include="..\..\Image\HamAdrenalineOn.png" Link="Image\HamAdrenalineOn.png" />
+    <Resource Include="..\..\Image\Tuairim.png" Link="Image\Tuairim.png" />
+    <Resource Include="..\..\Image\Guide\*.png" Link="Image\Guide\%(Filename)%(Extension)" />
+    <Resource Include="..\..\Image\VivaceOff.png" Link="Image\VivaceOff.png" />
+    <Resource Include="..\..\Image\VivaceOn.png" Link="Image\VivaceOn.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Localization\*.lang" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\Audio\DefaultAlert.mp3"
+             Link="Audio\DefaultAlert.mp3"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

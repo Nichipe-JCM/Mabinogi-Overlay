@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:TestOverlay.App"
+             xmlns:controls="clr-namespace:TestOverlay.App.Controls"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
         <ResourceDictionary>
@@ -10,6 +11,9 @@
                 <ui:ThemesDictionary Theme="Dark"/>
                 <ui:ControlsDictionary/>
             </ResourceDictionary.MergedDictionaries>
+
+            <Style TargetType="{x:Type controls:HotkeyInputBox}"
+                   BasedOn="{StaticResource {x:Type TextBox}}"/>
 
             <Color x:Key="OverlayBgColor">#111315</Color>
             <Color x:Key="OverlayPanelColor">#1B1D20</Color>
@@ -54,6 +58,109 @@
                 <Setter Property="BorderBrush" Value="#55343638"/>
                 <Setter Property="BorderThickness" Value="0,0,0,1"/>
                 <Setter Property="Padding" Value="14,12"/>
+            </Style>
+
+            <Style x:Key="MonitorTabItemStyle" TargetType="{x:Type TabItem}">
+                <Setter Property="Foreground" Value="{StaticResource OverlayMutedBrush}"/>
+                <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TabItem}">
+                            <Border x:Name="TabBorder"
+                                    MinHeight="36"
+                                    Padding="10,7"
+                                    Background="#D91B1D20"
+                                    BorderBrush="#663B3F43"
+                                    BorderThickness="1"
+                                    CornerRadius="5,5,0,0"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#FF24272A"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#FF2B2F32"/>
+                                    <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayAccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="RightPanelTabControlStyle" TargetType="{x:Type TabControl}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TabControl}">
+                            <Grid KeyboardNavigation.TabNavigation="Local">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="5"/>
+                                    <RowDefinition Height="5"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TabPanel Grid.Row="0" IsItemsHost="True" KeyboardNavigation.TabIndex="1"/>
+                                <Border Grid.Row="1" Background="{StaticResource OverlayBorderBrush}"/>
+                                <ContentPresenter Grid.Row="3"
+                                                  Content="{TemplateBinding SelectedContent}"
+                                                  ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                                  ContentStringFormat="{TemplateBinding SelectedContentStringFormat}"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="HiddenDebugTabItemStyle" TargetType="{x:Type TabItem}">
+                <Setter Property="Width" Value="0"/>
+                <Setter Property="Height" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TabItem}"/>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="DebugTabToggleStyle" TargetType="{x:Type ToggleButton}">
+                <Setter Property="Background" Value="#D91B1D20"/>
+                <Setter Property="Foreground" Value="{StaticResource OverlayMutedBrush}"/>
+                <Setter Property="BorderBrush" Value="#663B3F43"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ToggleButton}">
+                            <Border x:Name="Border" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="5,5,0,0">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="#FF24272A"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="#FF2B2F32"/>
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource OverlayAccentBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="InsetPanelStyle" TargetType="{x:Type Border}">

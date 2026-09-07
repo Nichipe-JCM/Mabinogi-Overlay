@@ -30,8 +30,13 @@ internal static partial class Win32Methods
     public const uint ModControl = 0x0002;
     public const uint ModShift = 0x0004;
     public const uint ModWin = 0x0008;
+    public const uint ModNoRepeat = 0x4000;
     public const int Srccopy = 0x00CC0020;
     public const uint MonitorDefaultToNearest = 0x00000002;
+    public const uint ProcessQueryLimitedInformation = 0x1000;
+    public const uint TokenQuery = 0x0008;
+    public const int TokenElevationInformationClass = 20;
+    public static readonly nint HwndBroadcast = new(0xFFFF);
 
     public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
 
@@ -66,6 +71,26 @@ internal static partial class Win32Methods
 
     [LibraryImport("user32.dll")]
     public static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    public static partial nint OpenProcess(uint processAccess, [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint processId);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool OpenProcessToken(nint processHandle, uint desiredAccess, out nint tokenHandle);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetTokenInformation(
+        nint tokenHandle,
+        int tokenInformationClass,
+        out TokenElevationNative tokenInformation,
+        int tokenInformationLength,
+        out int returnLength);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool CloseHandle(nint handle);
 
     public static nint GetWindowLongPtrSafe(nint hwnd, int index) =>
         nint.Size == 8
@@ -130,13 +155,23 @@ internal static partial class Win32Methods
         int cy,
         uint flags);
 
-    [LibraryImport("user32.dll")]
+    [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool RegisterHotKey(nint hWnd, int id, uint fsModifiers, uint vk);
 
-    [LibraryImport("user32.dll")]
+    [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool UnregisterHotKey(nint hWnd, int id);
+
+    [LibraryImport("user32.dll")]
+    public static partial short GetAsyncKeyState(int vKey);
+
+    [LibraryImport("user32.dll", EntryPoint = "RegisterWindowMessageW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial uint RegisterWindowMessage(string lpString);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool PostMessage(nint hWnd, uint msg, nint wParam, nint lParam);
 
     public static void TryEnablePerMonitorDpiAwareness()
     {
@@ -198,6 +233,12 @@ internal static partial class Win32Methods
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct TokenElevationNative
+    {
+        public int TokenIsElevated;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

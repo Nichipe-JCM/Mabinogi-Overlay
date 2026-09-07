@@ -6,9 +6,12 @@ namespace TestOverlay.App;
 
 public partial class ProfileNameDialog : Window
 {
-    public ProfileNameDialog(string initialName)
+    public ProfileNameDialog(string initialName, bool isRename = false)
     {
         InitializeComponent();
+        Title = L.T(isRename ? "profile.rename" : "Create Profile");
+        HeadingText.Text = L.T(isRename ? "profile.rename.heading" : "Profile name");
+        SaveButton.Content = L.T(isRename ? "profile.rename" : "profile.create");
         ProfileName = initialName?.Trim() ?? string.Empty;
         ProfileNameBox.Text = ProfileName;
         ProfileNameBox.SelectAll();
@@ -20,9 +23,13 @@ public partial class ProfileNameDialog : Window
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         var name = ProfileNameBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(name))
+        try
         {
-            ErrorText.Text = L.T("Enter a profile name.");
+            ProfileStore.ValidateUserProfileName(name);
+        }
+        catch (Exception exception)
+        {
+            ErrorText.Text = L.F("profile.name.invalid.arg", exception.Message);
             return;
         }
 

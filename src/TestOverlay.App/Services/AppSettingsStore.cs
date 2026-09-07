@@ -14,35 +14,68 @@ public sealed class AppSettingsStore
         Options.Converters.Add(new JsonStringEnumConverter());
     }
 
-    public string SettingsPath { get; } = Path.Combine(AppContext.BaseDirectory, "settings.json");
+    public AppSettingsStore()
+    {
+        AppDataPaths.EnsureInitialized();
+    }
 
-    public string DefaultProfileDirectory { get; } = Path.Combine(AppContext.BaseDirectory, "save");
+    public string SettingsPath { get; } = AppDataPaths.SettingsPath;
+
+    public string DefaultProfileDirectory { get; } = AppDataPaths.ProfilesDirectory;
+
+    public bool LastLoadRecoveredFromBackup { get; private set; }
+
+    public Exception? LastLoadException { get; private set; }
 
     public AppSettings Load()
     {
-        if (!File.Exists(SettingsPath))
-        {
-            return new AppSettings { ProfileDirectory = DefaultProfileDirectory };
-        }
-
         try
         {
-            var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), Options)
-                           ?? new AppSettings();
-            settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
+            var result = AtomicJsonFile.Load<AppSettings>(SettingsPath, Options);
+            var settings = result?.Value ?? new AppSettings();
+            AppSettingsMigration.Apply(settings);
+            Normalize(settings);
+            LastLoadRecoveredFromBackup = result?.RecoveredFromBackup == true;
+            LastLoadException = result?.RestoreException ?? result?.PrimaryException;
             return settings;
         }
-        catch
+        catch (Exception exception)
         {
+            LastLoadRecoveredFromBackup = false;
+            LastLoadException = exception;
             return new AppSettings { ProfileDirectory = DefaultProfileDirectory };
         }
     }
 
     public void Save(AppSettings settings)
     {
+        AppSettingsMigration.Apply(settings);
+        Normalize(settings);
+        AtomicJsonFile.Save(SettingsPath, settings, Options);
+    }
+
+    private void Normalize(AppSettings settings)
+    {
         settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
-        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath) ?? AppContext.BaseDirectory);
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, Options));
+        settings.ActiveProfileName = ProfileStore.NormalizeProfileName(settings.ActiveProfileName);
+        settings.Language = LocalizationService.NormalizeLanguage(settings.Language);
+        if (!Enum.IsDefined(settings.CloseBehavior))
+        {
+            settings.CloseBehavior = AppCloseBehavior.Ask;
+        }
+        if (settings.AutomaticCaptureSelection)
+        {
+            settings.CaptureBackend = CaptureBackend.Wgc;
+        }
+        var requestedRenderMode = settings.AutomaticRendererSelection
+            ? RuntimeConfigurationPolicy.ResolveAutomaticRenderer(settings.CaptureBackend)
+            : settings.OverlayRenderMode;
+        var runtime = RuntimeConfigurationPolicy.Normalize(
+            requestedRenderMode,
+            settings.CaptureBackend,
+            RuntimeSelectionPreference.CaptureBackend);
+        settings.OverlayRenderMode = runtime.RenderMode;
+        settings.CaptureBackend = runtime.CaptureBackend;
     }
 
     public string NormalizeProfileDirectory(string? path)
@@ -52,6 +85,15 @@ public sealed class AppSettingsStore
             return DefaultProfileDirectory;
         }
 
-        return Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
+        var normalized = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
+        return PathsEqual(normalized, AppDataPaths.LegacyProfilesDirectory)
+            ? DefaultProfileDirectory
+            : normalized;
     }
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(left),
+            Path.TrimEndingDirectorySeparator(right),
+            StringComparison.OrdinalIgnoreCase);
 }

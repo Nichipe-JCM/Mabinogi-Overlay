@@ -1,87 +1,93 @@
 # Mabinogi Overlay
 
-Mabinogi Overlay는 마비노기 퀵슬롯 중 원하는 칸을 별도의 항상 위 오버레이로 복제해서 보여주는 portable Windows 유틸리티입니다.
+## 구버전에서 업데이트
 
-게임 클라이언트를 수정하지 않고 쿨타임 시인성을 높이는 것이 목적입니다. 게임 메모리 읽기, 코드 인젝션, 렌더링 훅, 입력 자동화는 하지 않습니다.
+- 업데이트 후 처음 실행하면 기존 실행 파일 옆의 `settings.json`, `save`, `Logs/app.log`를 LocalAppData 사용자 데이터 폴더로 복사합니다.
+- 이미 LocalAppData에 파일이 있으면 덮어쓰지 않으며, 기존 portable 파일도 삭제하지 않습니다.
+- 구버전 렌더러 조합이 현재 권장 조합과 같으면 자동 선택으로 전환하고, 사용자가 지정한 비표준 조합은 고급 수동 설정으로 보존합니다.
+- 초기 버전의 `TuarimMonitorEnabled` 프로필 키도 읽을 수 있으며, 다음 저장부터 올바른 `TuairimMonitorEnabled` 키로 기록합니다.
 
-## 면책조항
+Mabinogi Overlay는 마비노기 퀵슬롯 일부를 별도의 항상 위 오버레이에 표시하는 portable Windows 유틸리티입니다. 게임 클라이언트의 메모리를 읽거나, 코드를 주입하거나, 렌더러를 후킹하거나, 입력을 자동화하지 않습니다.
 
-Mabinogi Overlay는 비공식 유틸리티 프로그램이며 Nexon과 제휴, 승인, 지원 관계가 없습니다. 사용자는 본인이 이용하는 게임 서비스 지역의 규정을 확인하고 본인 책임하에 사용해야 합니다.
+현재 버전은 `0.0.6-beta`입니다. 버프/투아림 감시, 단축키 타이머, 에린 타이머와 다중 프로필 관리를 포함합니다.
 
-현재 버전: `0.0.3-beta`
+[0.0.6-beta 릴리스](https://github.com/Nichipe-JCM/Mabinogi-Overlay/releases/tag/0.0.6-beta)에서 Windows x64 portable ZIP을 받아 전체 압축을 풀고 `Mabinogi Overlay.exe`를 실행하세요. .NET 런타임이 포함되어 있습니다.
+
+자세한 내용은 [한국어 변경사항](releases/0.0.6-beta/CHANGELOG.ko.md)을 참고하세요.
+
+## 0.0.6-beta 주요 변경
+
+- DXGI 캡처 자원과 CPU 합성 버퍼를 재사용하고, 데스크톱 캡처 대기를 UI 스레드에서 분리했습니다.
+- 캡처 중지·재시작, 오래된 프레임 거부와 화면 밖 오버레이 위치 복구를 보완했습니다.
+- 유효한 프로필 백업을 보존하고, 프로필·에린 알람 저장 실패를 표시하며 재시도합니다.
+- 중복 실행 시 기존 창을 활성화하고 트레이·레이아웃·모니터 조작을 개선했습니다.
+- 단위 테스트 158개와 Windows 빌드 CI를 통과했습니다. 실제 게임·GPU·다중 DPI 환경 검증을 모두 완료했다는 뜻은 아닙니다.
+
+배포 실행 파일에는 임시 자체 서명 인증서와 타임스탬프를 사용합니다. Windows에서 신뢰 경고가 표시될 수 있습니다. 도움말 이미지는 다음 버전으로 미뤘으며, 텍스트 도움말은 그대로 사용할 수 있습니다.
+
+## 면책 조항
+
+이 프로그램은 비공식 유틸리티이며 Nexon과 제휴, 승인 또는 지원 관계가 없습니다. 사용 중인 게임 서비스 지역의 규정을 확인하고 본인의 책임 아래 사용해야 합니다.
 
 이 프로그램은 OpenAI Codex 및 ChatGPT의 도움을 받아 개발되었습니다.
 
-## 이 앱이 하는 일
-
-- 마비노기 클라이언트 창을 캡쳐합니다.
-- 사용자가 지정한 화면 영역에서 퀵슬롯 섹션을 감지합니다.
-- 잘못 감지된 슬롯은 직접 수정할 수 있습니다.
-- 선택한 슬롯을 별도 오버레이 레이아웃에 추가합니다.
-- 오버레이는 게임 위에 표시되지만 마우스 클릭은 게임으로 통과시킵니다.
-- 레이아웃과 슬롯 후보를 portable 프로필로 저장합니다.
-- 영어와 한국어 UI를 지원합니다.
-
-## 기본 사용 흐름
-
-1. 마비노기를 실행하고 복제할 퀵슬롯을 화면에 띄웁니다.
-2. Mabinogi Overlay를 실행합니다.
-3. Auto capture 또는 Manual capture로 게임 화면을 프리뷰에 불러옵니다.
-4. Auto detect section을 누르고 퀵슬롯 섹션 영역을 드래그합니다.
-5. 필요한 슬롯을 선택해서 오버레이에 추가합니다.
-6. Manage Layout에서 위치, 크기, 배치를 조정합니다.
-7. 오버레이를 시작합니다.
-
 ## 주요 기능
 
-- 마비노기 `Client.exe` 창 자동 탐색
-- 직접 창을 고르는 Manual WGC capture
-- WGC, DXGI, GDI 캡쳐 방식 선택
-- GPU/DXGI, 개선 CPU/composited, 기존 CPU/WPF 렌더러 선택
-- ROI 기반 퀵슬롯 섹션 감지
-- ROI 모양에 따른 가로형/세로형 자동 라우팅
-- 수동 슬롯 후보 생성, 이동, 크기 조정, 삭제, 다중선택
-- 슬롯별 배율과 투명도 override
-- 전역 투명도, 전역 슬롯 배율, grid snap, max FPS, stop hotkey 설정
-- 실제 모니터 위에서 위치를 맞추는 Screen Preview
-- 문제 확인용 세션 로그 뷰어
-- 저장 위치를 지정할 수 있는 portable 프로필
-- 프로필 생성, 명시적 불러오기 및 레이아웃 변경 후 자동 저장
-- 메인 창의 독립된 프로필 및 오버레이 조작 영역
+- `Client.exe`를 우선 탐색하는 게임 창 목록과 자동 창 캡처
+- 직접 창을 선택하는 수동 WGC 캡처
+- WGC, DXGI Desktop Duplication, GDI BitBlt 캡처 방식 선택
+- 캡처 방식에 맞춘 렌더러 자동 선택과 문제 해결용 고급 수동 지정
+- ROI 기반 가로형/세로형 퀵슬롯 섹션 인식
+- 후보 슬롯 다중 선택, 이동, 크기 변경, 수동 추가, 섹션 관리
+- 레이아웃 편집, 그리드 스냅, 슬롯별 투명도/배율 재정의
+- 항상 위 표시, 클릭 통과, 포커스를 빼앗지 않는 오버레이
+- 프로필별 자동 저장과 명시적 불러오기
+- 영어/한국어 UI와 세션 로그 보기
+- 선택형 버프 지속 시간/투아림 게이지 감시, 사운드 및 시각 알림
+- 앱 내부 에린 시간과 영구 알람 목록
+
+## 기본 사용 순서
+
+1. 게임을 실행하고 복제할 퀵슬롯을 화면에 표시합니다.
+2. Mabinogi Overlay에서 `자동 창 캡처` 또는 `수동 창 캡처`를 실행합니다.
+3. `퀵슬롯 인식`을 누르고 퀵슬롯 섹션을 드래그합니다.
+4. 후보 목록에서 필요한 슬롯을 선택한 뒤 `오버레이에 추가`를 누릅니다.
+5. `레이아웃 관리`에서 캔버스와 슬롯 배치를 조정합니다.
+6. `오버레이 시작`으로 실행하고, 설정한 단축키나 `오버레이 중지`로 종료합니다.
+
+## 캡처 방식 참고
+
+- **WGC:** 기본 캡처 방식이며 자동 설정에서는 GPU 가속 렌더러를 사용합니다. 지원되는 Windows에서는 테두리 없는 캡처 권한을 요청하고, 허용되면 노란 캡처 테두리를 숨깁니다. GPU 초기화에 실패하면 CPU 합성으로 전환됩니다.
+- **DXGI:** 선택 창이 있는 모니터를 캡처한 뒤 게임 클라이언트 영역을 자릅니다. 자동 설정에서는 CPU 합성 렌더러를 사용하며, 다른 창이 게임 위를 가리면 그 화면도 반영될 수 있습니다.
+- **GDI:** 호환성용 데스크톱 캡처 방식입니다.
+
+## 저장 위치
+
+기본 구성에서는 `%LocalAppData%\Mabinogi Overlay` 아래에 다음을 저장합니다.
+
+- `settings.json`: 언어, 캡처 방식, 렌더러, 프로필 저장 경로
+- `Profiles/<프로필명>.json`: 후보, 섹션, 레이아웃, 감시 설정
+- `Logs/app.log`: 현재 앱 세션 로그
+
+에린 타이머 설정은 `erin-timer.json`에 별도로 저장됩니다. 설정에서 프로필 저장 경로만 다른 위치로 변경할 수 있습니다.
+설정의 `파일로 저장`은 `.moverlayprofile` 패키지를 만들며, 프로필에서 사용하는 사용자 알림음도 함께 포함합니다. 이전 버전에서 내보낸 `.json` 프로필도 계속 불러올 수 있습니다.
+
+## 개발 문서
+
+- [Codex 프로젝트 인수인계](CODEX_PROJECT_HANDOFF.md)
+- [기획 및 기술 방향](PLANNING.md)
+- [수동 검증 체크리스트](MVP_MANUAL_TEST.md)
+- [코드 서명 안내](CODE_SIGNING.md)
 
 ## 기술 스택
 
-- **언어:** C#
-- **런타임:** .NET 8
-- **UI:** WPF, WPF-UI
-- **플랫폼:** Windows
-- **캡쳐:** Windows Graphics Capture, DXGI Desktop Duplication, GDI BitBlt
-- **그래픽 interop:** Direct3D 11, DXGI, Direct2D, DirectComposition
-- **Native 연동:** Win32 window styles, global hotkey registration, click-through overlay behavior
-- **저장:** `System.Text.Json` 기반 JSON 프로필과 설정
+- C#, .NET 8, WPF, WPF-UI
+- Windows Graphics Capture, DXGI Desktop Duplication, GDI BitBlt
+- Direct3D 11, DXGI, Direct2D, DirectComposition
+- Win32 click-through / no-activate / global hotkey 연동
+- `System.Text.Json` 기반 설정과 프로필
+- Windows OCR 기반 버프 시간·투아림 퍼센트 인식
 
-## 라이센스
+## 라이선스
 
-Mabinogi Overlay는 [MIT License](../LICENSE)로 배포됩니다.
-
-서드파티 의존성은 각자의 라이센스를 따릅니다. 현재 주요 NuGet 의존성인 WPF-UI와 Vortice 패키지도 MIT 라이센스입니다.
-
-## 참고 사항
-
-이 앱은 beta 버전입니다. 기능들에 버그가 있을 수 있으며, 버그 제보는 issue에 부탁드립니다.
-
-WGC 캡쳐는 Windows 동작에 따라 노란 캡쳐 테두리가 보일 수 있습니다. DXGI와 GDI도 비교용으로 제공하지만, 설정 단계에서 선택한 게임 창만 안정적으로 캡쳐하는 데에는 WGC가 가장 유리합니다.
-
-## 안전 경계
-
-Mabinogi Overlay는 다음을 의도적으로 하지 않습니다.
-
-- 게임 메모리 읽기
-- 프로세스 인젝션
-- DLL 인젝션
-- 게임 렌더러 훅
-- 게임 입력 자동화
-- 안티치트 우회 또는 은닉 동작
-- 패킷 감청
-
-Windows 캡쳐 API와 별도 투명 오버레이 창만 사용합니다.
+Mabinogi Overlay는 [MIT License](../LICENSE)로 배포됩니다. WPF-UI 및 Vortice 패키지를 포함한 외부 의존성은 각자의 라이선스를 따릅니다.
