@@ -1,84 +1,73 @@
 using System.Threading;
 using System.Windows;
-using System.Windows.Interop;
-using TestOverlay.App.Native;
 
 namespace TestOverlay.App.Services;
 
 public sealed class SingleInstanceCoordinator : IDisposable
 {
-    private const string MutexName = @"Local\Nichipe.MabinogiOverlay";
-    private const string ActivationMessageName = "Nichipe.MabinogiOverlay.Activate";
+    private readonly string _mutexName;
+    private readonly EventWaitHandle _activation;
     private Mutex? _mutex;
-    private HwndSource? _source;
+    private RegisteredWaitHandle? _listener;
     private bool _ownsMutex;
-    private uint _activationMessage;
+    private int _disposed;
+
+    public SingleInstanceCoordinator() : this(@"Local\Nichipe.MabinogiOverlay") { }
+
+    internal SingleInstanceCoordinator(string name)
+    {
+        _mutexName = name;
+        // Keep an early activation request pending until the primary window is ready.
+        _activation = new EventWaitHandle(false, EventResetMode.AutoReset, name + ".Activate");
+    }
 
     public bool TryAcquirePrimary()
     {
-        _mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
-        _ownsMutex = createdNew;
-        return createdNew;
+        if (_ownsMutex) return true;
+        _mutex ??= new Mutex(false, _mutexName);
+        try { _ownsMutex = _mutex.WaitOne(0); }
+        catch (AbandonedMutexException) { _ownsMutex = true; }
+        return _ownsMutex;
     }
 
-    public void SignalPrimaryInstance()
-    {
-        var message = ActivationMessage();
-        if (message != 0)
-        {
-            Win32Methods.PostMessage(Win32Methods.HwndBroadcast, message, nint.Zero, nint.Zero);
-        }
-    }
+    public void SignalPrimaryInstance() => _activation.Set();
 
     public void Attach(Window window, Action activate)
     {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(activate);
-        _source = HwndSource.FromHwnd(new WindowInteropHelper(window).Handle);
-        _source?.AddHook(Hook);
-        return;
-
-        nint Hook(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
+        Listen(() =>
         {
-            if ((uint)message != ActivationMessage())
-            {
-                return nint.Zero;
-            }
+            if (!window.Dispatcher.HasShutdownStarted)
+                window.Dispatcher.BeginInvoke(() =>
+                {
+                    if (Volatile.Read(ref _disposed) == 0) activate();
+                });
+        });
+    }
 
-            handled = true;
-            window.Dispatcher.BeginInvoke(activate);
-            return nint.Zero;
-        }
+    internal void Listen(Action activate)
+    {
+        _listener?.Unregister(null);
+        _listener = ThreadPool.RegisterWaitForSingleObject(_activation, (_, _) =>
+        {
+            if (Volatile.Read(ref _disposed) == 0) activate();
+        }, null, Timeout.Infinite, executeOnlyOnce: false);
     }
 
     public void Dispose()
     {
-        if (_source is not null)
-        {
-            // The HwndSource is owned by WPF. It removes all hooks when the
-            // window closes, so do not dispose it here.
-            _source = null;
-        }
-
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _listener?.Unregister(null);
+        _listener = null;
+        _activation.Dispose();
         if (_ownsMutex)
         {
-            try
-            {
-                _mutex?.ReleaseMutex();
-            }
-            catch (ApplicationException)
-            {
-                // The process is already shutting down or ownership was lost.
-            }
+            try { _mutex?.ReleaseMutex(); }
+            catch (ApplicationException) { }
         }
-
         _mutex?.Dispose();
         _mutex = null;
         _ownsMutex = false;
     }
-
-    private uint ActivationMessage() =>
-        _activationMessage != 0
-            ? _activationMessage
-            : _activationMessage = Win32Methods.RegisterWindowMessage(ActivationMessageName);
 }
