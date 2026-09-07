@@ -14,7 +14,21 @@ Development handoff and architecture notes are available at [docs/CODEX_PROJECT_
 
 Mabinogi Overlay is an unofficial utility and is not affiliated with, endorsed by, or supported by Nexon. Use it at your own discretion and follow the rules that apply to your game service region.
 
-Current version: `0.0.5-beta`
+Current version: `0.0.6-beta`
+
+Download the Windows x64 portable ZIP from the [0.0.6-beta release](https://github.com/Nichipe-JCM/Mabinogi-Overlay/releases/tag/0.0.6-beta). Extract the entire archive and run `Mabinogi Overlay.exe`; the .NET runtime is included.
+
+See the [English release notes](docs/releases/0.0.6-beta/RELEASE_NOTES.md) or [Korean changelog](docs/releases/0.0.6-beta/CHANGELOG.ko.md).
+
+### New in 0.0.6-beta
+
+- Reuses DXGI capture resources and CPU composition buffers, and moves desktop capture waits off the UI thread.
+- Improves capture stop/restart handling, stale-frame rejection, and overlay position recovery.
+- Preserves recoverable profile backups and retries unsaved profile and Erin alarm changes with visible warnings.
+- Activates the existing window on a second launch and improves tray, layout, and monitor controls.
+- Includes 158 passing unit tests and Windows build CI. Actual game, GPU, and mixed-DPI behavior still requires environment-specific verification.
+
+This beta uses the project's temporary self-signed certificate with a timestamp. Windows may display a trust warning. Guide screenshots are deferred to a later version; the text guide remains available.
 
 This program was developed with assistance from OpenAI Codex and ChatGPT.
 

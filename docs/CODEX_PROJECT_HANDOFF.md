@@ -13,9 +13,9 @@ The project must remain within this safety boundary:
 
 - Repository: `G:\gpt\git\testoverlayproj`
 - Stable integration branch: `develop`
-- Active stabilization branch: `codex/msr-stabilization`
-- Next planned release branch: `version/0.0.5-beta`
-- Current app version in the project file: `0.0.5-beta`
+- Active release branch: `version/0.0.6-beta`
+- Test tooling branch: `codex/test-tools` (excluded from product integration)
+- Current app version in the project file: `0.0.6-beta`
 - Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
 - Follow the repository-root `AGENTS.md` for working rules. Commit verified changes by feature and push the working branch by default unless the user requests a hold.
 
@@ -138,8 +138,8 @@ The current `develop` baseline includes the profile, tray, guide, runtime, alert
 ## Known Technical Risks
 
 1. `MainWindow.xaml.cs` is a large orchestration file. New work should avoid adding more unrelated state directly there when a focused service/controller can own it.
-2. DXGI currently creates capture resources for each captured frame. At high FPS this is materially more expensive than WGC's persistent frame session.
-3. CPU render paths copy full frames into managed memory before cropping or compositing. This can be expensive at high resolution.
+2. DXGI now reuses capture resources. Device loss, monitor changes, and long-running capture still require hardware runtime verification.
+3. CPU composition now reuses output and scratch buffers. End-to-end capture/render cost still requires hardware measurements.
 4. Buff times use one batch OCR pass over the time column. Missing or ambiguous rows fall back to sequential row OCR, so repeated fallbacks can still extend the effective interval.
 5. Monitor OCR and template matching require user runtime validation across UI scale, map brightness, and installed Windows OCR language packs.
 6. Existing legacy handoff and patch-note files were replaced or updated to avoid stale instructions. Keep future documentation in UTF-8.
@@ -150,7 +150,7 @@ The current `develop` baseline includes the profile, tray, guide, runtime, alert
 2. Keep Release build and unit regression results separate from user-run Windows/game runtime verification.
 3. Review accessibility names and keyboard behavior for the custom title bar and high-priority dialogs.
 4. Measure DXGI resource churn, full-frame managed copies, high-FPS CPU rendering, and OCR fallback cadence before starting broad performance refactors.
-5. Merge the verified stabilization work into `develop`, create `version/0.0.5-beta`, and perform signing/checksum/release work only from the reviewed release commit.
+5. Stabilization is merged into `develop`; package 0.0.6-beta from `version/0.0.6-beta`. Follow the release notes under `docs/releases/0.0.6-beta` and sign/checksum the final release artifacts.
 
 ## September 7 defect fixes
 
