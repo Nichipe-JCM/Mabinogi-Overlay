@@ -43,6 +43,7 @@ internal static class Program
         }
         var json = JsonSerializer.Serialize(new { mode = "synthetic-cpu-compositor; excludes capture, OCR, display and native allocations",
             utc = DateTimeOffset.UtcNow, runtime = Environment.Version.ToString(), processorCount = Environment.ProcessorCount,
+            tieredCompilation = Environment.GetEnvironmentVariable("DOTNET_TieredCompilation"),
             results = reports }, new JsonSerializerOptions { WriteIndented = true });
         Console.WriteLine(json);
         if (args.Length > 0) File.WriteAllText(Path.GetFullPath(args[0]), json);
