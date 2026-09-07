@@ -19,7 +19,10 @@ public sealed class CaptureSessionCoordinator
     private GraphicsCaptureItem? _subscribedCaptureItem;
     private Exception? _captureSourceException;
     private int _captureSourceGeneration;
-    private readonly SemaphoreSlim _desktopCaptureGate = new(1, 1);
+    private readonly CaptureWorkQueue _desktopWork = new();
+    private long _captureSamples;
+    private double _captureMilliseconds;
+    private long _captureAllocatedBytes;
 
     public CaptureSessionCoordinator(AppLog log)
     {
@@ -109,16 +112,17 @@ public sealed class CaptureSessionCoordinator
         var window = SelectedWindow;
         if (window is null) return null;
         var generation = Volatile.Read(ref _captureSourceGeneration);
-        await _desktopCaptureGate.WaitAsync(cancellationToken);
-        try
-        {
-            var frame = await Task.Run(() => backend == CaptureBackend.DxgiDesktopDuplication
-                ? _dxgiCapture.CaptureClientArea(window)
-                : _windowCapture.CaptureClientArea(window), cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-            return generation == Volatile.Read(ref _captureSourceGeneration) ? frame : null;
-        }
-        finally { _desktopCaptureGate.Release(); }
+        var frame = await _desktopWork.RunAsync(() => backend == CaptureBackend.DxgiDesktopDuplication
+            ? _dxgiCapture.CaptureClientArea(window)
+            : _windowCapture.CaptureClientArea(window), (elapsed, allocated) =>
+            {
+                _captureMilliseconds += elapsed;
+                _captureAllocatedBytes += allocated;
+                if (++_captureSamples % 120 == 0)
+                    _log.Info($"Desktop capture metrics: backend={backend}, samples={_captureSamples}, " +
+                        $"avgMs={_captureMilliseconds / _captureSamples:0.000}, managedBytesPerFrame={_captureAllocatedBytes / _captureSamples}, dxgiSessions={_dxgiCapture.SessionCreationCount}");
+            }, cancellationToken);
+        return generation == Volatile.Read(ref _captureSourceGeneration) ? frame : null;
     }
 
     public BitmapSource? CaptureCurrentFrame(CaptureBackend backend)
@@ -151,7 +155,17 @@ public sealed class CaptureSessionCoordinator
         _wgcCapture.StartLiveCapture(WgcSelection.Item, maxFps);
     }
 
-    public void StopLiveWgcCapture() => _wgcCapture.StopLiveCapture();
+    public void StopLiveWgcCapture()
+    {
+        _wgcCapture.StopLiveCapture();
+        _ = ResetDesktopCaptureAsync();
+    }
+
+    private async Task ResetDesktopCaptureAsync()
+    {
+        try { await _desktopWork.ResetAsync(_dxgiCapture.Reset); }
+        catch (Exception exception) { _log.Error("Desktop capture cleanup failed.", exception); }
+    }
 
     public bool TryGetLatestWgcFrame(out BitmapSource? frame) =>
         _wgcCapture.TryGetLatestFrame(out frame);
