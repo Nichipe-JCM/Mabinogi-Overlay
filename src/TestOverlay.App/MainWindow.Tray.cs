@@ -60,9 +60,11 @@ public partial class MainWindow
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         var profileSaved = FlushProfileAutoSave();
+        Window exitOwner = _compactControlWindow is { IsVisible: true } visibleCompact ? visibleCompact : this;
         if (_isAppExitRequested)
         {
-            if (!profileSaved && !ResolveProfileSaveFailureBeforeExit())
+            if ((!profileSaved && !ResolveProfileSaveFailureBeforeExit()) ||
+                !ErinTimerPanel.ConfirmExitWithUnsavedSettings(exitOwner))
             {
                 e.Cancel = true;
                 CancelPendingExit();
@@ -98,7 +100,8 @@ public partial class MainWindow
             return;
         }
 
-        if (!profileSaved && !ResolveProfileSaveFailureBeforeExit())
+        if ((!profileSaved && !ResolveProfileSaveFailureBeforeExit()) ||
+                !ErinTimerPanel.ConfirmExitWithUnsavedSettings(exitOwner))
         {
             e.Cancel = true;
             return;

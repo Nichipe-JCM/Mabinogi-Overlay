@@ -653,3 +653,7 @@ profile.backup.repair.failed=Loaded the backup, but could not repair the origina
 
 monitor.runtime.failed=Monitoring stopped: {0}. Check the capture target and restart the overlay.
 monitor.ocr.unavailable=Windows OCR is unavailable. Install OCR support for a Windows language before enabling monitoring.
+
+erin.save.failed=Alarm settings have not been saved. Retrying every five seconds. Check the settings folder permissions.
+erin.save.exit.confirm=Alarm changes could not be saved. Exit and discard the unsaved changes?
+erin.save.failed.title=Unsaved alarm settings
