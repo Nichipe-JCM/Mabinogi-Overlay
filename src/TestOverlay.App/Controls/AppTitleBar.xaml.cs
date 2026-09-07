@@ -1,4 +1,6 @@
-﻿using System.Windows;
+using System.Windows.Automation;
+using TestOverlay.App.Services;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -24,12 +26,14 @@ public partial class AppTitleBar : UserControl
             return;
         }
 
+        LocalizationService.Instance.LanguageChanged += LanguageChanged;
         _window.StateChanged += Window_StateChanged;
         UpdateMaximizeButton();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        LocalizationService.Instance.LanguageChanged -= LanguageChanged;
         if (_window is not null)
         {
             _window.StateChanged -= Window_StateChanged;
@@ -96,10 +100,22 @@ public partial class AppTitleBar : UserControl
             return;
         }
 
+        LabelButton(MinimizeButton, "window.minimize");
+        LabelButton(CloseButton, "window.close");
+        LabelButton(MaximizeButton, window.WindowState == WindowState.Maximized ? "window.restore" : "window.maximize");
         MaximizeButton.Visibility = CanResize(window) ? Visibility.Visible : Visibility.Collapsed;
         MaximizeIcon.Text = window.WindowState == WindowState.Maximized
             ? char.ConvertFromUtf32(0x1F5D7)
             : char.ConvertFromUtf32(0x1F5D6);
+    }
+
+    private void LanguageChanged(object? sender, EventArgs e) => UpdateMaximizeButton();
+
+    private static void LabelButton(Button button, string key)
+    {
+        var label = L.T(key);
+        button.ToolTip = label;
+        AutomationProperties.SetName(button, label);
     }
 
     private static bool CanResize(Window window) =>
