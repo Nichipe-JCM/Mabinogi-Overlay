@@ -19,6 +19,7 @@ public sealed class CaptureSessionCoordinator
     private GraphicsCaptureItem? _subscribedCaptureItem;
     private Exception? _captureSourceException;
     private int _captureSourceGeneration;
+    private readonly SemaphoreSlim _desktopCaptureGate = new(1, 1);
 
     public CaptureSessionCoordinator(AppLog log)
     {
@@ -98,6 +99,27 @@ public sealed class CaptureSessionCoordinator
     }
 
     public BitmapSource Crop(BitmapSource source, Rect rect) => _windowCapture.Crop(source, rect);
+
+    public async Task<BitmapSource?> CaptureCurrentFrameAsync(CaptureBackend backend, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (LastLiveCaptureException is { } failure)
+            throw new InvalidOperationException("The selected capture source is unavailable.", failure);
+        if (backend == CaptureBackend.Wgc) return CaptureCurrentFrame(backend);
+        var window = SelectedWindow;
+        if (window is null) return null;
+        var generation = Volatile.Read(ref _captureSourceGeneration);
+        await _desktopCaptureGate.WaitAsync(cancellationToken);
+        try
+        {
+            var frame = await Task.Run(() => backend == CaptureBackend.DxgiDesktopDuplication
+                ? _dxgiCapture.CaptureClientArea(window)
+                : _windowCapture.CaptureClientArea(window), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return generation == Volatile.Read(ref _captureSourceGeneration) ? frame : null;
+        }
+        finally { _desktopCaptureGate.Release(); }
+    }
 
     public BitmapSource? CaptureCurrentFrame(CaptureBackend backend)
     {

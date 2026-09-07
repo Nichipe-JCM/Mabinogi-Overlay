@@ -188,31 +188,15 @@ public partial class MainWindow
             return;
         }
 
-        BitmapSource? frame;
-        try
-        {
-            frame = CaptureMonitorFrame();
-        }
-        catch (Exception exception)
-        {
-            _log.Error("Monitor value capture failed.", exception);
-            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
-            return;
-        }
-
-        if (frame is null)
-        {
-            _nextMonitorValueRecognitionAt = DateTimeOffset.UtcNow.AddSeconds(MonitorRecognitionIntervalSeconds - 1);
-            return;
-        }
-        var frameCapturedAt = DateTimeOffset.UtcNow;
-
         _isMonitorValueRecognitionBusy = true;
         var generation = _monitorValueRecognitionGeneration;
         var cancellation = _monitorRecognitionCancellation;
         var cancellationToken = cancellation.Token;
         try
         {
+            var frame = await _captureSession.CaptureCurrentFrameAsync(CurrentCaptureBackend, cancellationToken);
+            if (generation != _monitorValueRecognitionGeneration || !_overlayRuntime.IsRunning || frame is null) return;
+            var frameCapturedAt = DateTimeOffset.UtcNow;
             var visibilityRoi = MonitorVisibilityRoi(shouldReadBuffs, shouldReadTuairim);
             if (visibilityRoi is Rect roi)
             {
@@ -388,6 +372,12 @@ public partial class MainWindow
         catch (Exception exception)
         {
             _log.Error("Monitor value recognition failed.", exception);
+            if (generation == _monitorValueRecognitionGeneration)
+            {
+                StopOverlay(setStatus: false);
+                ShowInAppNotice(L.F("monitor.runtime.failed", exception.Message));
+                SetStatus(L.F("monitor.runtime.failed", exception.Message));
+            }
         }
         finally
         {
@@ -452,9 +442,6 @@ public partial class MainWindow
             TryFireBuffAlert(result.Timer, previousSeconds, result.Timer.RemainingSeconds);
         }
     }
-    private BitmapSource? CaptureMonitorFrame()
-        => _captureSession.CaptureCurrentFrame(CurrentCaptureBackend);
-
     private static int CompensateCapturedTimerValue(int capturedSeconds, DateTimeOffset capturedAt)
     {
         if (capturedSeconds <= 0)

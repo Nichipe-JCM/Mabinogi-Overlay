@@ -359,7 +359,7 @@ public sealed class OverlayRuntimeController : IDisposable
         }
     }
 
-    private void RefreshTimer_Tick(object? sender, EventArgs e)
+    private async void RefreshTimer_Tick(object? sender, EventArgs e)
     {
         var options = _options;
         if (options is null ||
@@ -400,45 +400,29 @@ public sealed class OverlayRuntimeController : IDisposable
                 return;
             }
 
-            var frame = GetLiveFrame(options.CaptureBackend);
+            var frame = await _captureSession.CaptureCurrentFrameAsync(options.CaptureBackend);
+            if (!ReferenceEquals(options, _options)) return;
             if (frame is null)
             {
                 return;
             }
 
+            _cpuRenderClock.Restart();
             RenderCpuFrame(options, frame);
             RecordCpuRenderFrame(_cpuRenderClock.ElapsedTicks);
         }
         catch (Exception exception)
         {
+            if (!ReferenceEquals(options, _options)) return;
             _cpuStatsErrors++;
-            LogCpuStallIfNeeded(options, _cpuRenderClock.ElapsedTicks, failed: true);
             _log.Error("Live overlay refresh failed.", exception);
             Stop();
             RuntimeFailed?.Invoke(exception);
         }
         finally
         {
-            _isRefreshing = false;
+            if (ReferenceEquals(options, _options)) _isRefreshing = false;
         }
-    }
-
-    private BitmapSource? GetLiveFrame(CaptureBackend backend)
-    {
-        if (backend != CaptureBackend.Wgc)
-        {
-            return _captureSession.CaptureCurrentFrame(backend)
-                   ?? throw new InvalidOperationException("The selected capture source is unavailable.");
-        }
-
-        if (_captureSession.LastLiveCaptureException is not null)
-        {
-            throw new InvalidOperationException(
-                "Live WGC capture failed.",
-                _captureSession.LastLiveCaptureException);
-        }
-
-        return _captureSession.TryGetLatestWgcFrame(out var frame) ? frame : null;
     }
 
     private void RenderCpuFrame(OverlayRuntimeOptions options, BitmapSource frame)

@@ -1258,6 +1258,13 @@ public partial class MainWindow : Window
         try
         {
             CommitCustomTimerEditor();
+            if (!_monitorTestMode && ((_buffMonitorEnabled && _selectedBuffNameKeys.Count > 0) || _tuairimMonitorEnabled)
+                && !_monitorValueRecognition.IsAvailable)
+            {
+                ShowInAppNotice(L.T("monitor.ocr.unavailable"));
+                SetStatus(L.T("monitor.ocr.unavailable"));
+                return;
+            }
             var result = await _overlayRuntime.StartAsync(
                 this,
                 new OverlayRuntimeOptions(

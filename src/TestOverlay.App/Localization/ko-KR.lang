@@ -650,3 +650,6 @@ profile.save.failure.dialog.description = 현재 프로필을 저장하지 못�
 profile.save.failure.dialog.discard = 저장하지 않고 종료
 
 profile.backup.repair.failed=백업을 불러왔지만 원본 파일을 복구하지 못했습니다. 프로필 폴더의 쓰기 권한을 확인해 주세요.
+
+monitor.runtime.failed=모니터링이 중지되었습니다: {0}. 캡처 대상을 확인하고 오버레이를 다시 시작해 주세요.
+monitor.ocr.unavailable=Windows OCR을 사용할 수 없습니다. Windows 언어의 OCR 지원을 설치한 후 모니터링을 켜 주세요.

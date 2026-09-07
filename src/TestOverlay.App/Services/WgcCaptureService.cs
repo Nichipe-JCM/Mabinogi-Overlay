@@ -26,6 +26,7 @@ public sealed class WgcCaptureService
     private GraphicsCaptureSession? _liveSession;
     private TypedEventHandler<Direct3D11CaptureFramePool, object>? _liveFrameArrivedHandler;
     private BitmapSource? _latestFrame;
+    private long _latestFrameTicks;
     private int _processingLiveGeneration;
     private int _liveGeneration;
     private int _liveFrameWidth;
@@ -188,10 +189,14 @@ public sealed class WgcCaptureService
     {
         lock (_sync)
         {
-            frame = _latestFrame;
+            frame = IsFrameFresh(_latestFrameTicks, Stopwatch.GetTimestamp(), Stopwatch.Frequency) ? _latestFrame : null;
             return frame is not null;
         }
     }
+
+    internal static bool IsFrameFresh(long capturedTicks, long nowTicks, long frequency) =>
+        capturedTicks > 0 && frequency > 0 && nowTicks >= capturedTicks &&
+        (nowTicks - capturedTicks) / (double)frequency <= 5;
 
     private void LiveFramePool_FrameArrived(
         Direct3D11CaptureFramePool sender,
@@ -312,6 +317,7 @@ public sealed class WgcCaptureService
                     if (generation == Volatile.Read(ref _liveGeneration))
                     {
                         _latestFrame = bitmap;
+                        _latestFrameTicks = captureTicks;
                     }
                 }
             }

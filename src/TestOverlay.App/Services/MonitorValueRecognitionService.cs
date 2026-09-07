@@ -16,6 +16,8 @@ public sealed partial class MonitorValueRecognitionService
     private const int OcrScale = 8;
     private readonly Lazy<OcrEngine> _engine = new(CreateEngine);
 
+    public bool IsAvailable => OcrEngine.AvailableRecognizerLanguages.Count > 0;
+
     public async Task<BatchBuffTimeReadResult> ReadBuffTimesAsync(
         BitmapSource source,
         Rect monitorRoi,

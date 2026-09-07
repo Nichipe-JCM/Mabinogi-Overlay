@@ -650,3 +650,6 @@ profile.save.failure.dialog.description = The current profile could not be saved
 profile.save.failure.dialog.discard = Exit without saving
 
 profile.backup.repair.failed=Loaded the backup, but could not repair the original file. Check the profile folder permissions.
+
+monitor.runtime.failed=Monitoring stopped: {0}. Check the capture target and restart the overlay.
+monitor.ocr.unavailable=Windows OCR is unavailable. Install OCR support for a Windows language before enabling monitoring.

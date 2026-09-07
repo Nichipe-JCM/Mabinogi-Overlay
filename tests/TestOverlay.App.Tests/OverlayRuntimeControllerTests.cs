@@ -5,6 +5,15 @@ namespace TestOverlay.App.Tests;
 
 public sealed class OverlayRuntimeControllerTests
 {
+    [Theory]
+    [InlineData(0, 1000, false)]
+    [InlineData(1000, 5999, true)]
+    [InlineData(1000, 6001, false)]
+    public void CapturedFramesAreNotReusedIndefinitely(long captured, long now, bool expected)
+    {
+        Assert.Equal(expected, WgcCaptureService.IsFrameFresh(captured, now, 1000));
+    }
+
     [Fact]
     public void NormalizeOverlayPosition_RecoversFromGapBetweenStaggeredMonitors()
     {
