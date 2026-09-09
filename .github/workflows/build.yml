@@ -28,6 +28,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build detection probe
         run: dotnet build tools/TestOverlay.DetectionProbe/TestOverlay.DetectionProbe.csproj -c Release -o artifacts/detection-probe --nologo
+      - name: Build updater
+        run: dotnet build src/TestOverlay.Updater/TestOverlay.Updater.csproj -c Release -o artifacts/updater --nologo
       - name: Upload verification reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -16,6 +16,7 @@ The project must remain within this safety boundary:
 - Active release branch: `version/0.0.6-beta`
 - Test tooling branch: `codex/test-tools` (excluded from product integration)
 - Current app version in the project file: `0.0.6-beta`
+- In-app updater implementation branch: `codex/in-app-updater`; no new release or version bump is implied.
 - Profile management, the in-app guide, and the WGC one-shot capture thread fix are merged into `develop`.
 - Follow the repository-root `AGENTS.md` for working rules. Commit verified changes by feature and push the working branch by default unless the user requests a hold.
 
@@ -41,6 +42,18 @@ dotnet build src\TestOverlay.App\TestOverlay.App.csproj -o C:\Users\cjfal\Docume
 Use a separate output directory because a locally running app can lock the default build output.
 
 ## Architecture
+
+### In-app updater
+
+- `TestOverlay.Update` owns version comparison, unauthenticated GitHub release requests, package validation, signature checks, IPC, and journaled file replacement. `TestOverlay.Updater` is a separately published Windows executable; the app starts its temporary copy before shutting down.
+- Only published regular releases are offered. The main header shows gray for unknown/checking/failure, green for current, and yellow for available. Settings → About contains manual check and install entry points; startup checks do not show a popup.
+- Before installing, show localized in-app notes and the explicit shutdown/restart notice. Missing notes disable the offer. Notes and product ownership lists are fetched from the exact release tag at `docs/updates/<version>/{ko-KR.md,en-US.md,files.json}`. They are excluded from the product ZIP and release assets.
+- Release preparation: review/copy `docs/updates/unreleased` notes to the chosen version, then run `scripts/package-release.ps1 -OutputDirectory <new-directory> -WriteUpdateMetadata`. Commit the generated product list and notes before tagging. Repack without that switch to verify the committed list. `-ValidationOnly` publishes an unsigned local verification package and writes its list alongside the package directory, without editing release metadata.
+- The main executable and updater must both be signed with the pinned publisher certificate. SHA-256 comes from the GitHub asset digest. The elevated worker independently fetches metadata and verifies the package, running-app path, and process identity. Only the worker requests elevation; the original-user coordinator restarts the app.
+- Product files are backed up before replacement; settings and unlisted personal files are preserved. File replacement errors roll back. A confirmed new-app exit during startup also permits rollback. Interrupted or uncertain updates retain their journal/backups and require manual recovery; do not claim power-loss recovery is automatic.
+- Successful installation backups/downloads are cleaned up; completed temporary helper copies are removed before a later update attempt. Failed sessions retain diagnostic files.
+- Existing 0.0.6-beta installations do not contain this updater. The first updater-enabled release needs manual installation and its own tagged metadata before it can update to a later release.
+- Automated coverage includes version ordering, regular-release filtering, missing localized notes, throttling, ETag caching, hash rejection, archive membership/path checks, personal-file preservation, locked-file rollback, and cleanup. GUI, UAC, and complete signed-process restart require separate runtime verification.
 
 ```text
 App startup
