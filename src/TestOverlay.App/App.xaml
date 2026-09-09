@@ -43,6 +43,8 @@
 
             <SolidColorBrush x:Key="ThemeSurface0F172ABrush" Color="#0F172A"/>
             <SolidColorBrush x:Key="ThemeSurface141F2928Brush" Color="#141F2928"/>
+            <SolidColorBrush x:Key="ThemeSurfaceFF202633Brush" Color="#202633"/>
+            <SolidColorBrush x:Key="ThemeSurface4C89DED4Brush" Color="#4C89DED4"/>
             <SolidColorBrush x:Key="ThemeSurface1424272ABrush" Color="#1424272A"/>
             <SolidColorBrush x:Key="ThemeSurface1819C9BDBrush" Color="#1819C9BD"/>
             <SolidColorBrush x:Key="ThemeSurface1A24272ABrush" Color="#1A24272A"/>

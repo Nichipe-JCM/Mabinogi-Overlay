@@ -891,8 +891,8 @@ public partial class LayoutEditorWindow : Window
         var drawingGroup = new DrawingGroup();
         using (var context = drawingGroup.Open())
         {
-            context.DrawRectangle(new SolidColorBrush(Color.FromRgb(32, 38, 51)), null, new Rect(0, 0, gridSize, gridSize));
-            var pen = new Pen(new SolidColorBrush(Color.FromArgb(76, 137, 222, 212)), 1);
+            context.DrawRectangle((Brush)FindResource("ThemeSurfaceFF202633Brush"), null, new Rect(0, 0, gridSize, gridSize));
+            var pen = new Pen((Brush)FindResource("ThemeSurface4C89DED4Brush"), 1);
             context.DrawLine(pen, new Point(0, 0), new Point(gridSize, 0));
             context.DrawLine(pen, new Point(0, 0), new Point(0, gridSize));
         }

@@ -39,7 +39,7 @@ public static class ThemeService
         return (Parse(values.Item1), Parse(values.Item2), Parse(values.Item3));
     }
     public static Color Parse(string value) => (Color)ColorConverter.ConvertFromString(value);
-    private static Color Blend(Color from, Color to, double amount) => Color.FromRgb(
+    internal static Color Blend(Color from, Color to, double amount) => Color.FromRgb(
         (byte)Math.Round(from.R + (to.R - from.R) * amount), (byte)Math.Round(from.G + (to.G - from.G) * amount), (byte)Math.Round(from.B + (to.B - from.B) * amount));
     private static double Brightness(Color color) => (color.R * .2126 + color.G * .7152 + color.B * .0722) / 255;
     public static void Apply(ThemeSettings settings)
@@ -80,14 +80,22 @@ public static class ThemeService
         }
         foreach (var (key, color) in palette)
         {
-            var brush = new SolidColorBrush(color); brush.Freeze(); resources[key] = brush;
+            SetBrush(resources, key, color);
             if (key.EndsWith("Brush") && !key.StartsWith("ThemeSurface")) resources[key[..^5] + "Color"] = color;
         }
-        // WPF UI's implicit controls use these brushes rather than the app's named styles.
-        resources["TextFillColorPrimaryBrush"] = resources["OverlayTextBrush"];
-        resources["TextFillColorSecondaryBrush"] = resources["OverlayMutedBrush"];
-        resources["TextFillColorTertiaryBrush"] = resources["OverlayMutedBrush"];
+        ThemeControlResources.Apply(resources);
     }
+    internal static void SetBrush(ResourceDictionary resources, string key, Color color)
+    {
+        // Keep brush identity so code-created controls with an existing reference update too.
+        if (resources.Contains(key) && resources[key] is SolidColorBrush { IsFrozen: false } existing)
+            existing.Color = color;
+        else
+            resources[key] = new SolidColorBrush(color);
+    }
+    public static Brush Brush(string key, string fallback) =>
+        Application.Current?.TryFindResource(key) as Brush ?? new SolidColorBrush(Parse(fallback));
+
     private static readonly Color ColorsBlack = Color.FromRgb(7, 20, 20);
     private static readonly Color ColorsWhite = Color.FromRgb(255, 255, 255);
 }

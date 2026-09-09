@@ -17,16 +17,16 @@ public static class TuairimGaugePreviewRenderer
         using (var context = visual.RenderOpen())
         {
             context.DrawRoundedRectangle(
-                new SolidColorBrush(Color.FromArgb(230, 17, 19, 21)),
-                new Pen(new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)), 1),
+                ThemeService.Brush("ThemeSurfaceE6111315Brush", "#E6111315"),
+                new Pen(ThemeService.Brush("OverlayAccentBrush", "#89DED4"), 1),
                 new Rect(0.5, 0.5, BaseWidth - 1, BaseHeight - 1),
                 6,
                 6);
 
             var labelTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             var valueTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
-            var label = CreateText(L.T("monitor.tuairim.overlay"), labelTypeface, 11, Brushes.White);
-            var value = CreateText($"{percent}%", valueTypeface, 11, new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)));
+            var label = CreateText(L.T("monitor.tuairim.overlay"), labelTypeface, 11, ThemeService.Brush("OverlayTextBrush", "#ECECEC"));
+            var value = CreateText($"{percent}%", valueTypeface, 11, ThemeService.Brush("OverlayAccentBrush", "#89DED4"));
             context.DrawText(label, new Point(10, 8));
             context.DrawText(value, new Point(BaseWidth - 10 - value.WidthIncludingTrailingWhitespace, 8));
 

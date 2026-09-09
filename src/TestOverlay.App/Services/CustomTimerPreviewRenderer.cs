@@ -17,8 +17,8 @@ public static class CustomTimerPreviewRenderer
         using (var context = visual.RenderOpen())
         {
             context.DrawRoundedRectangle(
-                new SolidColorBrush(Color.FromArgb(230, 17, 19, 21)),
-                new Pen(new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)), 1),
+                ThemeService.Brush("ThemeSurfaceE6111315Brush", "#E6111315"),
+                new Pen(ThemeService.Brush("OverlayAccentBrush", "#89DED4"), 1),
                 new Rect(0.5, 0.5, BaseWidth - 1, baseHeight - 1),
                 6,
                 6);
@@ -56,8 +56,8 @@ public static class CustomTimerPreviewRenderer
         string time,
         double y)
     {
-        var nameText = Text(name, nameFace, Brushes.White);
-        var timeText = Text(time, timeFace, new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)));
+        var nameText = Text(name, nameFace, ThemeService.Brush("OverlayTextBrush", "#ECECEC"));
+        var timeText = Text(time, timeFace, ThemeService.Brush("OverlayAccentBrush", "#89DED4"));
         context.DrawText(nameText, new Point(10, y));
         context.DrawText(timeText, new Point(BaseWidth - 10 - timeText.WidthIncludingTrailingWhitespace, y));
     }

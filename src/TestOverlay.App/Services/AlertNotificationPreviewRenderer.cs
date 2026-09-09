@@ -20,8 +20,8 @@ public static class AlertNotificationPreviewRenderer
         using (var context = visual.RenderOpen())
         {
             context.DrawRoundedRectangle(
-                new SolidColorBrush(Color.FromArgb(235, 17, 19, 21)),
-                new Pen(new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)), 1),
+                ThemeService.Brush("ThemeSurfaceF0111315Brush", "#F0111315"),
+                new Pen(ThemeService.Brush("OverlayAccentBrush", "#89DED4"), 1),
                 new Rect(0.5, 0.5, BaseWidth - 1, baseHeight - 1),
                 6,
                 6);
@@ -65,6 +65,6 @@ public static class AlertNotificationPreviewRenderer
             FlowDirection.LeftToRight,
             typeface,
             11,
-            new SolidColorBrush(Color.FromRgb(0xFF, 0xD2, 0xCC)),
+            ThemeService.Brush("OverlayDangerBrush", "#FFB4AB"),
             1);
 }

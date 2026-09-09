@@ -10,8 +10,6 @@ namespace TestOverlay.App;
 
 public partial class CompactControlWindow : Window
 {
-    private static readonly Brush RunningBrush = new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4));
-    private static readonly Brush StoppedBrush = new SolidColorBrush(Color.FromRgb(0x78, 0x7D, 0x82));
     private readonly MainWindow _host;
     private bool _closingFromHost;
     private bool _refreshing;
@@ -46,7 +44,8 @@ public partial class CompactControlWindow : Window
             var state = _host.GetCompactControlState();
             ProfileText.Text = L.F("compact.profile.arg", state.ProfileName);
             OverlayStateText.Text = L.T(state.IsOverlayRunning ? "compact.overlay.running" : "compact.overlay.stopped");
-            OverlayStateDot.Fill = state.IsOverlayRunning ? RunningBrush : StoppedBrush;
+            OverlayStateDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty,
+                state.IsOverlayRunning ? "OverlayAccentBrush" : "OverlayMutedBrush");
             OverlayToggleButton.Content = L.T(state.IsOverlayRunning ? "Overlay stop" : "Overlay start");
             BuffAlertsEnabledCheckBox.IsChecked = state.BuffEnabled;
             TuairimAlertsEnabledCheckBox.IsChecked = state.TuairimEnabled;

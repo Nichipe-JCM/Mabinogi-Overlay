@@ -27,8 +27,8 @@ public static class InternalBuffTimerPreviewRenderer
         using (var context = visual.RenderOpen())
         {
             context.DrawRoundedRectangle(
-                new SolidColorBrush(Color.FromArgb(230, 17, 19, 21)),
-                new Pen(new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4)), 1),
+                ThemeService.Brush("ThemeSurfaceE6111315Brush", "#E6111315"),
+                new Pen(ThemeService.Brush("OverlayAccentBrush", "#89DED4"), 1),
                 new Rect(0.5, 0.5, BaseWidth - 1, baseHeight - 1),
                 6,
                 6);
@@ -43,8 +43,8 @@ public static class InternalBuffTimerPreviewRenderer
                 var hasTimer = timer is not null;
                 var value = hasTimer ? $"{timer!.RemainingSeconds / 60:00}:{timer.RemainingSeconds % 60:00}" : "--:--";
                 var brush = hasTimer && timer!.RemainingSeconds <= 30
-                    ? new SolidColorBrush(Color.FromRgb(0xFF, 0xB4, 0xAB))
-                    : new SolidColorBrush(Color.FromRgb(0x89, 0xDE, 0xD4));
+                    ? ThemeService.Brush("OverlayDangerBrush", "#FFB4AB")
+                    : ThemeService.Brush("OverlayAccentBrush", "#89DED4");
                 var time = CreateText(value, timeTypeface, 11, brush);
                 context.DrawImage(BuffVisualCatalog.ActiveIcon(key), new Rect(8, y, 18, 18));
                 var badge = BuildBadge(timer);
@@ -60,7 +60,7 @@ public static class InternalBuffTimerPreviewRenderer
             if (visibleKeys.Count == 0)
             {
                 var nameTypeface = new Typeface(new FontFamily("Noto Sans KR, Malgun Gothic"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-                var empty = CreateText(L.T("monitor.buff.none.selected"), nameTypeface, 11, Brushes.Gray);
+                var empty = CreateText(L.T("monitor.buff.none.selected"), nameTypeface, 11, ThemeService.Brush("OverlayMutedBrush", "#A6ABAF"));
                 context.DrawText(empty, new Point(8, 6));
             }
         }
