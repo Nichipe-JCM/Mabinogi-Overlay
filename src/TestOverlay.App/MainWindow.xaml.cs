@@ -1100,6 +1100,7 @@ public partial class MainWindow : Window
         {
             Owner = this
         };
+        dialog.ApplySettings = ApplySettingsFromDialog;
         if (dialog.ShowDialog() != true)
         {
             if (dialog.ActiveProfileDeleted)
@@ -1120,10 +1121,15 @@ public partial class MainWindow : Window
             }
             SetStatus(dialog.ProfileListChanged
                 ? L.T("profile.changes.applied")
-                : L.T("Settings canceled."));
+                : L.T(dialog.HasApplied ? "settings.applied" : "Settings canceled."));
             return;
         }
 
+        if (dialog.UpdateRequested) OpenUpdateDialog();
+    }
+
+    private bool ApplySettingsFromDialog(SettingsWindow dialog)
+    {
         try
         {
             var directory = _settingsStore.NormalizeProfileDirectory(dialog.ProfileDirectory);
@@ -1136,7 +1142,7 @@ public partial class MainWindow : Window
             if (!directoryChanged && !FlushProfileAutoSave())
             {
                 SetStatus(L.T("profile.settings.recovery.same.folder.failed"));
-                return;
+                return false;
             }
 
             System.IO.Directory.CreateDirectory(directory);
@@ -1147,7 +1153,7 @@ public partial class MainWindow : Window
                 {
                     _profileStore.SetProfileDirectory(previousDirectory);
                     SetStatus(L.T("profile.settings.recovery.new.folder.failed"));
-                    return;
+                    return false;
                 }
             }
 
@@ -1173,14 +1179,14 @@ public partial class MainWindow : Window
                 _selectedProfileName = ProfileStore.NormalizeProfileName(targetProfileName);
                 if (!SaveActiveProfile(showStatus: false))
                 {
-                    return;
+                    return false;
                 }
             }
             RefreshProfileList(targetProfileName);
             if ((dialog.ProfileApplyRequested || dialog.ActiveProfileDeleted) &&
                 !LoadSelectedProfile(allowDeferredQuickslots: true))
             {
-                return;
+                return false;
             }
             _appSettings.ActiveProfileName = ReadSelectedProfileName();
             _settingsStore.Save(_appSettings);
@@ -1195,7 +1201,7 @@ public partial class MainWindow : Window
         {
             _log.Error("Failed to save settings.", exception);
             SetStatus(L.F("Settings save failed: {0}", exception.Message));
-            return;
+            return false;
         }
 
         ScheduleProfileAutoSave();
@@ -1209,7 +1215,7 @@ public partial class MainWindow : Window
             _profileStore.ProfileDirectory,
             rendererStatus,
             L.T(CaptureBackendLabel(CurrentCaptureBackend))));
-        if (dialog.UpdateRequested) OpenUpdateDialog();
+        return true;
     }
 
     private void CloseManualSectionPopup()

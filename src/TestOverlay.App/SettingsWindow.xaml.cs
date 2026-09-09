@@ -9,7 +9,9 @@ namespace TestOverlay.App;
 public partial class SettingsWindow : Window
 {
     private readonly string _defaultProfileDirectory;
-    private readonly string _initialProfileDirectory;
+    private string _initialProfileDirectory;
+    public Func<SettingsWindow, bool>? ApplySettings { get; set; }
+    public bool HasApplied { get; private set; }
     private readonly string _logPath;
     private readonly DateTimeOffset _logSessionStartedAt;
     private string _activeProfileName;
@@ -110,7 +112,7 @@ public partial class SettingsWindow : Window
         UpdateInfoText.Text = L.T(MainWindow.UpdateStatusKey(_updates?.Status ?? UpdateStatus.Unknown));
         if (_updates?.Offer is { } offer) UpdateInfoText.Text += Environment.NewLine + L.F("update.new.version", offer.Release.Version);
         var wait = _updates?.CheckWaitSeconds ?? 0;
-        UpdateCooldownText.Text = wait > 0 ? L.F("update.cooldown", wait) : L.T("update.interval");
+        CheckUpdateButton.Content = wait > 0 ? L.F("update.check.countdown", wait) : L.T("update.check");
         CheckUpdateButton.IsEnabled = _updates is not null && _updates.Status != UpdateStatus.Checking && wait == 0;
         OpenUpdateButton.IsEnabled = _updates?.Status == UpdateStatus.Available;
     }
@@ -157,6 +159,7 @@ public partial class SettingsWindow : Window
         RuntimeSectionPanel.Visibility = selectedTag == "Runtime" ? Visibility.Visible : Visibility.Collapsed;
         AboutSectionPanel.Visibility = selectedTag == "About" ? Visibility.Visible : Visibility.Collapsed;
         ThemeSectionPanel.Visibility = selectedTag == "Theme" ? Visibility.Visible : Visibility.Collapsed;
+        SettingsContentScroll.ScrollToTop();
     }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -466,7 +469,9 @@ public partial class SettingsWindow : Window
         NormalizeRuntimeSelection();
     }
 
-    private void Commit()
+    private void ApplyButton_Click(object sender, RoutedEventArgs e) => Commit(closeAfterApply: false);
+
+    private void Commit(bool closeAfterApply = true)
     {
         if (!TryReadTheme(out var theme))
         {
@@ -498,7 +503,24 @@ public partial class SettingsWindow : Window
                 ? closeBehaviorOption.Behavior
                 : AppCloseBehavior.Ask;
             SaveOcrDiagnosticImages = SaveOcrDiagnosticImagesCheckBox.IsChecked == true;
-            DialogResult = true;
+            if (ApplySettings is not null && !ApplySettings(this))
+            {
+                ApplyStatusText.Text = L.T("settings.apply.failed");
+                return;
+            }
+            HasApplied = true;
+            _initialProfileDirectory = ProfileDirectory;
+            if (ProfileApplyRequested && RequestedProfileName is not null) _activeProfileName = RequestedProfileName;
+            ProfileApplyRequested = false;
+            RequestedProfileName = null;
+            ActiveProfileDeleted = ActiveProfileRenamed = ProfileListChanged = false;
+            ProfileRecoveryNotice.Visibility = Visibility.Collapsed;
+            ProfileManagementPanel.IsEnabled = true;
+            RefreshManagedProfiles(_activeProfileName);
+            InitializeTheme(SelectedTheme);
+            RefreshAppliedOptionLabels();
+            ApplyStatusText.Text = L.T("settings.applied");
+            if (closeAfterApply) DialogResult = true;
         }
         catch (Exception exception)
         {
@@ -512,6 +534,28 @@ public partial class SettingsWindow : Window
     }
 
     private ProfileStore CreateProfileStore() => new(GetProfileDirectoryFromBox());
+
+    private void RefreshAppliedOptionLabels()
+    {
+        _isNormalizingRuntimeSelection = true;
+        try
+        {
+            RenderModeCombo.ItemsSource = RenderModeCombo.Items.OfType<RenderModeOption>().Select(o => o with { Label = L.T(o.Mode switch
+            { OverlayRenderMode.GpuDxgi => "renderer.gpu.accelerated", OverlayRenderMode.CpuComposited => "renderer.cpu.composited", _ => "renderer.wpf.compatibility" }) }).ToArray();
+            CaptureBackendCombo.ItemsSource = CaptureBackendCombo.Items.OfType<CaptureBackendOption>().Select(o => o with { Label = L.T(o.Backend switch
+            { CaptureBackend.Wgc => "WGC window", CaptureBackend.DxgiDesktopDuplication => "DXGI monitor", _ => "GDI BitBlt" }) }).ToArray();
+            SelectRenderMode(SelectedRenderMode); SelectCaptureBackend(SelectedCaptureBackend);
+            LanguageCombo.ItemsSource = LanguageCombo.Items.OfType<LanguageOption>().Select(o => o with { Label = L.T(o.Language == LocalizationService.Korean ? "language.korean" : "language.english") }).ToArray();
+            SelectLanguage(SelectedLanguage);
+            CloseBehaviorCombo.ItemsSource = CloseBehaviorCombo.Items.OfType<CloseBehaviorOption>().Select(o => o with { Label = L.T(o.Behavior switch
+            { AppCloseBehavior.Exit => "settings.close.behavior.exit", AppCloseBehavior.MinimizeToTray => "settings.close.behavior.tray", _ => "settings.close.behavior.ask" }) }).ToArray();
+            SelectCloseBehavior(SelectedCloseBehavior);
+        }
+        finally { _isNormalizingRuntimeSelection = false; }
+        NormalizeRuntimeSelection();
+        AboutVersionText.Text = L.F("settings.about.version.arg", AppVersion.DisplayVersion);
+        RefreshUpdateInfo();
+    }
 
     private string GetProfileDirectoryFromBox()
     {
@@ -600,11 +644,13 @@ public partial class SettingsWindow : Window
             captureBackend != CaptureBackend.Wgc)
         {
             OkButton.IsEnabled = false;
+            ApplyButton.IsEnabled = false;
             RendererSelectionSummaryText.Text = L.T("renderer.manual.summary.gpu.incompatible");
             return;
         }
 
         OkButton.IsEnabled = true;
+        ApplyButton.IsEnabled = true;
         var requestedRenderMode = automatic
             ? RuntimeConfigurationPolicy.ResolveAutomaticRenderer(captureBackend.Value)
             : renderMode.Value;

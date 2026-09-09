@@ -709,3 +709,8 @@ theme.foreground=Text color
 theme.choose=Choose color
 theme.preview=Preview of your selected background, accent, and text colors.
 theme.invalid=Enter each color as a six-digit HEX value in #RRGGBB format.
+
+update.check.countdown=Check updates ({0}s)
+settings.applied=Settings applied.
+settings.apply.failed=Could not apply settings. Check the save location and status.
+theme.restore.colors=Restore default colors

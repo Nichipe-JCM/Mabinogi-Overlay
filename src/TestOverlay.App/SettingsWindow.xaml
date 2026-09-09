@@ -50,16 +50,16 @@
                         <ListBoxItem Tag="General" Content="General" loc:Localize.ContentKey="settings.section.general"/>
                         <ListBoxItem Tag="Profile" Content="Profile" loc:Localize.ContentKey="Profile"/>
                         <ListBoxItem Tag="Runtime" Content="Runtime" loc:Localize.ContentKey="Runtime"/>
-                        <ListBoxItem Tag="About" Content="About" loc:Localize.ContentKey="settings.section.about"/>
                         <ListBoxItem Tag="Theme" loc:Localize.ContentKey="theme.title"/>
+                        <ListBoxItem Tag="About" Content="About" loc:Localize.ContentKey="settings.section.about"/>
                     </ListBox>
                 </Grid>
             </Border>
 
             <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
                 <Grid Margin="18,16">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <Grid Margin="2,0,10,4">
+                    <ScrollViewer x:Name="SettingsContentScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid Margin="2,0,24,12">
                             <StackPanel x:Name="GeneralSectionPanel">
                                 <TextBlock Text="General" loc:Localize.TextKey="settings.section.general"
                                            FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource OverlayAccentBrush}"/>
@@ -209,6 +209,7 @@
                                         <TextBox x:Name="ThemeForegroundBox" Grid.Column="1" MaxLength="7" Height="36" TextChanged="ThemeChanged"/>
                                         <Button Grid.Column="2" Margin="8,0,0,0" Padding="12,6" Tag="Foreground" loc:Localize.ContentKey="theme.choose" Click="ChooseThemeColor_Click"/>
                                     </Grid>
+                                    <Button Margin="0,12,0,0" Padding="12,8" HorizontalAlignment="Left" loc:Localize.ContentKey="theme.restore.colors" Click="ResetCustomTheme_Click"/>
                                 </StackPanel>
                                 <TextBlock x:Name="ThemeValidationText" Foreground="{DynamicResource OverlayDangerBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                                 <Border x:Name="ThemePreview" Margin="0,16,0,0" Padding="18" BorderThickness="1" CornerRadius="8">
@@ -229,12 +230,10 @@
                                                    Foreground="{DynamicResource OverlayTextBrush}" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="AboutVersionText" Margin="0,5,0,0" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="UpdateInfoText" Margin="0,18,0,0" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
-                                        <TextBlock x:Name="UpdateCooldownText" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap"/>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
-                                            <Button x:Name="CheckUpdateButton" Padding="12,8" Margin="0,0,8,0" loc:Localize.ContentKey="update.check" Click="CheckUpdate_Click"/>
+                                            <Button x:Name="CheckUpdateButton" MinWidth="160" Padding="12,8" Margin="0,0,8,0" Click="CheckUpdate_Click"/>
                                             <Button x:Name="OpenUpdateButton" Padding="12,8" loc:Localize.ContentKey="update.open" Click="OpenUpdate_Click"/>
                                         </StackPanel>
-                                        <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" loc:Localize.TextKey="update.settings.save.notice"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -245,9 +244,12 @@
         </Grid>
 
         <Grid Grid.Row="2" Margin="0,10,0,0">
-            <Button MinWidth="132" Height="34" Padding="14,0" HorizontalAlignment="Left" Content="Reset settings"
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <TextBlock x:Name="ApplyStatusText" Margin="0,0,0,6" Style="{StaticResource MutedTextStyle}"/>
+            <Button Grid.Row="1" MinWidth="132" Height="34" Padding="14,0" HorizontalAlignment="Left" Content="Reset settings"
                     loc:Localize.ContentKey="Reset settings" Click="ResetSettingsButton_Click"/>
-            <WrapPanel HorizontalAlignment="Right">
+            <WrapPanel Grid.Row="1" HorizontalAlignment="Right">
+                <Button x:Name="ApplyButton" MinWidth="88" Height="34" Padding="14,0" Margin="0,0,8,0" loc:Localize.ContentKey="Apply" Click="ApplyButton_Click"/>
                 <Button x:Name="OkButton" MinWidth="88" Height="34" Padding="14,0" Content="OK" loc:Localize.ContentKey="OK" Click="OkButton_Click"/>
                 <Button MinWidth="88" Height="34" Padding="14,0" Margin="8,0,0,0" Content="Cancel" loc:Localize.ContentKey="Cancel" IsCancel="True"/>
             </WrapPanel>

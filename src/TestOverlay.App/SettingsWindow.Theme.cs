@@ -35,7 +35,7 @@ public partial class SettingsWindow
     private void RefreshThemePreview()
     {
         if (_themeInitializing || ThemeCombo is null || ThemePreview is null) return;
-        ThemeCustomPanel.IsEnabled = (ThemeCombo.SelectedItem as ThemeOption)?.Mode == "Custom";
+        ThemeCustomPanel.Visibility = (ThemeCombo.SelectedItem as ThemeOption)?.Mode == "Custom" ? Visibility.Visible : Visibility.Collapsed;
         if (!TryReadTheme(out var theme)) return;
         var (background, accent, foreground) = ThemeService.Colors(theme);
         ThemePreview.Background = new SolidColorBrush(background);
@@ -47,6 +47,14 @@ public partial class SettingsWindow
         ThemeForegroundSwatch.Background = new SolidColorBrush(ThemeService.Parse(theme.Foreground));
     }
     private void ThemeChanged(object sender, RoutedEventArgs e) => RefreshThemePreview();
+    private void ResetCustomTheme_Click(object sender, RoutedEventArgs e)
+    {
+        var defaults = new ThemeSettings();
+        ThemeBackgroundBox.Text = defaults.Background;
+        ThemeAccentBox.Text = defaults.Accent;
+        ThemeForegroundBox.Text = defaults.Foreground;
+        RefreshThemePreview();
+    }
     private void ChooseThemeColor_Click(object sender, RoutedEventArgs e)
     {
         var box = ((Button)sender).Tag?.ToString() switch { "Background" => ThemeBackgroundBox, "Accent" => ThemeAccentBox, _ => ThemeForegroundBox };

@@ -709,3 +709,8 @@ theme.foreground=글자색
 theme.choose=색상 선택
 theme.preview=현재 선택한 배경·강조색·글자색의 미리보기입니다.
 theme.invalid=색상은 #RRGGBB 형식의 6자리 HEX 값으로 입력해 주세요.
+
+update.check.countdown=업데이트 확인 ({0}초)
+settings.applied=설정을 적용했습니다.
+settings.apply.failed=설정을 적용하지 못했습니다. 저장 경로와 상태를 확인해 주세요.
+theme.restore.colors=기본 색상으로 되돌리기
