@@ -20,7 +20,7 @@
                        VerticalAlignment="Center"
                        FontSize="15"
                        FontWeight="SemiBold"
-                       Foreground="{StaticResource OverlayAccentBrush}"/>
+                       Foreground="{DynamicResource OverlayAccentBrush}"/>
             <StackPanel
                         Orientation="Horizontal"
                         HorizontalAlignment="Right"
@@ -31,7 +31,7 @@
                                FontFamily="Segoe UI Symbol, Segoe UI Emoji, Segoe UI"
                                FontSize="13"
                                FontWeight="Bold"
-                               Foreground="{StaticResource OverlayAccentBrush}"
+                               Foreground="{DynamicResource OverlayAccentBrush}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"/>
                 </Button>
@@ -41,7 +41,7 @@
                                FontFamily="Segoe UI Symbol, Segoe UI Emoji, Segoe UI"
                                FontSize="13"
                                FontWeight="Bold"
-                               Foreground="{StaticResource OverlayAccentBrush}"
+                               Foreground="{DynamicResource OverlayAccentBrush}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"/>
                 </Button>
@@ -49,7 +49,7 @@
                     <TextBlock Text="&#x2715;"
                                FontSize="13"
                                FontWeight="Bold"
-                               Foreground="{StaticResource OverlayAccentBrush}"
+                               Foreground="{DynamicResource OverlayAccentBrush}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"/>
                 </Button>

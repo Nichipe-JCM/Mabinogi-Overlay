@@ -1,4 +1,4 @@
-﻿<Window x:Class="TestOverlay.App.LogWindow"
+<Window x:Class="TestOverlay.App.LogWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:TestOverlay.App.Services"
@@ -11,7 +11,7 @@
         Height="680"
         MinWidth="720"
         MinHeight="420"
-        Background="{StaticResource OverlayBgBrush}"
+        Background="{DynamicResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
@@ -31,7 +31,7 @@
         <controls:AppTitleBar Grid.Row="0"/>
 
         <StackPanel Grid.Row="1" Margin="0,0,0,14">
-            <TextBlock Text="Session Log" loc:Localize.TextKey="Session Log" FontSize="22" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
+            <TextBlock Text="Session Log" loc:Localize.TextKey="Session Log" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource OverlayAccentBrush}"/>
             <TextBlock x:Name="LogPathText" Style="{StaticResource MutedTextStyle}"/>
         </StackPanel>
         <Border Grid.Row="2" Style="{StaticResource GlassCardStyle}">

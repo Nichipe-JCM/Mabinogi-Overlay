@@ -11,7 +11,7 @@
         Height="700"
         MinWidth="600"
         MinHeight="460"
-        Background="{StaticResource OverlayBgBrush}"
+        Background="{DynamicResource OverlayBgBrush}"
         WindowStartupLocation="CenterOwner">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" CornerRadius="8" GlassFrameThickness="0"
@@ -51,6 +51,7 @@
                         <ListBoxItem Tag="Profile" Content="Profile" loc:Localize.ContentKey="Profile"/>
                         <ListBoxItem Tag="Runtime" Content="Runtime" loc:Localize.ContentKey="Runtime"/>
                         <ListBoxItem Tag="About" Content="About" loc:Localize.ContentKey="settings.section.about"/>
+                        <ListBoxItem Tag="Theme" loc:Localize.ContentKey="theme.title"/>
                     </ListBox>
                 </Grid>
             </Border>
@@ -61,7 +62,7 @@
                         <Grid Margin="2,0,10,4">
                             <StackPanel x:Name="GeneralSectionPanel">
                                 <TextBlock Text="General" loc:Localize.TextKey="settings.section.general"
-                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource OverlayAccentBrush}"/>
                                 <TextBlock Margin="0,7,0,18" Text="Language and application behavior."
                                            loc:Localize.TextKey="settings.general.description" Style="{StaticResource MutedTextStyle}"/>
 
@@ -84,13 +85,13 @@
 
                             <StackPanel x:Name="ProfileSectionPanel" Visibility="Collapsed">
                                 <TextBlock Text="Profile" loc:Localize.TextKey="Profile"
-                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource OverlayAccentBrush}"/>
                                 <TextBlock Margin="0,7,0,18" Text="Manage profiles and their storage location."
                                            loc:Localize.TextKey="settings.profile.description" Style="{StaticResource MutedTextStyle}"/>
 
                                 <Border x:Name="ProfileRecoveryNotice" Margin="0,0,0,12"
-                                        Padding="12" Background="#33FFB4AB"
-                                        BorderBrush="{StaticResource OverlayDangerBrush}" BorderThickness="1"
+                                        Padding="12" Background="{DynamicResource ThemeSurface33FFB4ABBrush}"
+                                        BorderBrush="{DynamicResource OverlayDangerBrush}" BorderThickness="1"
                                         CornerRadius="7" Visibility="Collapsed">
                                     <TextBlock TextWrapping="Wrap" Text="The current profile could not be saved. Choose a writable profile folder, then apply settings."
                                                loc:Localize.TextKey="profile.settings.recovery.description"/>
@@ -111,7 +112,7 @@
                                             <Button MinWidth="122" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Load from File" loc:Localize.ContentKey="profile.import" Click="ImportProfileButton_Click"/>
                                             <Button MinWidth="122" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Save to File" loc:Localize.ContentKey="profile.export" Click="ExportProfileButton_Click"/>
                                             <Button MinWidth="92" Height="34" Padding="12,0" Margin="8,0,0,0" Content="Delete"
-                                                    loc:Localize.ContentKey="profile.delete" Foreground="{StaticResource OverlayDangerBrush}" Click="DeleteProfileButton_Click"/>
+                                                    loc:Localize.ContentKey="profile.delete" Foreground="{DynamicResource OverlayDangerBrush}" Click="DeleteProfileButton_Click"/>
                                         </WrapPanel>
                                     </StackPanel>
                                 </Border>
@@ -136,7 +137,7 @@
 
                             <StackPanel x:Name="RuntimeSectionPanel" Visibility="Collapsed">
                                 <TextBlock Text="Runtime" loc:Localize.TextKey="Runtime"
-                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource OverlayAccentBrush}"/>
                                 <TextBlock Margin="0,7,0,18" Text="Keep automatic selection enabled unless manual troubleshooting is necessary."
                                            loc:Localize.TextKey="settings.runtime.description" Style="{StaticResource MutedTextStyle}"/>
 
@@ -182,14 +183,50 @@
                                 </Border>
                             </StackPanel>
 
+                            <StackPanel x:Name="ThemeSectionPanel" Visibility="Collapsed">
+                                <TextBlock FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource OverlayAccentBrush}" loc:Localize.TextKey="theme.title"/>
+                                <TextBlock Margin="0,7,0,18" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" loc:Localize.TextKey="theme.description"/>
+                                <ComboBox x:Name="ThemeCombo" Height="40" DisplayMemberPath="Label" SelectionChanged="ThemeChanged"/>
+                                <StackPanel x:Name="ThemeCustomPanel">
+                                    <TextBlock Margin="0,12,0,6" loc:Localize.TextKey="theme.background" Style="{StaticResource PanelTitleStyle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Border x:Name="ThemeBackgroundSwatch" Margin="0,0,8,0" BorderThickness="1" BorderBrush="{DynamicResource OverlayBorderBrush}"/>
+                                        <TextBox x:Name="ThemeBackgroundBox" Grid.Column="1" MaxLength="7" Height="36" TextChanged="ThemeChanged"/>
+                                        <Button Grid.Column="2" Margin="8,0,0,0" Padding="12,6" Tag="Background" loc:Localize.ContentKey="theme.choose" Click="ChooseThemeColor_Click"/>
+                                    </Grid>
+                                    <TextBlock Margin="0,12,0,6" loc:Localize.TextKey="theme.accent" Style="{StaticResource PanelTitleStyle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Border x:Name="ThemeAccentSwatch" Margin="0,0,8,0" BorderThickness="1" BorderBrush="{DynamicResource OverlayBorderBrush}"/>
+                                        <TextBox x:Name="ThemeAccentBox" Grid.Column="1" MaxLength="7" Height="36" TextChanged="ThemeChanged"/>
+                                        <Button Grid.Column="2" Margin="8,0,0,0" Padding="12,6" Tag="Accent" loc:Localize.ContentKey="theme.choose" Click="ChooseThemeColor_Click"/>
+                                    </Grid>
+                                    <TextBlock Margin="0,12,0,6" loc:Localize.TextKey="theme.foreground" Style="{StaticResource PanelTitleStyle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Border x:Name="ThemeForegroundSwatch" Margin="0,0,8,0" BorderThickness="1" BorderBrush="{DynamicResource OverlayBorderBrush}"/>
+                                        <TextBox x:Name="ThemeForegroundBox" Grid.Column="1" MaxLength="7" Height="36" TextChanged="ThemeChanged"/>
+                                        <Button Grid.Column="2" Margin="8,0,0,0" Padding="12,6" Tag="Foreground" loc:Localize.ContentKey="theme.choose" Click="ChooseThemeColor_Click"/>
+                                    </Grid>
+                                </StackPanel>
+                                <TextBlock x:Name="ThemeValidationText" Foreground="{DynamicResource OverlayDangerBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                <Border x:Name="ThemePreview" Margin="0,16,0,0" Padding="18" BorderThickness="1" CornerRadius="8">
+                                    <StackPanel>
+                                        <TextBlock x:Name="ThemePreviewTitle" FontSize="18" FontWeight="SemiBold" Text="Mabinogi Overlay"/>
+                                        <TextBlock x:Name="ThemePreviewText" Margin="0,8,0,0" TextWrapping="Wrap" loc:Localize.TextKey="theme.preview"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
                             <StackPanel x:Name="AboutSectionPanel" Visibility="Collapsed">
                                 <TextBlock Text="About" loc:Localize.TextKey="settings.section.about"
-                                           FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                           FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource OverlayAccentBrush}"/>
                                 <Border Margin="0,18,0,0" Style="{StaticResource InsetPanelStyle}">
                                     <StackPanel HorizontalAlignment="Center">
                                         <Image Width="72" Height="72" Source="/Image/Logo.png" Stretch="Uniform"/>
                                         <TextBlock Margin="0,12,0,0" Text="Mabinogi Overlay" FontSize="20" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource OverlayTextBrush}" HorizontalAlignment="Center"/>
+                                                   Foreground="{DynamicResource OverlayTextBrush}" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="AboutVersionText" Margin="0,5,0,0" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="UpdateInfoText" Margin="0,18,0,0" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
                                         <TextBlock x:Name="UpdateCooldownText" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap"/>
@@ -231,20 +268,20 @@
         </Grid>
 
         <Grid x:Name="ProfileDeleteConfirmationOverlay" Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="21" Background="#D8000000" Visibility="Collapsed">
-            <Border Width="500" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#F21B1D20"
-                    BorderBrush="{StaticResource OverlayDangerBrush}" BorderThickness="2" CornerRadius="9">
+            <Border Width="500" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource ThemeSurfaceF21B1D20Brush}"
+                    BorderBrush="{DynamicResource OverlayDangerBrush}" BorderThickness="2" CornerRadius="9">
                 <StackPanel>
                     <TextBlock x:Name="ProfileDeleteConfirmationTitle" Text="profile.delete.confirm.first.title"
                                loc:Localize.TextKey="profile.delete.confirm.first.title" FontSize="19" FontWeight="Bold"
-                               Foreground="{StaticResource OverlayDangerBrush}"/>
+                               Foreground="{DynamicResource OverlayDangerBrush}"/>
                     <TextBlock x:Name="ProfileDeleteConfirmationText" Margin="0,12,0,0" FontSize="14" TextWrapping="Wrap"/>
                     <TextBlock x:Name="ProfileDeleteWarningText" Margin="0,12,0,0" Text="profile.delete.irreversible"
                                loc:Localize.TextKey="profile.delete.irreversible" FontSize="15" FontWeight="Bold"
-                               Foreground="{StaticResource OverlayDangerBrush}" TextWrapping="Wrap"/>
+                               Foreground="{DynamicResource OverlayDangerBrush}" TextWrapping="Wrap"/>
                     <WrapPanel Margin="0,22,0,0" HorizontalAlignment="Right">
                         <Button MinWidth="96" Height="36" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelProfileDeleteButton_Click"/>
                         <Button x:Name="ConfirmProfileDeleteButton" MinWidth="132" Height="36" Padding="14,0" Margin="8,0,0,0"
-                                Content="Continue" loc:Localize.ContentKey="profile.delete.continue" Foreground="{StaticResource OverlayDangerBrush}"
+                                Content="Continue" loc:Localize.ContentKey="profile.delete.continue" Foreground="{DynamicResource OverlayDangerBrush}"
                                 Click="ConfirmProfileDeleteButton_Click"/>
                     </WrapPanel>
                 </StackPanel>

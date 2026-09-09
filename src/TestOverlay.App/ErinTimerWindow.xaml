@@ -2,7 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:TestOverlay.App.Services"
-             Background="{StaticResource OverlayBgBrush}">
+             Background="{DynamicResource OverlayBgBrush}">
     <Grid Margin="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -35,11 +35,11 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="GameTimeText" Text="00:00" VerticalAlignment="Center"
                                    FontFamily="Bahnschrift Light, Segoe UI Variable" FontSize="42"
-                                   Foreground="{StaticResource OverlayTextBrush}"/>
+                                   Foreground="{DynamicResource OverlayTextBrush}"/>
                         <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center">
-                            <TextBlock x:Name="RealTimeText" Foreground="{StaticResource OverlayMutedBrush}"/>
+                            <TextBlock x:Name="RealTimeText" Foreground="{DynamicResource OverlayMutedBrush}"/>
                             <TextBlock x:Name="NextAlarmText" Margin="0,5,0,0" TextWrapping="Wrap"
-                                       FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                                       FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource OverlayAccentBrush}"/>
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -110,7 +110,7 @@
                                  GotKeyboardFocus="NewAlarmNameBox_GotKeyboardFocus"
                                  LostKeyboardFocus="NewAlarmNameBox_LostKeyboardFocus"/>
                         <TextBlock x:Name="AlarmNamePlaceholder" Margin="10,0" VerticalAlignment="Center"
-                                   IsHitTestVisible="False" Foreground="{StaticResource OverlayMutedBrush}"
+                                   IsHitTestVisible="False" Foreground="{DynamicResource OverlayMutedBrush}"
                                    Text="Set alarm name" loc:Localize.TextKey="erin.alarm.name.placeholder"/>
                     </Grid>
                     <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
@@ -160,10 +160,10 @@
                                                FontFamily="Segoe UI Symbol" FontSize="14" VerticalAlignment="Center">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#55595D"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource ThemeSurface55595DBrush}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding Enabled}" Value="True">
-                                                        <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource OverlayTextBrush}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -175,7 +175,7 @@
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="{Binding SoundLabel}" FontSize="10" TextTrimming="CharacterEllipsis"
-                                                   Foreground="{StaticResource OverlayMutedBrush}"/>
+                                                   Foreground="{DynamicResource OverlayMutedBrush}"/>
                                     </StackPanel>
                                     <TextBlock Grid.Column="3" Text="{Binding TimeText}" FontFamily="Cascadia Mono, Consolas"
                                                FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -216,7 +216,7 @@
                               loc:Localize.ContentKey="erin.desktop.notification" Click="DesktopNotificationsCheckBox_Click"/>
                 </StackPanel>
                 <TextBlock x:Name="AudioFileText" Grid.Column="1" Margin="0,0,10,0" TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center" Foreground="{StaticResource OverlayMutedBrush}"/>
+                           VerticalAlignment="Center" Foreground="{DynamicResource OverlayMutedBrush}"/>
                 <StackPanel Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center">
                     <TextBlock x:Name="VolumeText" Style="{StaticResource MutedTextStyle}"/>
                     <Slider x:Name="VolumeSlider" Minimum="0" Maximum="1" TickFrequency="0.01" ValueChanged="VolumeSlider_ValueChanged"/>

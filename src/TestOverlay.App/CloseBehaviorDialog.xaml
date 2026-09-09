@@ -11,7 +11,7 @@
         Height="285"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource OverlayBgBrush}">
+        Background="{DynamicResource OverlayBgBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" CornerRadius="8" GlassFrameThickness="0"
                             ResizeBorderThickness="0" UseAeroCaptionButtons="False"/>

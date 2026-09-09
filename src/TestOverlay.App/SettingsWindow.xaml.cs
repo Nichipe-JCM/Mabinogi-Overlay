@@ -35,9 +35,11 @@ public partial class SettingsWindow : Window
         string activeProfileName,
         string logPath,
         DateTimeOffset logSessionStartedAt,
-        UpdateCoordinator? updates = null)
+        UpdateCoordinator? updates = null,
+        ThemeSettings? theme = null)
     {
         InitializeComponent();
+        InitializeTheme(theme);
         _updates = updates;
         if (_updates is not null) _updates.Changed += UpdateStateChanged;
         _updateClock.Tick += (_, _) => RefreshUpdateInfo();
@@ -154,6 +156,7 @@ public partial class SettingsWindow : Window
         ProfileSectionPanel.Visibility = selectedTag == "Profile" ? Visibility.Visible : Visibility.Collapsed;
         RuntimeSectionPanel.Visibility = selectedTag == "Runtime" ? Visibility.Visible : Visibility.Collapsed;
         AboutSectionPanel.Visibility = selectedTag == "About" ? Visibility.Visible : Visibility.Collapsed;
+        ThemeSectionPanel.Visibility = selectedTag == "Theme" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -459,11 +462,18 @@ public partial class SettingsWindow : Window
         SelectLanguage(LocalizationService.Korean);
         SelectCloseBehavior(AppCloseBehavior.Ask);
         SaveOcrDiagnosticImagesCheckBox.IsChecked = false;
+        InitializeTheme(new ThemeSettings());
         NormalizeRuntimeSelection();
     }
 
     private void Commit()
     {
+        if (!TryReadTheme(out var theme))
+        {
+            SettingsSectionList.SelectedItem = SettingsSectionList.Items.OfType<System.Windows.Controls.ListBoxItem>().First(item => (string?)item.Tag == "Theme");
+            return;
+        }
+        SelectedTheme = theme;
         var directory = ProfileDirectoryBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(directory))
         {

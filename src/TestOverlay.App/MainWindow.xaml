@@ -13,7 +13,7 @@
         MinHeight="520"
         MinWidth="760"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource OverlayBgBrush}"
+        Background="{DynamicResource OverlayBgBrush}"
         PreviewMouseDown="Window_PreviewMouseDown"
         PreviewKeyDown="Window_PreviewKeyDown"
         KeyDown="Window_KeyDown">
@@ -53,8 +53,8 @@
                     </Grid.ColumnDefinitions>
                     <Border Width="51"
                             Height="51"
-                            Background="#1EFFFFFF"
-                            BorderBrush="#35FFFFFF"
+                            Background="{DynamicResource ThemeSurface1EFFFFFFBrush}"
+                            BorderBrush="{DynamicResource ThemeSurface35FFFFFFBrush}"
                             BorderThickness="1"
                             CornerRadius="8">
                         <Image Source="/Image/Logo.png"
@@ -66,7 +66,7 @@
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
+                        <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource OverlayAccentBrush}"/>
                         <TextBlock x:Name="HeaderVersionText" Style="{StaticResource MutedTextStyle}"/>
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <Ellipse x:Name="UpdateStatusLamp" Width="8" Height="8" Fill="Gray" Margin="0,0,5,0"/>
@@ -185,7 +185,7 @@
                                 <TextBlock x:Name="DetectModeText"
                                            Margin="0,4,0,0"
                                            FontWeight="SemiBold"
-                                           Foreground="{StaticResource OverlayAccentBrush}"
+                                           Foreground="{DynamicResource OverlayAccentBrush}"
                                            Visibility="Collapsed"
                                            Text="AUTO DETECT SECTION: drag a section area"
                                            loc:Localize.TextKey="AUTO DETECT SECTION: drag a section area"/>
@@ -209,16 +209,16 @@
                         </DockPanel>
                     </Border>
 
-                    <Grid Grid.Row="1" Background="{StaticResource OverlayBgBrush}">
+                    <Grid Grid.Row="1" Background="{DynamicResource OverlayBgBrush}">
                         <ScrollViewer x:Name="PreviewScrollViewer"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto"
-                                      Background="{StaticResource OverlayBgBrush}"
+                                      Background="{DynamicResource OverlayBgBrush}"
                                       PreviewKeyDown="PreviewScrollViewer_PreviewKeyDown"
                                       PreviewMouseWheel="PreviewScrollViewer_PreviewMouseWheel">
                             <Canvas x:Name="CaptureCanvas"
                                     Focusable="True"
-                                    Background="{StaticResource OverlayBgBrush}"
+                                    Background="{DynamicResource OverlayBgBrush}"
                                     MouseLeftButtonDown="CaptureCanvas_MouseLeftButtonDown"
                                     MouseMove="CaptureCanvas_MouseMove"
                                     MouseLeftButtonUp="CaptureCanvas_MouseLeftButtonUp"
@@ -234,9 +234,9 @@
                                 IsHitTestVisible="False"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
-                                BorderBrush="#36434648"
+                                BorderBrush="{DynamicResource ThemeSurface36434648Brush}"
                                 BorderThickness="1"
-                                Background="#221A1C1E">
+                                Background="{DynamicResource ThemeSurface221A1C1EBrush}">
                             <Grid>
                                 <StackPanel HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
@@ -244,7 +244,7 @@
                                             Opacity="0.72">
                                     <Viewbox Width="40" Height="40" HorizontalAlignment="Center">
                                         <Canvas Width="24" Height="24">
-                                            <Path Stroke="{StaticResource OverlayAccentBrush}"
+                                            <Path Stroke="{DynamicResource OverlayAccentBrush}"
                                                   StrokeThickness="1.7"
                                                   StrokeStartLineCap="Round"
                                                   StrokeEndLineCap="Round"
@@ -255,25 +255,25 @@
                                                      Canvas.Top="10"
                                                      Width="8"
                                                      Height="8"
-                                                     Stroke="{StaticResource OverlayAccentBrush}"
+                                                     Stroke="{DynamicResource OverlayAccentBrush}"
                                                      StrokeThickness="1.7"
                                                      Fill="Transparent"/>
                                             <Ellipse Canvas.Left="17"
                                                      Canvas.Top="9"
                                                      Width="1.8"
                                                      Height="1.8"
-                                                     Fill="{StaticResource OverlayAccentBrush}"/>
+                                                     Fill="{DynamicResource OverlayAccentBrush}"/>
                                         </Canvas>
                                     </Viewbox>
                                     <TextBlock Margin="0,14,0,0"
                                                HorizontalAlignment="Center"
                                                FontWeight="SemiBold"
-                                               Foreground="#B9C0C4"
+                                               Foreground="{DynamicResource ThemeSurfaceB9C0C4Brush}"
                                                Text="Waiting for capture..."
                                                loc:Localize.TextKey="Waiting for capture..."/>
                                     <TextBlock Margin="0,6,0,0"
                                                HorizontalAlignment="Center"
-                                               Foreground="{StaticResource OverlayMutedBrush}"
+                                               Foreground="{DynamicResource OverlayMutedBrush}"
                                                Text="Run Auto capture or Manual capture."
                                                loc:Localize.TextKey="Run Auto capture or Manual capture."/>
                                 </StackPanel>
@@ -281,7 +281,7 @@
                         </Border>
                     </Grid>
 
-                    <Border Grid.Row="2" Padding="12,8" Background="#55101010" BorderBrush="#44343638" BorderThickness="0,1,0,0">
+                    <Border Grid.Row="2" Padding="12,8" Background="{DynamicResource ThemeSurface55101010Brush}" BorderBrush="{DynamicResource ThemeSurface44343638Brush}" BorderThickness="0,1,0,0">
                         <TextBlock Text="Drag to select slots or sections. Use Ctrl/Shift for multi-select and mouse wheel for zoom." loc:Localize.TextKey="Drag to select slots or sections. Use Ctrl/Shift for multi-select and mouse wheel for zoom." Style="{StaticResource MutedTextStyle}"/>
                     </Border>
                 </Grid>
@@ -295,7 +295,7 @@
                           ResizeDirection="Columns"
                           ResizeBehavior="PreviousAndNext"
                           ShowsPreview="True"
-                          Background="{StaticResource OverlayBorderBrush}"
+                          Background="{DynamicResource OverlayBorderBrush}"
                           Cursor="SizeWE"/>
 
             <Grid Grid.Column="2">
@@ -349,7 +349,7 @@
                             <Border Width="{Binding ElementName=CandidatePanelGrid, Path=ActualWidth}"
                                     MaxWidth="720"
                                     Margin="14,0,14,0"
-                                    Background="{StaticResource OverlayPanelBrush}"
+                                    Background="{DynamicResource OverlayPanelBrush}"
                                     Style="{StaticResource GlassCardStyle}">
                                 <Grid Margin="14">
                                     <Grid.RowDefinitions>
@@ -437,7 +437,7 @@
                                             <TextBlock Grid.Column="1"
                                                        Margin="5,0,0,0"
                                                        VerticalAlignment="Center"
-                                                       Foreground="{StaticResource OverlayTextBrush}"
+                                                       Foreground="{DynamicResource OverlayTextBrush}"
                                                        Text="{Binding Label}"
                                                        MouseLeftButtonDown="CandidateLabel_MouseLeftButtonDown"/>
                                         </Grid>
@@ -922,7 +922,7 @@
                                                    TextWrapping="Wrap"/>
                                     </CheckBox>
                                 </StackPanel>
-                                <ListBox x:Name="CustomTimerList" Grid.Row="1" Background="Transparent" BorderBrush="{StaticResource OverlayBorderBrush}" BorderThickness="1" SelectionChanged="CustomTimerList_SelectionChanged"/>
+                                <ListBox x:Name="CustomTimerList" Grid.Row="1" Background="Transparent" BorderBrush="{DynamicResource OverlayBorderBrush}" BorderThickness="1" SelectionChanged="CustomTimerList_SelectionChanged"/>
                                 <WrapPanel Grid.Row="2" Margin="0,10,0,0" HorizontalAlignment="Right">
                                     <Button x:Name="AddCustomTimerButton" MinWidth="72" Height="32" Padding="12,0" Content="Add" loc:Localize.ContentKey="Add" Click="AddCustomTimerButton_Click"/>
                                     <Button x:Name="RemoveCustomTimerButton" MinWidth="72" Height="32" Padding="12,0" Margin="6,0,0,0" Content="Delete" loc:Localize.ContentKey="Delete" Click="RemoveCustomTimerButton_Click"/>
@@ -1046,7 +1046,7 @@
                     <Border Grid.Row="2" Margin="0,12,0,0" Padding="12,10" CornerRadius="5"
                             Background="#33FF5F57" BorderBrush="#99FF6B63" BorderThickness="1">
                         <TextBlock Text="This action cannot be undone." loc:Localize.TextKey="layout.reset.confirm.warning"
-                                   Foreground="#FFFFB4AB" FontWeight="SemiBold"/>
+                                   Foreground="{DynamicResource ThemeSurfaceFFFFB4ABBrush}" FontWeight="SemiBold"/>
                     </Border>
                     <StackPanel Grid.Row="3" Margin="0,18,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button MinWidth="88" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel"
@@ -1066,7 +1066,7 @@
                     <TextBlock Text="Reset slots" loc:Localize.TextKey="slot.reset.confirm.title" Style="{StaticResource SectionTitleStyle}"/>
                     <TextBlock Grid.Row="1" Margin="0,14,0,0" TextWrapping="Wrap" Text="Reset all slot candidates, sections, and overlay placements?" loc:Localize.TextKey="slot.reset.confirm.message" Style="{StaticResource MutedTextStyle}"/>
                     <Border Grid.Row="2" Margin="0,12,0,0" Padding="12,10" CornerRadius="5" Background="#33FF5F57" BorderBrush="#99FF6B63" BorderThickness="1">
-                        <TextBlock Text="This action cannot be undone." loc:Localize.TextKey="layout.reset.confirm.warning" Foreground="#FFFFB4AB" FontWeight="SemiBold"/>
+                        <TextBlock Text="This action cannot be undone." loc:Localize.TextKey="layout.reset.confirm.warning" Foreground="{DynamicResource ThemeSurfaceFFFFB4ABBrush}" FontWeight="SemiBold"/>
                     </Border>
                     <StackPanel Grid.Row="3" Margin="0,18,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button MinWidth="88" Height="34" Padding="14,0" Content="Cancel" loc:Localize.ContentKey="Cancel" Click="CancelSlotResetButton_Click"/>
@@ -1079,9 +1079,9 @@
         <Border x:Name="InAppNoticeBorder" Grid.RowSpan="5" Panel.ZIndex="200"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,58,18,0"
                 Padding="14,10" MaxWidth="520" Visibility="Collapsed"
-                Background="#F22A2D30" BorderBrush="{StaticResource OverlayAccentBrush}"
+                Background="{DynamicResource ThemeSurfaceF22A2D30Brush}" BorderBrush="{DynamicResource OverlayAccentBrush}"
                 BorderThickness="1" CornerRadius="6" IsHitTestVisible="False">
-            <TextBlock x:Name="InAppNoticeText" Foreground="{StaticResource OverlayTextBrush}" TextWrapping="Wrap"/>
+            <TextBlock x:Name="InAppNoticeText" Foreground="{DynamicResource OverlayTextBrush}" TextWrapping="Wrap"/>
         </Border>
     </Grid>
     </ScrollViewer>

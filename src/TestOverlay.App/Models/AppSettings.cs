@@ -17,6 +17,7 @@ public sealed class AppSettings
     public CaptureBackend CaptureBackend { get; set; } = CaptureBackend.Wgc;
 
     public string Language { get; set; } = TestOverlay.App.Services.LocalizationService.Korean;
+    public ThemeSettings Theme { get; set; } = new();
 
     public bool CompactModeEnabled { get; set; }
 

@@ -59,6 +59,7 @@ public sealed class AppSettingsStore
         settings.ProfileDirectory = NormalizeProfileDirectory(settings.ProfileDirectory);
         settings.ActiveProfileName = ProfileStore.NormalizeProfileName(settings.ActiveProfileName);
         settings.Language = LocalizationService.NormalizeLanguage(settings.Language);
+        settings.Theme = ThemeService.Normalize(settings.Theme);
         if (!Enum.IsDefined(settings.CloseBehavior))
         {
             settings.CloseBehavior = AppCloseBehavior.Ask;

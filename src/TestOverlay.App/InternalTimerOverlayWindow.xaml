@@ -14,8 +14,8 @@
     <Canvas Background="Transparent" Focusable="False" IsHitTestVisible="False">
         <Border x:Name="TimerPanel"
                 Padding="10,8"
-                Background="#E6111315"
-                BorderBrush="{StaticResource OverlayAccentBrush}"
+                Background="{DynamicResource ThemeSurfaceE6111315Brush}"
+                BorderBrush="{DynamicResource OverlayAccentBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 IsHitTestVisible="False">
@@ -23,8 +23,8 @@
         </Border>
         <Border x:Name="TuairimPanel"
                 Padding="10,8"
-                Background="#E6111315"
-                BorderBrush="{StaticResource OverlayAccentBrush}"
+                Background="{DynamicResource ThemeSurfaceE6111315Brush}"
+                BorderBrush="{DynamicResource OverlayAccentBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 IsHitTestVisible="False">
@@ -34,13 +34,13 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="TuairimLabel"
-                           Foreground="{StaticResource OverlayTextBrush}"
+                           Foreground="{DynamicResource OverlayTextBrush}"
                            FontSize="11"/>
                 <TextBlock x:Name="TuairimPercentText"
                            Grid.Column="1"
                            Margin="6,0,0,0"
                            Text="0%"
-                           Foreground="{StaticResource OverlayAccentBrush}"
+                           Foreground="{DynamicResource OverlayAccentBrush}"
                            FontFamily="Noto Sans KR, Malgun Gothic"
                            FontWeight="SemiBold"
                            FontSize="11"/>
@@ -48,8 +48,8 @@
         </Border>
         <Border x:Name="AlertPanel"
                 Padding="10,4"
-                Background="#F0111315"
-                BorderBrush="{StaticResource OverlayDangerBrush}"
+                Background="{DynamicResource ThemeSurfaceF0111315Brush}"
+                BorderBrush="{DynamicResource OverlayDangerBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 Visibility="Collapsed"
@@ -58,8 +58,8 @@
         </Border>
         <Border x:Name="CustomTimerPanel"
                 Padding="10,8"
-                Background="#E6111315"
-                BorderBrush="{StaticResource OverlayAccentBrush}"
+                Background="{DynamicResource ThemeSurfaceE6111315Brush}"
+                BorderBrush="{DynamicResource OverlayAccentBrush}"
                 BorderThickness="1"
                 CornerRadius="6"
                 IsHitTestVisible="False">

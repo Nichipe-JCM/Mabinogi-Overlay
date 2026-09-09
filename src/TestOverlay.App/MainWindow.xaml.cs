@@ -220,6 +220,7 @@ public partial class MainWindow : Window
             _log.Error("App settings could not be loaded. Defaults will be used.", _settingsStore.LastLoadException);
         }
         LocalizationService.Instance.SetLanguage(_appSettings.Language);
+        ThemeService.Apply(_appSettings.Theme);
         _profileStore = new ProfileStore(_appSettings.ProfileDirectory);
         _profileSession = new ProfileSession(_profileStore);
         _profileSession.SelectedProfileName = _appSettings.ActiveProfileName;
@@ -1095,7 +1096,7 @@ public partial class MainWindow : Window
             ReadSelectedProfileName(),
             _log.LogPath,
             _log.SessionStartedAt,
-            _updates)
+            _updates, _appSettings.Theme)
         {
             Owner = this
         };
@@ -1156,10 +1157,13 @@ public partial class MainWindow : Window
             _appSettings.AutomaticCaptureSelection = dialog.AutomaticCaptureSelection;
             _appSettings.CaptureBackend = dialog.SelectedCaptureBackend;
             _appSettings.Language = LocalizationService.NormalizeLanguage(dialog.SelectedLanguage);
+            _appSettings.Theme = dialog.SelectedTheme;
             _appSettings.CloseBehavior = dialog.SelectedCloseBehavior;
             _appSettings.SaveOcrDiagnosticImages = dialog.SaveOcrDiagnosticImages;
             LocalizationService.Instance.SetLanguage(_appSettings.Language);
             _settingsStore.Save(_appSettings);
+            ThemeService.Apply(_appSettings.Theme);
+            _compactControlWindow?.RefreshState();
             _profileStore.SetProfileDirectory(directory);
             var targetProfileName = dialog.ProfileApplyRequested
                 ? dialog.RequestedProfileName

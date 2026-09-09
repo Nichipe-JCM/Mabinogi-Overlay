@@ -12,7 +12,7 @@
         MinWidth="760"
         MinHeight="520"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource OverlayBgBrush}">
+        Background="{DynamicResource OverlayBgBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             CornerRadius="8"
@@ -73,12 +73,12 @@
                             <TextBlock x:Name="TopicTitleText"
                                        FontSize="24"
                                        FontWeight="SemiBold"
-                                       Foreground="{StaticResource OverlayAccentBrush}"
+                                       Foreground="{DynamicResource OverlayAccentBrush}"
                                        TextWrapping="Wrap"/>
                             <TextBlock x:Name="TopicSummaryText"
                                        Margin="0,9,0,0"
                                        FontSize="14"
-                                       Foreground="{StaticResource OverlayTextBrush}"
+                                       Foreground="{DynamicResource OverlayTextBrush}"
                                        TextWrapping="Wrap"
                                        LineHeight="22"/>
 
@@ -102,10 +102,10 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="•"
                                                            FontSize="18"
-                                                           Foreground="{StaticResource OverlayAccentBrush}"/>
+                                                           Foreground="{DynamicResource OverlayAccentBrush}"/>
                                                 <TextBlock Grid.Column="1"
                                                            Text="{Binding Text}"
-                                                           Foreground="{StaticResource OverlayTextBrush}"
+                                                           Foreground="{DynamicResource OverlayTextBrush}"
                                                            TextWrapping="Wrap"
                                                            LineHeight="20"/>
                                             </Grid>
@@ -119,8 +119,8 @@
                                     <DataTemplate>
                                         <Border Margin="0,7,0,0"
                                                 Padding="13,11"
-                                                Background="#1819C9BD"
-                                                BorderBrush="#663ED7CE"
+                                                Background="{DynamicResource ThemeSurface1819C9BDBrush}"
+                                                BorderBrush="{DynamicResource ThemeSurface663ED7CEBrush}"
                                                 BorderThickness="1"
                                                 CornerRadius="7">
                                             <Grid>
@@ -131,10 +131,10 @@
                                                 <TextBlock Text="!"
                                                            FontSize="18"
                                                            FontWeight="Bold"
-                                                           Foreground="{StaticResource OverlayAccentBrush}"/>
+                                                           Foreground="{DynamicResource OverlayAccentBrush}"/>
                                                 <TextBlock Grid.Column="1"
                                                            Text="{Binding}"
-                                                           Foreground="{StaticResource OverlayTextBrush}"
+                                                           Foreground="{DynamicResource OverlayTextBrush}"
                                                            TextWrapping="Wrap"
                                                            LineHeight="20"/>
                                             </Grid>
@@ -183,8 +183,8 @@
                StaysOpen="True"
                IsHitTestVisible="False">
             <Border Padding="6"
-                    Background="#F21B1D20"
-                    BorderBrush="{StaticResource OverlayAccentBrush}"
+                    Background="{DynamicResource ThemeSurfaceF21B1D20Brush}"
+                    BorderBrush="{DynamicResource OverlayAccentBrush}"
                     BorderThickness="1"
                     CornerRadius="8">
                 <Image x:Name="GuidePopupImage"

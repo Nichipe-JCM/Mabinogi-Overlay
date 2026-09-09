@@ -11,7 +11,7 @@
         Height="330"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource OverlayBgBrush}">
+        Background="{DynamicResource OverlayBgBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" CornerRadius="8" GlassFrameThickness="0"
                             ResizeBorderThickness="0" UseAeroCaptionButtons="False"/>
@@ -38,7 +38,7 @@
                            loc:Localize.TextKey="profile.save.failure.dialog.description"
                            Style="{StaticResource MutedTextStyle}"/>
                 <TextBlock x:Name="ErrorDetailText" Grid.Row="2" Margin="0,16,0,12"
-                           TextWrapping="Wrap" Foreground="{StaticResource OverlayDangerBrush}"/>
+                           TextWrapping="Wrap" Foreground="{DynamicResource OverlayDangerBrush}"/>
                 <WrapPanel Grid.Row="3" HorizontalAlignment="Right">
                     <Button MinWidth="100" Height="38" Padding="14,0"
                             Content="Cancel" loc:Localize.ContentKey="common.cancel"

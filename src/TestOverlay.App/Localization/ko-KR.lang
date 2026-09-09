@@ -696,3 +696,16 @@ update.recovery.required = 완료되지 않은 업데이트가 있습니다. 프
 
 update.cooldown=다음 업데이트 확인까지 {0}초
 update.interval=자동·수동 업데이트 확인은 1분에 한 번 가능합니다.
+
+theme.title=테마
+theme.description=앱의 배경, 강조색, 글자색을 선택합니다. 사용자 지정 색상은 색상 선택 창 또는 #RRGGBB 형식으로 입력할 수 있습니다. 저장하면 적용됩니다.
+theme.default=기본 (현재 색상)
+theme.white=화이트
+theme.black=블랙
+theme.custom=사용자 지정
+theme.background=배경 주색
+theme.accent=강조색
+theme.foreground=글자색
+theme.choose=색상 선택
+theme.preview=현재 선택한 배경·강조색·글자색의 미리보기입니다.
+theme.invalid=색상은 #RRGGBB 형식의 6자리 HEX 값으로 입력해 주세요.

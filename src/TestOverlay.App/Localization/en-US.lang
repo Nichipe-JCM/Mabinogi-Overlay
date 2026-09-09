@@ -696,3 +696,16 @@ update.recovery.required = An incomplete update was found. Recovery records and 
 
 update.cooldown=Check again in {0} seconds
 update.interval=Automatic and manual update checks share a one-minute interval.
+
+theme.title=Theme
+theme.description=Choose background, accent, and text colors. Use the color picker or enter #RRGGBB values for custom colors. Changes apply when saved.
+theme.default=Default (original colors)
+theme.white=White
+theme.black=Black
+theme.custom=Custom
+theme.background=Background color
+theme.accent=Accent color
+theme.foreground=Text color
+theme.choose=Choose color
+theme.preview=Preview of your selected background, accent, and text colors.
+theme.invalid=Enter each color as a six-digit HEX value in #RRGGBB format.

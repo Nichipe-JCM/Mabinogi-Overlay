@@ -12,7 +12,7 @@
         MinWidth="520"
         MinHeight="360"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource OverlayBgBrush}">
+        Background="{DynamicResource OverlayBgBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             CornerRadius="8"
@@ -35,7 +35,7 @@
                 <TextBlock Text="Saved slot validation"
                            loc:Localize.TextKey="profile.validation.heading"
                            Style="{StaticResource SectionTitleStyle}"
-                           Foreground="{StaticResource OverlayAccentBrush}"/>
+                           Foreground="{DynamicResource OverlayAccentBrush}"/>
                 <TextBlock Margin="0,6,0,0"
                            Text="Checks saved quickslot and monitor positions against the current capture."
                            loc:Localize.TextKey="profile.validation.description"
@@ -66,11 +66,11 @@
                                            VerticalAlignment="Top"/>
                                 <StackPanel Grid.Column="1">
                                     <TextBlock Text="{Binding Title}"
-                                               Foreground="{StaticResource OverlayTextBrush}"
+                                               Foreground="{DynamicResource OverlayTextBrush}"
                                                FontWeight="SemiBold"/>
                                     <TextBlock Margin="0,4,0,0"
                                                Text="{Binding Detail}"
-                                               Foreground="{StaticResource OverlayMutedBrush}"
+                                               Foreground="{DynamicResource OverlayMutedBrush}"
                                                TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Grid>
