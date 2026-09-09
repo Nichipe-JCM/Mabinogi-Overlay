@@ -30,8 +30,9 @@ public static class ThemeService
         var theme = Normalize(settings);
         var values = theme.Mode switch
         {
-            "White" => ("#FFFFFF", "#007D73", "#202124"),
-            "Black" => ("#000000", "#89DED4", "#F2F2F2"),
+            // Fluent's blue ramp: darker for light surfaces, lighter for dark surfaces.
+            "White" => ("#FFFFFF", "#0F6CBD", "#202124"),
+            "Black" => ("#000000", "#479EF5", "#F2F2F2"),
             "Custom" => (theme.Background, theme.Accent, theme.Foreground),
             _ => ("#111315", "#89DED4", "#ECECEC")
         };

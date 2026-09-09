@@ -46,4 +46,23 @@ public sealed class ThemeSettingsTests
     [InlineData("#ABC")]
     [InlineData("#80123456")]
     public void InvalidCustomInputIsRejected(string value) => Assert.False(ThemeService.TryColor(value, out _));
+    [Theory]
+    [InlineData("White", "#0F6CBD", "#ECECEC")]
+    [InlineData("Black", "#479EF5", "#2B2B2B")]
+    public void StandardAccentsMeetTextContrastOnBackgroundAndRaisedPanels(string mode, string accent, string raised)
+    {
+        var colors = ThemeService.Colors(new ThemeSettings { Mode = mode });
+        Assert.Equal(ThemeService.Parse(accent), colors.Accent);
+        static double Luminance(System.Windows.Media.Color c)
+        {
+            static double Linear(byte b) { var s = b / 255d; return s <= .04045 ? s / 12.92 : Math.Pow((s + .055) / 1.055, 2.4); }
+            return .2126 * Linear(c.R) + .7152 * Linear(c.G) + .0722 * Linear(c.B);
+        }
+        static double Contrast(System.Windows.Media.Color a, System.Windows.Media.Color b)
+        {
+            var x = Luminance(a); var y = Luminance(b); return (Math.Max(x, y) + .05) / (Math.Min(x, y) + .05);
+        }
+        Assert.True(Contrast(colors.Accent, colors.Background) >= 4.5);
+        Assert.True(Contrast(colors.Accent, ThemeService.Parse(raised)) >= 4.5);
+    }
 }
