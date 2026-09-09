@@ -17,6 +17,8 @@ public partial class SettingsWindow : Window
     private string? _pendingDeleteProfileName;
     private int _deleteConfirmationStage;
     private bool _isNormalizingRuntimeSelection;
+    private readonly UpdateCoordinator? _updates;
+    public bool UpdateRequested { get; private set; }
 
     public SettingsWindow(
         string profileDirectory,
@@ -31,9 +33,14 @@ public partial class SettingsWindow : Window
         bool profileRecoveryRequired,
         string activeProfileName,
         string logPath,
-        DateTimeOffset logSessionStartedAt)
+        DateTimeOffset logSessionStartedAt,
+        UpdateCoordinator? updates = null)
     {
         InitializeComponent();
+        _updates = updates;
+        if (_updates is not null) _updates.Changed += UpdateStateChanged;
+        Closed += (_, _) => { if (_updates is not null) _updates.Changed -= UpdateStateChanged; };
+        RefreshUpdateInfo();
         _defaultProfileDirectory = defaultProfileDirectory;
         _initialProfileDirectory = Path.GetFullPath(profileDirectory);
         _logPath = logPath;
@@ -91,6 +98,23 @@ public partial class SettingsWindow : Window
     }
 
     public string ProfileDirectory { get; private set; }
+
+    private void UpdateStateChanged(object? sender, EventArgs e) => RefreshUpdateInfo();
+    private void RefreshUpdateInfo()
+    {
+        UpdateInfoText.Text = L.T(MainWindow.UpdateStatusKey(_updates?.Status ?? UpdateStatus.Unknown));
+        if (_updates?.Offer is { } offer) UpdateInfoText.Text += Environment.NewLine + L.F("update.new.version", offer.Release.Version);
+        CheckUpdateButton.IsEnabled = _updates is not null && _updates.Status != UpdateStatus.Checking;
+        OpenUpdateButton.IsEnabled = _updates?.Status == UpdateStatus.Available;
+    }
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e) { if (_updates is not null) await _updates.CheckAsync(); }
+    private void OpenUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_updates?.Offer is null) return;
+        UpdateRequested = true;
+        OkButton_Click(sender, e);
+        if (DialogResult != true) UpdateRequested = false;
+    }
 
     public OverlayRenderMode SelectedRenderMode { get; private set; }
 

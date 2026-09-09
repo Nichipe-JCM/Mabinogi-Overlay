@@ -67,7 +67,11 @@
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="Mabinogi Overlay" FontSize="17" FontWeight="Bold" Foreground="{StaticResource OverlayAccentBrush}"/>
-                        <TextBlock x:Name="HeaderVersionText" Text="v0.0.5-beta" Style="{StaticResource MutedTextStyle}"/>
+                        <TextBlock x:Name="HeaderVersionText" Style="{StaticResource MutedTextStyle}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                            <Ellipse x:Name="UpdateStatusLamp" Width="8" Height="8" Fill="Gray" Margin="0,0,5,0"/>
+                            <TextBlock x:Name="UpdateStatusText" FontSize="11" Style="{StaticResource MutedTextStyle}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
 

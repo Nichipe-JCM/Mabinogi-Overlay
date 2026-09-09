@@ -316,6 +316,7 @@ public partial class MainWindow : Window
         RefreshProfileList();
         LoadSelectedProfile(allowDeferredQuickslots: true);
         _log.Info("Application loaded.");
+        InitializeUpdates();
         if (_appSettings.CompactModeEnabled)
         {
             Dispatcher.BeginInvoke(() => EnterCompactMode(savePreference: false));
@@ -330,6 +331,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        _updates?.InvalidateLanguage();
+        RefreshUpdateStatus();
         UpdateSizeLabels();
         UpdateSectionGapLabels();
         UpdateLayoutSummary();
@@ -1091,7 +1094,8 @@ public partial class MainWindow : Window
             !profileSavedBeforeSettings,
             ReadSelectedProfileName(),
             _log.LogPath,
-            _log.SessionStartedAt)
+            _log.SessionStartedAt,
+            _updates)
         {
             Owner = this
         };
@@ -1201,6 +1205,7 @@ public partial class MainWindow : Window
             _profileStore.ProfileDirectory,
             rendererStatus,
             L.T(CaptureBackendLabel(CurrentCaptureBackend))));
+        if (dialog.UpdateRequested) OpenUpdateDialog();
     }
 
     private void CloseManualSectionPopup()

@@ -1,6 +1,7 @@
 using System.Windows;
 using TestOverlay.App.Native;
 using TestOverlay.App.Services;
+using TestOverlay.Update;
 
 namespace TestOverlay.App;
 
@@ -69,7 +70,7 @@ public partial class App : Application
         };
     }
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         EventManager.RegisterClassHandler(
             typeof(Window),
@@ -106,10 +107,18 @@ public partial class App : Application
 
         try
         {
+            using var updateStartup = await UpdateStartupGate.ConnectAsync(e.Args);
+            if (updateStartup is null && UpdateTransaction.Pending(AppContext.BaseDirectory).Length != 0)
+            {
+                MessageBox.Show(L.T("update.recovery.required"), L.T("update.title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                Shutdown(-1);
+                return;
+            }
             var mainWindow = new MainWindow(_log);
             MainWindow = mainWindow;
             mainWindow.Show();
             _singleInstance.Attach(mainWindow, mainWindow.ActivateFromSecondInstance);
+            if (updateStartup is not null) await updateStartup.CompleteAsync();
         }
         catch (Exception exception)
         {

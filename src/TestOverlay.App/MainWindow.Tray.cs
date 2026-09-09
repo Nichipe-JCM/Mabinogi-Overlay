@@ -59,6 +59,8 @@ public partial class MainWindow
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        if (_updateExitCommitted) return;
+        if (_updateDialogOpen) { e.Cancel = true; return; }
         var profileSaved = FlushProfileAutoSave();
         Window exitOwner = _compactControlWindow is { IsVisible: true } visibleCompact ? visibleCompact : this;
         if (_isAppExitRequested)
