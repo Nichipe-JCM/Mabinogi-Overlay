@@ -41,6 +41,7 @@ public partial class SettingsWindow : Window
         ThemeSettings? theme = null)
     {
         InitializeComponent();
+        _appliedThemeMode = ThemeService.Normalize(theme).Mode;
         InitializeTheme(theme);
         _updates = updates;
         if (_updates is not null) _updates.Changed += UpdateStateChanged;
@@ -517,6 +518,7 @@ public partial class SettingsWindow : Window
             ProfileRecoveryNotice.Visibility = Visibility.Collapsed;
             ProfileManagementPanel.IsEnabled = true;
             RefreshManagedProfiles(_activeProfileName);
+            _appliedThemeMode = SelectedTheme.Mode;
             InitializeTheme(SelectedTheme);
             RefreshAppliedOptionLabels();
             ApplyStatusText.Text = L.T("settings.applied");

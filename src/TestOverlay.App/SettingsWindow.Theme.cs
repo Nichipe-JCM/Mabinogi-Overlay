@@ -11,12 +11,15 @@ public partial class SettingsWindow
 {
     public ThemeSettings SelectedTheme { get; private set; } = new();
     private bool _themeInitializing;
+    private string _appliedThemeMode = "Default";
     private sealed record ThemeOption(string Mode, string Label);
     private void InitializeTheme(ThemeSettings? saved)
     {
         _themeInitializing = true;
         SelectedTheme = ThemeService.Normalize(saved);
-        ThemeCombo.ItemsSource = new[] { "Default", "White", "Black", "Custom" }.Select(mode => new ThemeOption(mode, L.T("theme." + mode.ToLowerInvariant()))).ToArray();
+        ThemeCombo.ItemsSource = new[] { "Default", "White", "Black", "Custom" }.Select(mode => new ThemeOption(mode, mode == _appliedThemeMode
+            ? L.F("theme.current", L.T("theme." + mode.ToLowerInvariant()))
+            : L.T("theme." + mode.ToLowerInvariant()))).ToArray();
         ThemeCombo.SelectedItem = ThemeCombo.Items.OfType<ThemeOption>().Single(option => option.Mode == SelectedTheme.Mode);
         ThemeBackgroundBox.Text = SelectedTheme.Background;
         ThemeAccentBox.Text = SelectedTheme.Accent;
