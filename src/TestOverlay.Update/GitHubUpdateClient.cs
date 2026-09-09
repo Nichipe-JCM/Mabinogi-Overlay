@@ -16,6 +16,8 @@ public sealed class GitHubUpdateClient : IDisposable
     public const string HelperExecutable = "MabinogiOverlay.Updater.exe";
     public const long MaxPackageSize = 512L * 1024 * 1024;
     private readonly HttpClient _http;
+    private readonly Dictionary<Uri, (string ETag, string Body)> _cache = [];
+    private DateTimeOffset _retryAfter;
     public GitHubUpdateClient(HttpMessageHandler? handler = null)
     {
         _http = handler is null ? new HttpClient() : new HttpClient(handler);
@@ -31,6 +33,15 @@ public sealed class GitHubUpdateClient : IDisposable
         var release = ParseRelease(await ReadTextAsync(new Uri($"https://api.github.com/repos/{Repository}/releases/tags/{Uri.EscapeDataString(tag)}"), 1024 * 1024, token));
         if (release.Tag != tag) throw new InvalidDataException("Release tag changed.");
         return release;
+    }
+    public async Task<UpdateRelease> InstalledReleaseAsync(string version, CancellationToken token)
+    {
+        var normalized = UpdateVersion.Parse(version).Text;
+        try { return await ReleaseAsync(normalized, token); }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
+        {
+            return await ReleaseAsync("v" + normalized, token);
+        }
     }
     public static UpdateRelease ParseRelease(string json)
     {
@@ -71,9 +82,23 @@ public sealed class GitHubUpdateClient : IDisposable
     }
     private async Task<string> ReadTextAsync(Uri url, int limit, CancellationToken token)
     {
+        if (DateTimeOffset.UtcNow < _retryAfter) throw new HttpRequestException("GitHub temporarily limited requests. Please try again later.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(20));
-        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (_cache.TryGetValue(url, out var cached)) request.Headers.TryAddWithoutValidation("If-None-Match", cached.ETag);
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+        if (response.StatusCode == HttpStatusCode.NotModified && cached.Body is not null) return cached.Body;
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
+        {
+            _retryAfter = response.Headers.RetryAfter?.Date ?? DateTimeOffset.UtcNow.Add(response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMinutes(1));
+            if (response.Headers.TryGetValues("X-RateLimit-Remaining", out var remaining) && remaining.FirstOrDefault() == "0" &&
+                response.Headers.TryGetValues("X-RateLimit-Reset", out var reset) && long.TryParse(reset.FirstOrDefault(), out var seconds))
+            {
+                var resetTime = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                if (resetTime > _retryAfter) _retryAfter = resetTime;
+            }
+        }
         response.EnsureSuccessStatusCode();
         if (response.Content.Headers.ContentLength > limit) throw new InvalidDataException("Response is too large.");
         await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
@@ -84,7 +109,13 @@ public sealed class GitHubUpdateClient : IDisposable
             if (output.Length + read > limit) throw new InvalidDataException("Response is too large.");
             output.Write(buffer, 0, read);
         }
-        return new UTF8Encoding(false, true).GetString(output.ToArray()).TrimStart('\uFEFF');
+        var text = new UTF8Encoding(false, true).GetString(output.ToArray()).TrimStart('\uFEFF');
+        if (response.Headers.ETag is { } etag)
+        {
+            if (_cache.Count > 16) _cache.Clear();
+            _cache[url] = (etag.ToString(), text);
+        }
+        return text;
     }
     public async Task DownloadAsync(UpdateRelease release, string path, IProgress<double>? progress, CancellationToken token)
     {

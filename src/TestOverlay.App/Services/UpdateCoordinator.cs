@@ -6,12 +6,13 @@ public enum UpdateStatus { Unknown, Checking, Current, Available, Failed }
 
 public sealed class UpdateCoordinator : IDisposable
 {
-    private readonly GitHubUpdateClient _client = new();
+    private readonly GitHubUpdateClient _client;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly AppLog _log;
     private Task? _pending;
     private bool _disposed;
-    public UpdateCoordinator(AppLog log) => _log = log;
+    public UpdateCoordinator(AppLog log) : this(log, new GitHubUpdateClient()) { }
+    internal UpdateCoordinator(AppLog log, GitHubUpdateClient client) { _log = log; _client = client; }
     public UpdateStatus Status { get; private set; }
     public UpdateOffer? Offer { get; private set; }
     public event EventHandler? Changed;
@@ -48,6 +49,7 @@ public sealed class UpdateCoordinator : IDisposable
     {
         Offer = null; Status = UpdateStatus.Unknown; Changed?.Invoke(this, EventArgs.Empty);
     }
+    public void MarkFailed() { Offer = null; Status = UpdateStatus.Failed; Changed?.Invoke(this, EventArgs.Empty); }
     public void Dispose()
     {
         _disposed = true; _lifetime.Cancel(); _client.Dispose(); _lifetime.Dispose();
