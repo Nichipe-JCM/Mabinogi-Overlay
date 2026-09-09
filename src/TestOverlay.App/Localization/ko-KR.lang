@@ -693,3 +693,6 @@ update.release.changed = 배포 파일 정보가 바뀌었습니다. 업데이�
 update.save.failed = 설정을 저장하지 못해 업데이트를 중단했습니다. 저장 문제를 해결한 뒤 다시 시도해 주세요.
 update.launch.from.app = 설정 → 정보에서 업데이트를 시작해 주세요.
 update.recovery.required = 완료되지 않은 업데이트가 있습니다. 프로그램 폴더의 .overlay-update- 폴더에 복구 기록과 백업이 보존되어 있습니다. 파일을 임의로 삭제하지 말고 공식 배포 ZIP을 새 폴더에 압축 해제하여 실행해 주세요.
+
+update.cooldown=다음 업데이트 확인까지 {0}초
+update.interval=자동·수동 업데이트 확인은 1분에 한 번 가능합니다.

@@ -18,6 +18,7 @@ public partial class SettingsWindow : Window
     private int _deleteConfirmationStage;
     private bool _isNormalizingRuntimeSelection;
     private readonly UpdateCoordinator? _updates;
+    private readonly System.Windows.Threading.DispatcherTimer _updateClock = new() { Interval = TimeSpan.FromSeconds(1) };
     public bool UpdateRequested { get; private set; }
 
     public SettingsWindow(
@@ -39,7 +40,9 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         _updates = updates;
         if (_updates is not null) _updates.Changed += UpdateStateChanged;
-        Closed += (_, _) => { if (_updates is not null) _updates.Changed -= UpdateStateChanged; };
+        _updateClock.Tick += (_, _) => RefreshUpdateInfo();
+        _updateClock.Start();
+        Closed += (_, _) => { _updateClock.Stop(); if (_updates is not null) _updates.Changed -= UpdateStateChanged; };
         RefreshUpdateInfo();
         _defaultProfileDirectory = defaultProfileDirectory;
         _initialProfileDirectory = Path.GetFullPath(profileDirectory);
@@ -104,7 +107,9 @@ public partial class SettingsWindow : Window
     {
         UpdateInfoText.Text = L.T(MainWindow.UpdateStatusKey(_updates?.Status ?? UpdateStatus.Unknown));
         if (_updates?.Offer is { } offer) UpdateInfoText.Text += Environment.NewLine + L.F("update.new.version", offer.Release.Version);
-        CheckUpdateButton.IsEnabled = _updates is not null && _updates.Status != UpdateStatus.Checking;
+        var wait = _updates?.CheckWaitSeconds ?? 0;
+        UpdateCooldownText.Text = wait > 0 ? L.F("update.cooldown", wait) : L.T("update.interval");
+        CheckUpdateButton.IsEnabled = _updates is not null && _updates.Status != UpdateStatus.Checking && wait == 0;
         OpenUpdateButton.IsEnabled = _updates?.Status == UpdateStatus.Available;
     }
     private async void CheckUpdate_Click(object sender, RoutedEventArgs e) { if (_updates is not null) await _updates.CheckAsync(); }

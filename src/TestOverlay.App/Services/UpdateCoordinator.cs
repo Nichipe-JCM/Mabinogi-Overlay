@@ -11,8 +11,10 @@ public sealed class UpdateCoordinator : IDisposable
     private readonly AppLog _log;
     private Task? _pending;
     private bool _disposed;
-    public UpdateCoordinator(AppLog log) : this(log, new GitHubUpdateClient()) { }
-    internal UpdateCoordinator(AppLog log, GitHubUpdateClient client) { _log = log; _client = client; }
+    private readonly UpdateCheckThrottle _throttle;
+    public UpdateCoordinator(AppLog log) : this(log, new GitHubUpdateClient(), new UpdateCheckThrottle(System.IO.Path.Combine(AppDataPaths.RootDirectory, "update-check.json"))) { }
+    internal UpdateCoordinator(AppLog log, GitHubUpdateClient client, UpdateCheckThrottle? throttle = null) { _log = log; _client = client; _throttle = throttle ?? new UpdateCheckThrottle(); }
+    public int CheckWaitSeconds => _throttle.RemainingSeconds;
     public UpdateStatus Status { get; private set; }
     public UpdateOffer? Offer { get; private set; }
     public event EventHandler? Changed;
@@ -24,9 +26,10 @@ public sealed class UpdateCoordinator : IDisposable
     }
     private async Task CheckCoreAsync()
     {
-        Status = UpdateStatus.Checking; Offer = null; Changed?.Invoke(this, EventArgs.Empty);
         try
         {
+            if (!_throttle.TryAcquire()) return;
+            Status = UpdateStatus.Checking; Offer = null; Changed?.Invoke(this, EventArgs.Empty);
             var latest = await _client.LatestAsync(_lifetime.Token);
             if (UpdateVersion.Parse(latest.Version).CompareTo(UpdateVersion.Parse(AppVersion.DisplayVersion)) <= 0)
                 Status = UpdateStatus.Current;

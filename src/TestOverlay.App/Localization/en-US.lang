@@ -693,3 +693,6 @@ update.release.changed = Release assets changed. Check for updates again.
 update.save.failed = Update stopped because settings could not be saved. Resolve the save error and try again.
 update.launch.from.app = Start the update from Settings → About.
 update.recovery.required = An incomplete update was found. Recovery records and backups remain in the .overlay-update- folder inside the application folder. Keep these files and extract the official release ZIP into a new folder to run the application.
+
+update.cooldown=Check again in {0} seconds
+update.interval=Automatic and manual update checks share a one-minute interval.

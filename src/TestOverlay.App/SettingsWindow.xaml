@@ -192,6 +192,7 @@
                                                    Foreground="{StaticResource OverlayTextBrush}" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="AboutVersionText" Margin="0,5,0,0" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center"/>
                                         <TextBlock x:Name="UpdateInfoText" Margin="0,18,0,0" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="UpdateCooldownText" Margin="0,8,0,0" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap"/>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
                                             <Button x:Name="CheckUpdateButton" Padding="12,8" Margin="0,0,8,0" loc:Localize.ContentKey="update.check" Click="CheckUpdate_Click"/>
                                             <Button x:Name="OpenUpdateButton" Padding="12,8" loc:Localize.ContentKey="update.open" Click="OpenUpdate_Click"/>
