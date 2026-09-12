@@ -715,3 +715,9 @@ update.check.countdown=Check updates ({0}s)
 settings.applied=Settings applied.
 settings.apply.failed=Could not apply settings. Check the save location and status.
 theme.restore.colors=Restore default colors
+
+debug.restart=Restart application
+debug.restart.description=Closes and relaunches the app. Active capture and alerts stop; unsaved settings are handled by the normal exit prompts.
+debug.restart.missing=The executable to restart could not be found.
+debug.restart.failed=The new application process could not be started.
+debug.restart.error=Could not restart the application: {0}

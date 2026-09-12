@@ -10,6 +10,21 @@ public partial class App : Application
     private readonly AppLog _log = new();
     private readonly SingleInstanceCoordinator _singleInstance = new();
     private int _fatalErrorHandling;
+    private System.Diagnostics.ProcessStartInfo? _restartRequest;
+
+    internal void PrepareRestart()
+    {
+        var executable = System.IO.Path.Combine(AppContext.BaseDirectory, "Mabinogi Overlay.exe");
+        if (!System.IO.File.Exists(executable))
+            throw new System.IO.FileNotFoundException(L.T("debug.restart.missing"), executable);
+        _restartRequest = new System.Diagnostics.ProcessStartInfo(executable)
+        {
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = true
+        };
+    }
+
+    internal void CancelRestart() => _restartRequest = null;
 
     public App()
     {
@@ -139,6 +154,23 @@ public partial class App : Application
     {
         _log.Info("Application exiting.");
         _singleInstance.Dispose();
+        // MainWindow.Closed has released capture/audio resources, and the single-instance
+        // mutex must be released before starting the replacement process.
+        if (e.ApplicationExitCode == 0 && _restartRequest is { } restart)
+        {
+            _restartRequest = null;
+            try
+            {
+                using var process = System.Diagnostics.Process.Start(restart);
+                if (process is null) throw new InvalidOperationException(L.T("debug.restart.failed"));
+            }
+            catch (Exception exception)
+            {
+                _log.Error("Application restart failed.", exception);
+                MessageBox.Show(L.F("debug.restart.error", exception.Message), L.T("debug.restart"),
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         _log.Dispose();
         base.OnExit(e);
     }

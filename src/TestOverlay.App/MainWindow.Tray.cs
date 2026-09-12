@@ -152,6 +152,7 @@ public partial class MainWindow
 
     private void CancelPendingExit()
     {
+        (Application.Current as App)?.CancelRestart();
         _isAppExitRequested = false;
         if (_appSettings.CompactModeEnabled)
         {
@@ -212,6 +213,23 @@ public partial class MainWindow
             _trayIcon.Visible = false;
         }
         Close();
+    }
+
+    private void RestartAppButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_updateDialogOpen || _updateExitCommitted || Application.Current is not App app) return;
+        try
+        {
+            app.PrepareRestart();
+            ExitFromTray();
+        }
+        catch (Exception exception)
+        {
+            app.CancelRestart();
+            CancelPendingExit();
+            _log.Error("Could not request application restart.", exception);
+            ShowInAppNotice(L.F("debug.restart.error", exception.Message));
+        }
     }
 
     private async void ToggleOverlayFromTrayAsync()
