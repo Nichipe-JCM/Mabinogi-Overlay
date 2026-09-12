@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TestOverlay.App\TestOverlay.App.csproj" />
+    <EmbeddedResource Include="..\..\src\TestOverlay.App\MainWindow.xaml" LogicalName="MainWindow.Layout.xaml" />
   </ItemGroup>
 
 </Project>

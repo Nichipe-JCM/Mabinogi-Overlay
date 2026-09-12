@@ -24,10 +24,16 @@
                             ResizeBorderThickness="7"
                             UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
-    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+    <ScrollViewer x:Name="MainViewport" Margin="8,4,8,8"
+                  HorizontalScrollBarVisibility="Auto"
                   VerticalScrollBarVisibility="Auto"
                   CanContentScroll="False">
-    <Grid MinWidth="1280" MinHeight="820" Margin="8,4,8,8" Style="{StaticResource AppWindowRootStyle}">
+    <!-- Keep star-sized panels bounded even though the outer viewer measures with infinity.
+         Only windows smaller than the minimum workspace need to scroll the whole page. -->
+    <Grid MinWidth="1280" MinHeight="820"
+          Width="{Binding ViewportWidth, ElementName=MainViewport}"
+          Height="{Binding ViewportHeight, ElementName=MainViewport}"
+          Style="{StaticResource AppWindowRootStyle}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -665,7 +671,7 @@
                                                     <ComboBoxItem Tag="individual" Content="Per buff" loc:Localize.ContentKey="monitor.alert.sound.mode.individual"/>
                                                 </ComboBox>
                                             </Grid>
-                                            <ScrollViewer x:Name="BuffAlertSoundScrollViewer" Grid.Row="1" Margin="0,2,0,0"
+                                            <ScrollViewer x:Name="BuffAlertSoundScrollViewer" Grid.Row="1" Margin="0,6,0,0" Padding="0,0,10,0"
                                                           VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                             <StackPanel>
                                             <Grid x:Name="BuffAlertSoundRow1" Margin="0,8,0,0">
